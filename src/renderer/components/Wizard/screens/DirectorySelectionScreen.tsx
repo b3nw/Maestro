@@ -127,7 +127,9 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
   const checkForExistingDocs = useCallback(async (dirPath: string): Promise<{ exists: boolean; count: number }> => {
     try {
       const autoRunPath = `${dirPath}/${AUTO_RUN_FOLDER_NAME}`;
-      const result = await window.maestro.autorun.listDocs(autoRunPath);
+      // Use SSH remote ID if SSH is enabled in the wizard
+      const sshRemoteId = state.sessionSshRemoteConfig?.enabled ? state.sessionSshRemoteConfig.remoteId : undefined;
+      const result = await window.maestro.autorun.listDocs(autoRunPath, sshRemoteId ?? undefined);
       if (result.success && result.files && result.files.length > 0) {
         return { exists: true, count: result.files.length };
       }
@@ -136,7 +138,7 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
       // Folder doesn't exist or error reading it
       return { exists: false, count: 0 };
     }
-  }, []);
+  }, [state.sessionSshRemoteConfig?.enabled, state.sessionSshRemoteConfig?.remoteId]);
 
   /**
    * Validate directory and check Git repo status
@@ -155,7 +157,9 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
     try {
       // Check if path exists by attempting to read it
       // The git.isRepo check will fail if the directory doesn't exist
-      const isRepo = await window.maestro.git.isRepo(path);
+      // Use SSH remote ID if SSH is enabled in the wizard
+      const sshRemoteId = state.sessionSshRemoteConfig?.enabled ? state.sessionSshRemoteConfig.remoteId : undefined;
+      const isRepo = await window.maestro.git.isRepo(path, sshRemoteId ?? undefined);
       setIsGitRepo(isRepo);
       setDirectoryError(null);
 
@@ -189,7 +193,7 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
     }
 
     setIsValidating(false);
-  }, [setIsGitRepo, setDirectoryError, setHasExistingAutoRunDocs, checkForExistingDocs, state.existingDocsChoice]);
+  }, [setIsGitRepo, setDirectoryError, setHasExistingAutoRunDocs, checkForExistingDocs, state.existingDocsChoice, state.sessionSshRemoteConfig?.enabled, state.sessionSshRemoteConfig?.remoteId]);
 
   /**
    * Focus input on mount (after detection completes)
@@ -260,7 +264,8 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
     // Check if Auto Run Docs folder exists and has files
     try {
       const autoRunPath = `${state.directoryPath}/${AUTO_RUN_FOLDER_NAME}`;
-      const result = await window.maestro.autorun.listDocs(autoRunPath);
+      const sshRemoteId = state.sessionSshRemoteConfig?.enabled ? state.sessionSshRemoteConfig.remoteId : undefined;
+      const result = await window.maestro.autorun.listDocs(autoRunPath, sshRemoteId ?? undefined);
       const docs = result.success ? result.files : [];
 
       if (docs && docs.length > 0) {
@@ -274,7 +279,7 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
     }
 
     nextStep();
-  }, [canProceedToNext, nextStep, state.directoryPath, state.existingDocsChoice, setHasExistingAutoRunDocs]);
+  }, [canProceedToNext, nextStep, state.directoryPath, state.existingDocsChoice, setHasExistingAutoRunDocs, state.sessionSshRemoteConfig?.enabled, state.sessionSshRemoteConfig?.remoteId]);
 
   /**
    * Handle "Start Fresh" choice - docs already deleted by modal

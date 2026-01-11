@@ -400,6 +400,51 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
     return () => { mounted = false; };
   }, [setAvailableAgents, setSelectedAgent, state.selectedAgent]);
 
+  // Re-detect agents when SSH remote configuration changes
+  // This ensures we detect agents on the remote host rather than locally
+  useEffect(() => {
+    // Skip if we haven't done initial detection yet
+    if (isDetecting) return;
+
+    let mounted = true;
+
+    async function redetectAgentsForRemote() {
+      try {
+        // Get the SSH remote ID if enabled
+        const sshRemoteId = sshRemoteConfig?.enabled ? sshRemoteConfig.remoteId : undefined;
+
+        // Re-detect agents (will use remote detection if sshRemoteId is provided)
+        const agents = await window.maestro.agents.detect(sshRemoteId ?? undefined);
+        if (mounted) {
+          // Filter out hidden agents (like terminal)
+          const visibleAgents = agents.filter((a: AgentConfig) => !a.hidden);
+          setDetectedAgents(visibleAgents);
+          setAvailableAgents(visibleAgents);
+
+          // If SSH is enabled, announce the re-detection
+          if (sshRemoteConfig?.enabled) {
+            const availableCount = visibleAgents.filter((a: AgentConfig) => a.available).length;
+            const totalCount = visibleAgents.length;
+            setAnnouncement(
+              `Agent detection on remote host complete. ${availableCount} of ${totalCount} agents available.`
+            );
+            setAnnouncementKey((prev) => prev + 1);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to re-detect agents for SSH remote:', error);
+        if (mounted) {
+          setAnnouncement('Failed to detect agents on remote host. Check SSH connection.');
+          setAnnouncementKey((prev) => prev + 1);
+        }
+      }
+    }
+
+    redetectAgentsForRemote();
+
+    return () => { mounted = false; };
+  }, [sshRemoteConfig?.enabled, sshRemoteConfig?.remoteId, isDetecting, setAvailableAgents]);
+
   // Focus on mount - currently focus name field since only Claude is supported
   // TODO: When multiple agents are supported, focus the tiles instead
   useEffect(() => {

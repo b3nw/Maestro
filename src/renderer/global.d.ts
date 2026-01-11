@@ -423,7 +423,7 @@ interface MaestroAPI {
     stopServer: () => Promise<{ success: boolean; error?: string }>;
   };
   agents: {
-    detect: () => Promise<AgentConfig[]>;
+    detect: (sshRemoteId?: string) => Promise<AgentConfig[]>;
     refresh: (agentId?: string) => Promise<{
       agents: AgentConfig[];
       debugInfo: {

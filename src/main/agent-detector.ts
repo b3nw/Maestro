@@ -5,6 +5,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AgentCapabilities, getAgentCapabilities } from './agent-capabilities';
 import { expandTilde, detectNodeVersionManagerBinPaths } from '../shared/pathUtils';
+import { sshRemoteManager } from './ssh-remote-manager';
+import { SshRemoteConfig } from '../shared/types';
 
 // Re-export AgentCapabilities for convenience
 export { AgentCapabilities } from './agent-capabilities';
@@ -816,5 +818,77 @@ export class AgentDetector {
         logger.debug(`No model discovery implemented for ${agentId}`, 'AgentDetector');
         return [];
     }
+  }
+
+  /**
+   * Detect which agents are available on a remote host via SSH.
+   *
+   * This method runs 'which <binary>' on the remote host for each agent
+   * to determine if the CLI tool is installed there.
+   *
+   * @param sshConfig - The SSH remote configuration to use for the connection
+   * @returns Array of agent configurations with availability set based on remote detection
+   */
+  async detectAgentsRemote(sshConfig: SshRemoteConfig): Promise<AgentConfig[]> {
+    const agents: AgentConfig[] = [];
+
+    logger.info(`Agent detection starting on remote host: ${sshConfig.host}`, 'AgentDetector');
+
+    // Build SSH args for remote command execution
+    const baseSshArgs = sshRemoteManager.buildSshArgs(sshConfig);
+
+    for (const agentDef of AGENT_DEFINITIONS) {
+      // Skip hidden agents like terminal
+      if (agentDef.hidden) {
+        agents.push({
+          ...agentDef,
+          available: false,
+          capabilities: getAgentCapabilities(agentDef.id),
+        });
+        continue;
+      }
+
+      try {
+        // Run 'which <binary>' on the remote host
+        const remoteCommand = `which ${agentDef.binaryName} 2>/dev/null`;
+        const sshArgs = [...baseSshArgs, remoteCommand];
+
+        const result = await execFileNoThrow('ssh', sshArgs);
+
+        const exists = result.exitCode === 0 && result.stdout.trim() !== '';
+        const remotePath = exists ? result.stdout.trim() : undefined;
+
+        if (exists) {
+          logger.info(`Agent "${agentDef.name}" found on remote at: ${remotePath}`, 'AgentDetector');
+        } else {
+          logger.debug(`Agent "${agentDef.name}" not found on remote host`, 'AgentDetector');
+        }
+
+        agents.push({
+          ...agentDef,
+          available: exists,
+          path: remotePath,
+          capabilities: getAgentCapabilities(agentDef.id),
+        });
+      } catch (error) {
+        logger.warn(
+          `Failed to check agent "${agentDef.name}" on remote: ${String(error)}`,
+          'AgentDetector'
+        );
+        agents.push({
+          ...agentDef,
+          available: false,
+          capabilities: getAgentCapabilities(agentDef.id),
+        });
+      }
+    }
+
+    const availableAgents = agents.filter(a => a.available);
+    logger.info(
+      `Remote agent detection complete. Available: ${availableAgents.map(a => a.name).join(', ') || 'none'}`,
+      'AgentDetector'
+    );
+
+    return agents;
   }
 }
