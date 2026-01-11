@@ -5,6 +5,8 @@ import { getAgentCapabilities } from '../../agent-capabilities';
 import { execFileNoThrow } from '../../utils/execFile';
 import { logger } from '../../utils/logger';
 import { withIpcErrorLogging, requireDependency, CreateHandlerOptions } from '../../utils/ipcHandler';
+import { SshRemoteConfig } from '../../../shared/types';
+import { MaestroSettings } from './persistence';
 
 const LOG_CONTEXT = '[AgentDetector]';
 const CONFIG_LOG_CONTEXT = '[AgentConfig]';
@@ -28,6 +30,7 @@ interface AgentConfigsData {
 export interface AgentsHandlerDependencies {
   getAgentDetector: () => AgentDetector | null;
   agentConfigsStore: Store<AgentConfigsData>;
+  settingsStore: Store<MaestroSettings>;
 }
 
 /**
@@ -67,13 +70,39 @@ function stripAgentFunctions(agent: any) {
  * - Custom paths: setCustomPath, getCustomPath, getAllCustomPaths
  */
 export function registerAgentsHandlers(deps: AgentsHandlerDependencies): void {
-  const { getAgentDetector, agentConfigsStore } = deps;
+  const { getAgentDetector, agentConfigsStore, settingsStore } = deps;
 
-  // Detect all available agents
+  /**
+   * Helper to get SSH remote config by ID from settings store
+   */
+  function getSshRemoteById(sshRemoteId: string): SshRemoteConfig | null {
+    const remotes = settingsStore.get('sshRemotes', []) as SshRemoteConfig[];
+    return remotes.find((r) => r.id === sshRemoteId) || null;
+  }
+
+  // Detect all available agents (local or remote via SSH)
   ipcMain.handle(
     'agents:detect',
-    withIpcErrorLogging(handlerOpts('detect'), async () => {
+    withIpcErrorLogging(handlerOpts('detect'), async (sshRemoteId?: string) => {
       const agentDetector = requireDependency(getAgentDetector, 'Agent detector');
+
+      // If SSH remote ID is provided, detect on remote host
+      if (sshRemoteId) {
+        const sshConfig = getSshRemoteById(sshRemoteId);
+        if (!sshConfig) {
+          logger.warn(`SSH remote not found: ${sshRemoteId}`, LOG_CONTEXT);
+          // Fall back to local detection
+          const agents = await agentDetector.detectAgents();
+          return agents.map(stripAgentFunctions);
+        }
+
+        logger.info(`Detecting agents on SSH remote: ${sshConfig.name}`, LOG_CONTEXT);
+        const agents = await agentDetector.detectAgentsRemote(sshConfig);
+        logger.info(`Detected ${agents.filter(a => a.available).length} available agents on remote`, LOG_CONTEXT);
+        return agents.map(stripAgentFunctions);
+      }
+
+      // Local detection
       logger.info('Detecting available agents', LOG_CONTEXT);
       const agents = await agentDetector.detectAgents();
       logger.info(`Detected ${agents.length} agents`, LOG_CONTEXT, {
