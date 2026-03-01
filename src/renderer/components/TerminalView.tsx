@@ -150,7 +150,10 @@ export const TerminalView = memo(
 			}
 		}, [activeTab?.id]);
 
-		// Close search when the active terminal tab changes
+		// Close search when the active terminal tab changes.
+		// Intentionally depends only on activeTab?.id — we want to close search when
+		// switching tabs, not every time searchOpen/onSearchClose props change.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		useEffect(() => {
 			if (searchOpen) {
 				onSearchClose?.();
