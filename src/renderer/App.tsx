@@ -144,6 +144,7 @@ import {
 import { useMainPanelProps, useSessionListProps, useRightPanelProps } from './hooks/props';
 import { useAgentListeners } from './hooks/agent/useAgentListeners';
 import { useSymphonyContribution } from './hooks/symphony/useSymphonyContribution';
+import { useCueAutoDiscovery } from './hooks/useCueAutoDiscovery';
 
 // Import contexts
 import { useLayerStack } from './contexts/LayerStackContext';
@@ -795,6 +796,9 @@ function MaestroConsoleInner() {
 
 	// --- SESSION RESTORATION (extracted hook, Phase 2E) ---
 	const { initialLoadComplete } = useSessionRestoration();
+
+	// --- CUE AUTO-DISCOVERY (gated by Encore Feature) ---
+	useCueAutoDiscovery(sessions, encoreFeatures);
 
 	// --- TAB HANDLERS (extracted hook) ---
 	const {
