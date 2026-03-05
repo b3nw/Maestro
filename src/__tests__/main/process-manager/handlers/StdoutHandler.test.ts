@@ -1217,6 +1217,166 @@ describe('StdoutHandler', () => {
 			expect(bufferManager.emitDataBuffered).not.toHaveBeenCalled();
 		});
 	});
+
+	// ── OpenCode multi-step result handling ────────────────────────────────
+
+	describe('opencode multi-step result handling', () => {
+		/**
+		 * OpenCode emits multiple steps: step_start → text → tool_use → step_finish(tool-calls) → repeat.
+		 * Each step can have a text event (intermediate thinking). Only the last text event
+		 * (before step_finish with reason:"stop") is the real result.
+		 *
+		 * Bug reproduced from issue #512: the first text event locked resultEmitted=true,
+		 * causing subsequent text events (including the final summary) to be silently dropped.
+		 *
+		 * Fix: reset resultEmitted on each new step_start for opencode.
+		 */
+		function createOpenCodeParser() {
+			return {
+				agentId: 'opencode',
+				parseJsonLine: vi.fn((line: string) => {
+					const parsed = JSON.parse(line);
+					if (parsed.type === 'step_start') {
+						return { type: 'init', sessionId: parsed.sessionID };
+					}
+					if (parsed.type === 'text') {
+						return { type: 'result', text: parsed.part?.text, sessionId: parsed.sessionID };
+					}
+					if (parsed.type === 'tool_use') {
+						return { type: 'tool_use', toolName: parsed.part?.tool, sessionId: parsed.sessionID };
+					}
+					if (parsed.type === 'step_finish') {
+						return { type: 'system', sessionId: parsed.sessionID };
+					}
+					return { type: 'system' };
+				}),
+				extractUsage: vi.fn(() => null),
+				extractSessionId: vi.fn((event: any) => event.sessionId || null),
+				extractSlashCommands: vi.fn(() => null),
+				isResultMessage: vi.fn((event: any) => event.type === 'result'),
+				detectErrorFromLine: vi.fn(() => null),
+			};
+		}
+
+		it('should emit the final text result (last step) not just the first', () => {
+			// Reproduces issue #512: step1 text was shown, step3 final summary was dropped
+			const parser = createOpenCodeParser();
+			const { handler, bufferManager, sessionId } = createTestContext({
+				isStreamJsonMode: true,
+				toolType: 'opencode',
+				outputParser: parser as any,
+			});
+
+			// Step 1: tool call with no text before it
+			sendJsonLine(handler, sessionId, { type: 'step_start', sessionID: 'ses_abc' });
+			sendJsonLine(handler, sessionId, {
+				type: 'tool_use',
+				sessionID: 'ses_abc',
+				part: { tool: 'glob' },
+			});
+			sendJsonLine(handler, sessionId, {
+				type: 'step_finish',
+				sessionID: 'ses_abc',
+				part: { reason: 'tool-calls' },
+			});
+
+			// Step 2: intermediate thinking text + more tool calls
+			sendJsonLine(handler, sessionId, { type: 'step_start', sessionID: 'ses_abc' });
+			sendJsonLine(handler, sessionId, {
+				type: 'text',
+				sessionID: 'ses_abc',
+				part: { text: 'Intermediate thinking...' },
+			});
+			sendJsonLine(handler, sessionId, {
+				type: 'tool_use',
+				sessionID: 'ses_abc',
+				part: { tool: 'glob' },
+			});
+			sendJsonLine(handler, sessionId, {
+				type: 'step_finish',
+				sessionID: 'ses_abc',
+				part: { reason: 'tool-calls' },
+			});
+
+			// Step 3: final answer
+			sendJsonLine(handler, sessionId, { type: 'step_start', sessionID: 'ses_abc' });
+			sendJsonLine(handler, sessionId, {
+				type: 'text',
+				sessionID: 'ses_abc',
+				part: { text: 'Final summary answer.' },
+			});
+			sendJsonLine(handler, sessionId, {
+				type: 'step_finish',
+				sessionID: 'ses_abc',
+				part: { reason: 'stop' },
+			});
+
+			const emittedTexts = (bufferManager.emitDataBuffered as any).mock.calls.map(
+				(call: any[]) => call[1]
+			);
+
+			// Both the intermediate and final texts should be emitted
+			expect(emittedTexts).toContain('Intermediate thinking...');
+			expect(emittedTexts).toContain('Final summary answer.');
+		});
+
+		it('should reset resultEmitted on each new step_start for opencode', () => {
+			const parser = createOpenCodeParser();
+			const { handler, proc, sessionId } = createTestContext({
+				isStreamJsonMode: true,
+				toolType: 'opencode',
+				outputParser: parser as any,
+			});
+
+			// After first step_start, resultEmitted should be false
+			sendJsonLine(handler, sessionId, { type: 'step_start', sessionID: 'ses_abc' });
+			expect(proc.resultEmitted).toBe(false);
+
+			// After text (result), resultEmitted becomes true
+			sendJsonLine(handler, sessionId, {
+				type: 'text',
+				sessionID: 'ses_abc',
+				part: { text: 'Step 1 text.' },
+			});
+			expect(proc.resultEmitted).toBe(true);
+
+			// New step_start resets it
+			sendJsonLine(handler, sessionId, { type: 'step_start', sessionID: 'ses_abc' });
+			expect(proc.resultEmitted).toBe(false);
+		});
+
+		it('should NOT reset resultEmitted on step_start for non-opencode agents', () => {
+			// claude-code should keep the one-result-per-run gate intact
+			const parser = {
+				agentId: 'claude-code',
+				parseJsonLine: vi.fn((line: string) => {
+					const parsed = JSON.parse(line);
+					if (parsed.type === 'step_start') return { type: 'init', sessionId: 'x' };
+					if (parsed.type === 'text') return { type: 'result', text: parsed.text };
+					return { type: 'system' };
+				}),
+				extractUsage: vi.fn(() => null),
+				extractSessionId: vi.fn(() => null),
+				extractSlashCommands: vi.fn(() => null),
+				isResultMessage: vi.fn((event: any) => event.type === 'result'),
+				detectErrorFromLine: vi.fn(() => null),
+			};
+
+			const { handler, proc, sessionId } = createTestContext({
+				isStreamJsonMode: true,
+				toolType: 'claude-code',
+				outputParser: parser as any,
+			});
+
+			sendJsonLine(handler, sessionId, { type: 'step_start' });
+			sendJsonLine(handler, sessionId, { type: 'text', text: 'First result.' });
+			expect(proc.resultEmitted).toBe(true);
+
+			// step_start should NOT reset for claude-code
+			sendJsonLine(handler, sessionId, { type: 'step_start' });
+			expect(proc.resultEmitted).toBe(true);
+		});
+	});
 });
 
 // ── Shared helper for minimal parser ───────────────────────────────────────

@@ -234,6 +234,14 @@ export class StdoutHandler {
 
 		if (!event) return;
 
+		// OpenCode emits multiple steps: step_start → text → tool_use → step_finish(tool-calls) → repeat
+		// Each step may have a text event. Only the final text (before reason:"stop") is the real result.
+		// Reset resultEmitted on each new step so the last text event wins instead of the first.
+		if (event.type === 'init' && managedProcess.toolType === 'opencode') {
+			managedProcess.resultEmitted = false;
+			managedProcess.streamedText = '';
+		}
+
 		// Extract usage
 		const usage = outputParser.extractUsage(event);
 		if (usage) {
