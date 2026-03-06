@@ -695,6 +695,7 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 							sessionId: config.sessionId,
 							remoteName: sshResult.config.name,
 							remoteHost: sshResult.config.host,
+							hasWorkingDirOverride: !!config.sessionSshRemoteConfig.workingDirOverride,
 						});
 						// For SSH terminal tabs we spawn ssh interactively so xterm.js can interact
 						const sshArgs = [
@@ -708,6 +709,13 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 						if (sshResult.config.privateKeyPath) {
 							sshArgs.unshift('-i', sshResult.config.privateKeyPath);
 						}
+						// If workingDirOverride is set, cd to that directory after connecting.
+						// -t forces PTY allocation (required when passing a remote command).
+						const workingDirOverride = config.sessionSshRemoteConfig.workingDirOverride;
+						if (workingDirOverride) {
+							sshArgs.unshift('-t');
+							sshArgs.push(`cd ${JSON.stringify(workingDirOverride)} && exec $SHELL`);
+						}
 						return processManager.spawn({
 							sessionId: config.sessionId,
 							toolType: 'terminal',
@@ -719,6 +727,14 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 							rows: config.rows || 24,
 						});
 					}
+					// SSH is enabled but the remote config was not found (deleted or disabled).
+					// Fail explicitly rather than silently falling through to a local terminal,
+					// which would give the user a local shell they didn't ask for.
+					logger.error(`Terminal tab SSH config not found or disabled`, LOG_CONTEXT, {
+						sessionId: config.sessionId,
+						remoteId: config.sessionSshRemoteConfig.remoteId,
+					});
+					return { success: false, pid: 0 };
 				}
 
 				return processManager.spawnTerminalTab({
