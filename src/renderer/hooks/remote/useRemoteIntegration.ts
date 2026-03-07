@@ -484,6 +484,22 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
 		};
 	}, []);
 
+	// Handle remote configure auto-run from CLI/web interface
+	useEffect(() => {
+		const unsubscribe = window.maestro.process.onRemoteConfigureAutoRun(
+			(sessionId: string, config: any, responseChannel: string) => {
+				window.dispatchEvent(
+					new CustomEvent('maestro:configureAutoRun', {
+						detail: { sessionId, config, responseChannel },
+					})
+				);
+			}
+		);
+		return () => {
+			unsubscribe();
+		};
+	}, []);
+
 	// Broadcast tab changes to web clients when tabs, activeTabId, or tab properties change
 	// PERFORMANCE FIX: This effect was previously missing its dependency array, causing it to
 	// run on EVERY render (including every keystroke). Now it only runs when isLiveMode changes,

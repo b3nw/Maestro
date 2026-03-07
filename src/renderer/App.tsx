@@ -1837,6 +1837,85 @@ function MaestroConsoleInner() {
 		return () => window.removeEventListener('maestro:refreshAutoRunDocs', handler);
 	}, [handleAutoRunRefresh]);
 
+	// Handle remote configure auto-run events from CLI/web interface
+	useEffect(() => {
+		const handler = async (e: Event) => {
+			const { sessionId, config, responseChannel } = (e as CustomEvent).detail;
+
+			try {
+				// Find the target session
+				const session = sessionsRef.current.find((s) => s.id === sessionId);
+				if (!session) {
+					window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+						success: false,
+						error: `Session ${sessionId} not found`,
+					});
+					return;
+				}
+
+				// Case 1: Save as playbook
+				if (config.saveAsPlaybook) {
+					const result = await window.maestro.playbooks.create(sessionId, {
+						name: config.saveAsPlaybook,
+						documents: config.documents || [],
+						loopEnabled: config.loopEnabled || false,
+						maxLoops: config.maxLoops,
+						prompt: config.prompt || '',
+					});
+					window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+						success: result.success,
+						playbookId: result.playbook?.id,
+						error: result.error,
+					});
+					return;
+				}
+
+				// Case 2: Launch auto-run immediately
+				if (config.launch) {
+					const folderPath = session.autoRunFolderPath;
+					if (!folderPath) {
+						window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+							success: false,
+							error: 'No Auto Run folder configured for this session',
+						});
+						return;
+					}
+
+					const batchConfig = {
+						documents: (config.documents || []).map((doc: { filename: string; resetOnCompletion?: boolean }) => ({
+							id: generateId(),
+							filename: doc.filename.replace(/\.md$/, ''),
+							resetOnCompletion: doc.resetOnCompletion || false,
+							isDuplicate: false,
+						})),
+						prompt: config.prompt || '',
+						loopEnabled: config.loopEnabled || false,
+						maxLoops: config.maxLoops,
+					};
+
+					startBatchRun(sessionId, batchConfig, folderPath);
+					window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+						success: true,
+					});
+					return;
+				}
+
+				// Case 3: Just configure (no launch, no save)
+				window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+					success: true,
+				});
+			} catch (error) {
+				console.error('[Remote] Failed to configure auto-run:', error);
+				window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+					success: false,
+					error: String(error),
+				});
+			}
+		};
+		window.addEventListener('maestro:configureAutoRun', handler);
+		return () => window.removeEventListener('maestro:configureAutoRun', handler);
+	}, [sessionsRef, startBatchRun]);
+
 	// --- GROUP MANAGEMENT ---
 	// Extracted hook for group CRUD operations (toggle, rename, create, drag-drop)
 	const {
