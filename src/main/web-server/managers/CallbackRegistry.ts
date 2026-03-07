@@ -23,6 +23,7 @@ import type {
 	ToggleBookmarkCallback,
 	OpenFileTabCallback,
 	RefreshFileTreeCallback,
+	RefreshAutoRunDocsCallback,
 	GetThemeCallback,
 	GetCustomCommandsCallback,
 	GetHistoryCallback,
@@ -52,6 +53,7 @@ export interface WebServerCallbacks {
 	toggleBookmark: ToggleBookmarkCallback | null;
 	openFileTab: OpenFileTabCallback | null;
 	refreshFileTree: RefreshFileTreeCallback | null;
+	refreshAutoRunDocs: RefreshAutoRunDocsCallback | null;
 	getHistory: GetHistoryCallback | null;
 }
 
@@ -75,6 +77,7 @@ export class CallbackRegistry {
 		toggleBookmark: null,
 		openFileTab: null,
 		refreshFileTree: null,
+		refreshAutoRunDocs: null,
 		getHistory: null,
 	};
 
@@ -168,6 +171,11 @@ export class CallbackRegistry {
 		return this.callbacks.refreshFileTree(sessionId);
 	}
 
+	async refreshAutoRunDocs(sessionId: string): Promise<boolean> {
+		if (!this.callbacks.refreshAutoRunDocs) return false;
+		return this.callbacks.refreshAutoRunDocs(sessionId);
+	}
+
 	getHistory(projectPath?: string, sessionId?: string): ReturnType<GetHistoryCallback> | [] {
 		return this.callbacks.getHistory?.(projectPath, sessionId) ?? [];
 	}
@@ -250,6 +258,10 @@ export class CallbackRegistry {
 
 	setRefreshFileTreeCallback(callback: RefreshFileTreeCallback): void {
 		this.callbacks.refreshFileTree = callback;
+	}
+
+	setRefreshAutoRunDocsCallback(callback: RefreshAutoRunDocsCallback): void {
+		this.callbacks.refreshAutoRunDocs = callback;
 	}
 
 	setGetHistoryCallback(callback: GetHistoryCallback): void {
