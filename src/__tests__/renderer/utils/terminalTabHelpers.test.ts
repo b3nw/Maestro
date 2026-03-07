@@ -17,7 +17,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	createTerminalTab,
+	getActiveTerminalTab,
 	getTerminalTabDisplayName,
+	hasRunningTerminalProcess,
 	getTerminalSessionId,
 	parseTerminalSessionId,
 	addTerminalTab,
@@ -25,6 +27,7 @@ import {
 	selectTerminalTab,
 	updateTerminalTabState,
 	updateTerminalTabPid,
+	updateTerminalTabCwd,
 	renameTerminalTab,
 	reorderTerminalTabs,
 } from '../../../renderer/utils/terminalTabHelpers';
@@ -428,6 +431,99 @@ describe('renameTerminalTab', () => {
 		const session = createMockSession({ terminalTabs: [] });
 		const updated = renameTerminalTab(session, 'nonexistent', 'Name');
 		expect(updated).toBe(session);
+	});
+});
+
+describe('getActiveTerminalTab', () => {
+	it('returns the active tab when it exists', () => {
+		const tab1 = createMockTerminalTab({ id: 'tab-1' });
+		const tab2 = createMockTerminalTab({ id: 'tab-2' });
+		const session = createMockSession({
+			terminalTabs: [tab1, tab2],
+			activeTerminalTabId: 'tab-2',
+		});
+		expect(getActiveTerminalTab(session)).toBe(tab2);
+	});
+
+	it('returns undefined when activeTerminalTabId is null', () => {
+		const tab = createMockTerminalTab({ id: 'tab-1' });
+		const session = createMockSession({
+			terminalTabs: [tab],
+			activeTerminalTabId: null,
+		});
+		expect(getActiveTerminalTab(session)).toBeUndefined();
+	});
+
+	it('returns undefined when terminalTabs is empty', () => {
+		const session = createMockSession({ terminalTabs: [], activeTerminalTabId: 'tab-1' });
+		expect(getActiveTerminalTab(session)).toBeUndefined();
+	});
+
+	it('returns undefined when activeTerminalTabId does not match any tab', () => {
+		const tab = createMockTerminalTab({ id: 'tab-1' });
+		const session = createMockSession({
+			terminalTabs: [tab],
+			activeTerminalTabId: 'nonexistent',
+		});
+		expect(getActiveTerminalTab(session)).toBeUndefined();
+	});
+});
+
+describe('hasRunningTerminalProcess', () => {
+	it('returns false when there are no terminal tabs', () => {
+		const session = createMockSession({ terminalTabs: [] });
+		expect(hasRunningTerminalProcess(session)).toBe(false);
+	});
+
+	it('returns false when all tabs are idle', () => {
+		const session = createMockSession({
+			terminalTabs: [
+				createMockTerminalTab({ id: 'tab-1', state: 'idle' }),
+				createMockTerminalTab({ id: 'tab-2', state: 'idle' }),
+			],
+		});
+		expect(hasRunningTerminalProcess(session)).toBe(false);
+	});
+
+	it('returns true when at least one tab is busy', () => {
+		const session = createMockSession({
+			terminalTabs: [
+				createMockTerminalTab({ id: 'tab-1', state: 'idle' }),
+				createMockTerminalTab({ id: 'tab-2', state: 'busy' }),
+			],
+		});
+		expect(hasRunningTerminalProcess(session)).toBe(true);
+	});
+
+	it('returns false when tabs are exited (not running)', () => {
+		const session = createMockSession({
+			terminalTabs: [createMockTerminalTab({ id: 'tab-1', state: 'exited' })],
+		});
+		expect(hasRunningTerminalProcess(session)).toBe(false);
+	});
+});
+
+describe('updateTerminalTabCwd', () => {
+	it('updates the cwd of the matching tab', () => {
+		const tab = createMockTerminalTab({ id: 'tab-1', cwd: '/old' });
+		const session = createMockSession({ terminalTabs: [tab] });
+		const updated = updateTerminalTabCwd(session, 'tab-1', '/new/path');
+		expect(updated.terminalTabs![0].cwd).toBe('/new/path');
+	});
+
+	it('does not mutate other tabs', () => {
+		const tab1 = createMockTerminalTab({ id: 'tab-1', cwd: '/project' });
+		const tab2 = createMockTerminalTab({ id: 'tab-2', cwd: '/home' });
+		const session = createMockSession({ terminalTabs: [tab1, tab2] });
+		const updated = updateTerminalTabCwd(session, 'tab-1', '/new');
+		expect(updated.terminalTabs![1].cwd).toBe('/home');
+	});
+
+	it('returns a session with no tab cwd changed when tab not found', () => {
+		const tab = createMockTerminalTab({ id: 'tab-1', cwd: '/project' });
+		const session = createMockSession({ terminalTabs: [tab] });
+		const updated = updateTerminalTabCwd(session, 'nonexistent', '/new');
+		expect(updated.terminalTabs![0].cwd).toBe('/project');
 	});
 });
 

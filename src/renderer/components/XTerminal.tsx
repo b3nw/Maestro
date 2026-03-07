@@ -18,7 +18,7 @@ import type { ITheme } from '@xterm/xterm';
  * Uses ANSI fields from ThemeColors when available, falling back to
  * mode-appropriate defaults (dark → One Dark palette, light → GitHub palette).
  */
-function mapThemeToXterm(theme: Theme): ITheme {
+export function mapThemeToXterm(theme: Theme): ITheme {
 	const { colors, mode } = theme;
 
 	// Default ANSI palettes per mode (used only when theme lacks ANSI fields)
@@ -386,9 +386,11 @@ export const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XT
 	}, [fontFamily, fontSize]);
 
 	return (
-		<div
-			ref={containerRef}
-			style={{ width: '100%', height: '100%', overflow: 'hidden' }}
-		/>
+		<div style={{ width: '100%', height: '100%', paddingLeft: '8px', boxSizing: 'border-box' }}>
+			<div
+				ref={containerRef}
+				style={{ width: '100%', height: '100%', overflow: 'hidden' }}
+			/>
+		</div>
 	);
 });
