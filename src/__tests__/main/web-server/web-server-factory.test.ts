@@ -40,6 +40,7 @@ vi.mock('../../../main/web-server/WebServer', () => {
 			setOpenFileTabCallback = vi.fn();
 			setRefreshFileTreeCallback = vi.fn();
 			setRefreshAutoRunDocsCallback = vi.fn();
+			setConfigureAutoRunCallback = vi.fn();
 
 			constructor(port: number, securityToken?: string) {
 				this.port = port;
