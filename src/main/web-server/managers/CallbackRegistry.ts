@@ -22,6 +22,7 @@ import type {
 	ReorderTabCallback,
 	ToggleBookmarkCallback,
 	OpenFileTabCallback,
+	RefreshFileTreeCallback,
 	GetThemeCallback,
 	GetCustomCommandsCallback,
 	GetHistoryCallback,
@@ -50,6 +51,7 @@ export interface WebServerCallbacks {
 	reorderTab: ReorderTabCallback | null;
 	toggleBookmark: ToggleBookmarkCallback | null;
 	openFileTab: OpenFileTabCallback | null;
+	refreshFileTree: RefreshFileTreeCallback | null;
 	getHistory: GetHistoryCallback | null;
 }
 
@@ -72,6 +74,7 @@ export class CallbackRegistry {
 		reorderTab: null,
 		toggleBookmark: null,
 		openFileTab: null,
+		refreshFileTree: null,
 		getHistory: null,
 	};
 
@@ -160,6 +163,11 @@ export class CallbackRegistry {
 		return this.callbacks.openFileTab(sessionId, filePath);
 	}
 
+	async refreshFileTree(sessionId: string): Promise<boolean> {
+		if (!this.callbacks.refreshFileTree) return false;
+		return this.callbacks.refreshFileTree(sessionId);
+	}
+
 	getHistory(projectPath?: string, sessionId?: string): ReturnType<GetHistoryCallback> | [] {
 		return this.callbacks.getHistory?.(projectPath, sessionId) ?? [];
 	}
@@ -238,6 +246,10 @@ export class CallbackRegistry {
 
 	setOpenFileTabCallback(callback: OpenFileTabCallback): void {
 		this.callbacks.openFileTab = callback;
+	}
+
+	setRefreshFileTreeCallback(callback: RefreshFileTreeCallback): void {
+		this.callbacks.refreshFileTree = callback;
 	}
 
 	setGetHistoryCallback(callback: GetHistoryCallback): void {

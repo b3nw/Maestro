@@ -288,6 +288,7 @@ export type ReorderTabCallback = (
 ) => Promise<boolean>;
 export type ToggleBookmarkCallback = (sessionId: string) => Promise<boolean>;
 export type OpenFileTabCallback = (sessionId: string, filePath: string) => Promise<boolean>;
+export type RefreshFileTreeCallback = (sessionId: string) => Promise<boolean>;
 
 /**
  * Callback type for fetching current theme.
