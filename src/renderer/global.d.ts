@@ -1396,7 +1396,7 @@ interface MaestroAPI {
 			folderPath: string,
 			filename: string,
 			sshRemoteId?: string
-		) => Promise<{ success: boolean; content?: string; error?: string }>;
+		) => Promise<{ success: boolean; content?: string; notFound?: boolean; error?: string }>;
 		writeDoc: (
 			folderPath: string,
 			filename: string,
