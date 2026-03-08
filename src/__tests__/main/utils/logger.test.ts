@@ -719,4 +719,77 @@ describe('Logger', () => {
 			expect(logPath).toContain('Maestro');
 		});
 	});
+
+	describe('Log Rotation', () => {
+		it('should have rotation state fields initialized', async () => {
+			// The logger should have a valid current log date
+			const logPath = logger.getLogFilePath();
+			// Path should contain today's date
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			const expectedDateStr = `${year}-${month}-${day}`;
+			expect(logPath).toContain(`maestro-debug-${expectedDateStr}.log`);
+		});
+
+		it('should not rotate when date has not changed', async () => {
+			// Enable file logging to activate rotation checks
+			logger.enableFileLogging();
+
+			const initialPath = logger.getLogFilePath();
+
+			// Log a message - should not cause rotation since date hasn't changed
+			logger.info('test message');
+
+			expect(logger.getLogFilePath()).toBe(initialPath);
+
+			logger.disableFileLogging();
+		});
+
+		it('should rotate log file when date changes', async () => {
+			// Enable file logging
+			logger.enableFileLogging();
+
+			const initialPath = logger.getLogFilePath();
+
+			// Mock Date to return tomorrow
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			const originalDate = globalThis.Date;
+			const mockDate = class extends originalDate {
+				constructor(...args: ConstructorParameters<typeof Date>) {
+					if (args.length === 0) {
+						super(tomorrow.getTime());
+					} else {
+						// @ts-expect-error - spread constructor args
+						super(...args);
+					}
+				}
+				static now() {
+					return tomorrow.getTime();
+				}
+			};
+			// @ts-expect-error - replacing Date globally
+			globalThis.Date = mockDate;
+
+			try {
+				// Log a message - should trigger rotation
+				logger.info('message after date change');
+
+				const newPath = logger.getLogFilePath();
+				expect(newPath).not.toBe(initialPath);
+
+				// New path should contain tomorrow's date
+				const year = tomorrow.getFullYear();
+				const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+				const day = String(tomorrow.getDate()).padStart(2, '0');
+				const expectedDateStr = `${year}-${month}-${day}`;
+				expect(newPath).toContain(`maestro-debug-${expectedDateStr}.log`);
+			} finally {
+				globalThis.Date = originalDate;
+				logger.disableFileLogging();
+			}
+		});
+	});
 });

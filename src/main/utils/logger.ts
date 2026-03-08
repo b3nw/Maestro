@@ -42,16 +42,22 @@ function getLogsDir(): string {
 }
 
 /**
- * Get the path to the debug log file with today's date.
- * Returns a dated filename: maestro-debug-YYYY-MM-DD.log using local date.
+ * Get today's local date as a YYYY-MM-DD string.
  */
-function getLogFilePath(): string {
+function getTodayDateString(): string {
 	const now = new Date();
 	const year = now.getFullYear();
 	const month = String(now.getMonth() + 1).padStart(2, '0');
 	const day = String(now.getDate()).padStart(2, '0');
-	const dateStr = `${year}-${month}-${day}`;
-	return path.join(getLogsDir(), `maestro-debug-${dateStr}.log`);
+	return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get the path to the debug log file with today's date.
+ * Returns a dated filename: maestro-debug-YYYY-MM-DD.log using local date.
+ */
+function getLogFilePath(): string {
+	return path.join(getLogsDir(), `maestro-debug-${getTodayDateString()}.log`);
 }
 
 class Logger extends EventEmitter {
@@ -61,12 +67,15 @@ class Logger extends EventEmitter {
 	private fileLogEnabled = false;
 	private logFilePath: string;
 	private logFileStream: fs.WriteStream | null = null;
+	private currentLogDate: string = '';
+	private rotationTimer: ReturnType<typeof setInterval> | null = null;
 
 	private levelPriority = LOG_LEVEL_PRIORITY;
 
 	constructor() {
 		super();
 		this.logFilePath = getLogFilePath();
+		this.currentLogDate = getTodayDateString();
 
 		// Enable file logging on Windows by default for debugging
 		// Users can also enable it on other platforms via enableFileLogging()
@@ -114,6 +123,52 @@ class Logger extends EventEmitter {
 			this.logFileStream = null;
 		}
 		this.fileLogEnabled = false;
+	}
+
+	/**
+	 * Check if the date has changed and rotate to a new log file if needed.
+	 * Closes the old stream, opens a new one for today's date, and triggers cleanup.
+	 */
+	private rotateIfNeeded(): void {
+		try {
+			const todayDate = getTodayDateString();
+			if (todayDate === this.currentLogDate) return;
+
+			// Close old stream if it exists
+			if (this.logFileStream) {
+				this.logFileStream.end();
+				this.logFileStream = null;
+			}
+
+			// Update to today's log file
+			this.logFilePath = getLogFilePath();
+			this.currentLogDate = todayDate;
+
+			// Ensure the logs directory exists
+			const logsDir = getLogsDir();
+			if (!fs.existsSync(logsDir)) {
+				fs.mkdirSync(logsDir, { recursive: true });
+			}
+
+			// Open new log file in append mode
+			this.logFileStream = fs.createWriteStream(this.logFilePath, { flags: 'a' });
+
+			// Write startup marker
+			const startupMsg = `\n${'='.repeat(80)}\n[${new Date().toISOString()}] Maestro log rotated - new log file\nPlatform: ${process.platform}, Node: ${process.version}\nLog file: ${this.logFilePath}\n${'='.repeat(80)}\n`;
+			this.logFileStream.write(startupMsg);
+
+			// Clean up old log files
+			this.cleanOldLogs();
+		} catch (error) {
+			console.error('[Logger] Failed to rotate log file:', error);
+		}
+	}
+
+	/**
+	 * Remove log files older than 7 days.
+	 */
+	private cleanOldLogs(): void {
+		// Will be implemented in a subsequent task
 	}
 
 	/**
@@ -169,6 +224,11 @@ class Logger extends EventEmitter {
 		const timestamp = new Date(entry.timestamp).toISOString();
 		const prefix = `[${timestamp}] [${entry.level.toUpperCase()}]${entry.context ? ` [${entry.context}]` : ''}`;
 		const message = `${prefix} ${entry.message}`;
+
+		// Check if we need to rotate to a new day's log file
+		if (this.fileLogEnabled) {
+			this.rotateIfNeeded();
+		}
 
 		// Write to file if enabled (on Windows by default)
 		if (this.fileLogEnabled && this.logFileStream) {
