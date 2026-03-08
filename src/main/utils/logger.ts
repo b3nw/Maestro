@@ -98,6 +98,10 @@ class Logger extends EventEmitter {
 				fs.mkdirSync(logsDir, { recursive: true });
 			}
 
+			// Set current date and log file path to today's values
+			this.currentLogDate = getTodayDateString();
+			this.logFilePath = getLogFilePath();
+
 			// Migrate legacy maestro-debug.log if it exists
 			try {
 				const legacyPath = path.join(logsDir, 'maestro-debug.log');
@@ -127,6 +131,13 @@ class Logger extends EventEmitter {
 			const startupMsg = `\n${'='.repeat(80)}\n[${new Date().toISOString()}] Maestro started - File logging enabled\nPlatform: ${process.platform}, Node: ${process.version}\nLog file: ${this.logFilePath}\n${'='.repeat(80)}\n`;
 			this.logFileStream.write(startupMsg);
 
+			// Clean up old log files
+			this.cleanOldLogs();
+
+			// Start rotation timer (check every 10 minutes)
+			this.rotationTimer = setInterval(() => this.rotateIfNeeded(), 10 * 60 * 1000);
+			this.rotationTimer.unref();
+
 			console.log(`[Logger] File logging enabled: ${this.logFilePath}`);
 		} catch (error) {
 			console.error(`[Logger] Failed to enable file logging:`, error);
@@ -138,6 +149,11 @@ class Logger extends EventEmitter {
 	 */
 	disableFileLogging(): void {
 		if (!this.fileLogEnabled) return;
+
+		if (this.rotationTimer) {
+			clearInterval(this.rotationTimer);
+			this.rotationTimer = null;
+		}
 
 		if (this.logFileStream) {
 			this.logFileStream.end();

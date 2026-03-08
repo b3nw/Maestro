@@ -818,11 +818,16 @@ describe('Logger', () => {
 			const legacyPath = path.join(logsDir, 'maestro-debug.log');
 			fs.writeFileSync(legacyPath, 'legacy log content');
 
-			// Use a past date for mtime so target won't collide with today's log
-			const pastDate = new Date(2023, 5, 15); // June 15, 2023
+			// Use a recent past date (3 days ago) so it won't be cleaned up by cleanOldLogs
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 3);
 			fs.utimesSync(legacyPath, pastDate, pastDate);
 
-			const expectedTarget = path.join(logsDir, 'maestro-debug-2023-06-15.log');
+			const year = pastDate.getFullYear();
+			const month = String(pastDate.getMonth() + 1).padStart(2, '0');
+			const day = String(pastDate.getDate()).padStart(2, '0');
+			const expectedDateStr = `${year}-${month}-${day}`;
+			const expectedTarget = path.join(logsDir, `maestro-debug-${expectedDateStr}.log`);
 
 			// Make sure target doesn't exist yet
 			try { fs.unlinkSync(expectedTarget); } catch { /* ignore */ }
@@ -838,7 +843,7 @@ describe('Logger', () => {
 
 				// Console should log the migration
 				expect(consoleLogSpy).toHaveBeenCalledWith(
-					expect.stringContaining('[Logger] Migrated legacy log file to maestro-debug-2023-06-15.log')
+					expect.stringContaining(`[Logger] Migrated legacy log file to maestro-debug-${expectedDateStr}.log`)
 				);
 
 				logger.disableFileLogging();
@@ -874,13 +879,17 @@ describe('Logger', () => {
 				fs.mkdirSync(logsDir, { recursive: true });
 			}
 
-			// Create a legacy log file with a past mtime
+			// Create a legacy log file with a recent past mtime (3 days ago)
 			const legacyPath = path.join(logsDir, 'maestro-debug.log');
 			fs.writeFileSync(legacyPath, 'legacy log content');
-			const pastDate = new Date(2023, 5, 15); // June 15, 2023
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 3);
 			fs.utimesSync(legacyPath, pastDate, pastDate);
 
-			const targetPath = path.join(logsDir, 'maestro-debug-2023-06-15.log');
+			const year = pastDate.getFullYear();
+			const month = String(pastDate.getMonth() + 1).padStart(2, '0');
+			const day = String(pastDate.getDate()).padStart(2, '0');
+			const targetPath = path.join(logsDir, `maestro-debug-${year}-${month}-${day}.log`);
 
 			// Pre-create the target file
 			fs.writeFileSync(targetPath, 'existing dated content');
@@ -909,6 +918,92 @@ describe('Logger', () => {
 		it('should not fail if no legacy log file exists', async () => {
 			// Just enable and disable - should not throw
 			logger.enableFileLogging();
+			logger.disableFileLogging();
+		});
+	});
+
+	describe('Enable/Disable File Logging Integration', () => {
+		it('should set currentLogDate and logFilePath when enabling file logging', async () => {
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			const expectedDateStr = `${year}-${month}-${day}`;
+
+			logger.enableFileLogging();
+
+			expect(logger.getLogFilePath()).toContain(`maestro-debug-${expectedDateStr}.log`);
+
+			logger.disableFileLogging();
+		});
+
+		it('should call cleanOldLogs during enableFileLogging', async () => {
+			const fs = await import('fs');
+			const path = await import('path');
+			const os = await import('os');
+
+			const platform = process.platform;
+			let appDataDir: string;
+			if (platform === 'win32') {
+				appDataDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+			} else if (platform === 'darwin') {
+				appDataDir = path.join(os.homedir(), 'Library', 'Application Support');
+			} else {
+				appDataDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+			}
+			const logsDir = path.join(appDataDir, 'Maestro', 'logs');
+
+			if (!fs.existsSync(logsDir)) {
+				fs.mkdirSync(logsDir, { recursive: true });
+			}
+
+			// Create an old log file that should be cleaned up
+			const oldFile = 'maestro-debug-2020-01-01.log';
+			const oldFilePath = path.join(logsDir, oldFile);
+			fs.writeFileSync(oldFilePath, 'old content');
+
+			try {
+				logger.enableFileLogging();
+
+				// Old file should have been deleted by cleanOldLogs called during enable
+				expect(fs.existsSync(oldFilePath)).toBe(false);
+
+				logger.disableFileLogging();
+			} finally {
+				try {
+					if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+				} catch { /* ignore */ }
+			}
+		});
+
+		it('should start rotation timer on enableFileLogging and clear on disable', async () => {
+			const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+			const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+
+			logger.enableFileLogging();
+
+			// setInterval should have been called with 10 minute interval
+			expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 10 * 60 * 1000);
+
+			logger.disableFileLogging();
+
+			// clearInterval should have been called
+			expect(clearIntervalSpy).toHaveBeenCalled();
+		});
+
+		it('should call unref on the rotation timer', async () => {
+			const unrefSpy = vi.fn();
+			const originalSetInterval = globalThis.setInterval;
+			vi.spyOn(globalThis, 'setInterval').mockImplementation((...args) => {
+				const timer = originalSetInterval(...args);
+				timer.unref = unrefSpy;
+				return timer;
+			});
+
+			logger.enableFileLogging();
+
+			expect(unrefSpy).toHaveBeenCalled();
+
 			logger.disableFileLogging();
 		});
 	});
