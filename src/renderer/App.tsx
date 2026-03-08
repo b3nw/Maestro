@@ -1812,6 +1812,7 @@ function MaestroConsoleInner() {
 						name: filename,
 						content,
 						lastModified,
+						sshRemoteId,
 					});
 				}
 			} catch (error) {
@@ -1836,11 +1837,15 @@ function MaestroConsoleInner() {
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const { sessionId } = (e as CustomEvent).detail;
-			// Switch to the target session - the autoRunFolderPath useEffect
-			// will trigger handleAutoRunRefresh for the newly active session
-			setActiveSessionId(sessionId);
-			// Also refresh immediately in case it's already the active session
-			handleAutoRunRefresh();
+			const currentActiveId = useSessionStore.getState().activeSessionId;
+			if (sessionId === currentActiveId) {
+				// Already the active session - refresh immediately
+				handleAutoRunRefresh();
+			} else {
+				// Switch to the target session - the autoRunFolderPath useEffect
+				// will trigger handleAutoRunRefresh for the newly active session
+				setActiveSessionId(sessionId);
+			}
 		};
 		window.addEventListener('maestro:refreshAutoRunDocs', handler);
 		return () => window.removeEventListener('maestro:refreshAutoRunDocs', handler);
@@ -1904,10 +1909,17 @@ function MaestroConsoleInner() {
 						maxLoops: config.maxLoops,
 					};
 
-					startBatchRun(sessionId, batchConfig, folderPath);
-					window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
-						success: true,
-					});
+					try {
+						await startBatchRun(sessionId, batchConfig, folderPath);
+						window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+							success: true,
+						});
+					} catch (err) {
+						window.maestro.process.sendRemoteConfigureAutoRunResponse(responseChannel, {
+							success: false,
+							error: err instanceof Error ? err.message : String(err),
+						});
+					}
 					return;
 				}
 
