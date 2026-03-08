@@ -3,6 +3,7 @@
  * Extracted from main/index.ts for better modularity.
  */
 
+import { randomUUID } from 'crypto';
 import { BrowserWindow, ipcMain } from 'electron';
 import { randomUUID } from 'crypto';
 import { WebServer } from './WebServer';
@@ -574,7 +575,7 @@ export function createWebServerFactory(deps: WebServerFactoryDependencies) {
 			}
 
 			return new Promise((resolve) => {
-				const responseChannel = `remote:configureAutoRun:response:${Date.now()}`;
+				const responseChannel = `remote:configureAutoRun:response:${randomUUID()}`;
 				let resolved = false;
 
 				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
