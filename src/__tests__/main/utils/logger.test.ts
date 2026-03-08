@@ -695,4 +695,28 @@ describe('Logger', () => {
 			]);
 		});
 	});
+
+	describe('Log File Path', () => {
+		it('should return a dated log file path with local date', async () => {
+			const logPath = logger.getLogFilePath();
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			const expectedDateStr = `${year}-${month}-${day}`;
+
+			expect(logPath).toContain(`maestro-debug-${expectedDateStr}.log`);
+		});
+
+		it('should include logs directory in the path', async () => {
+			const logPath = logger.getLogFilePath();
+			// Path should end with /logs/maestro-debug-YYYY-MM-DD.log
+			expect(logPath).toMatch(/[/\\]logs[/\\]maestro-debug-\d{4}-\d{2}-\d{2}\.log$/);
+		});
+
+		it('should include Maestro in the path', async () => {
+			const logPath = logger.getLogFilePath();
+			expect(logPath).toContain('Maestro');
+		});
+	});
 });

@@ -22,11 +22,12 @@ import { isWindows, isMacOS } from '../../shared/platformDetection';
 export type { MainLogLevel as LogLevel, SystemLogEntry as LogEntry };
 
 /**
- * Get the path to the debug log file.
- * On Windows: %APPDATA%/Maestro/logs/maestro-debug.log
- * On macOS/Linux: ~/Library/Application Support/Maestro/logs/maestro-debug.log (or ~/.config/Maestro/logs)
+ * Get the platform-specific logs directory path.
+ * On Windows: %APPDATA%/Maestro/logs
+ * On macOS: ~/Library/Application Support/Maestro/logs
+ * On Linux: ~/.config/Maestro/logs (or XDG_CONFIG_HOME)
  */
-function getLogFilePath(): string {
+function getLogsDir(): string {
 	let appDataDir: string;
 
 	if (isWindows()) {
@@ -37,7 +38,20 @@ function getLogFilePath(): string {
 		appDataDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
 	}
 
-	return path.join(appDataDir, 'Maestro', 'logs', 'maestro-debug.log');
+	return path.join(appDataDir, 'Maestro', 'logs');
+}
+
+/**
+ * Get the path to the debug log file with today's date.
+ * Returns a dated filename: maestro-debug-YYYY-MM-DD.log using local date.
+ */
+function getLogFilePath(): string {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	const dateStr = `${year}-${month}-${day}`;
+	return path.join(getLogsDir(), `maestro-debug-${dateStr}.log`);
 }
 
 class Logger extends EventEmitter {
@@ -70,7 +84,7 @@ class Logger extends EventEmitter {
 
 		try {
 			// Ensure the logs directory exists
-			const logsDir = path.dirname(this.logFilePath);
+			const logsDir = getLogsDir();
 			if (!fs.existsSync(logsDir)) {
 				fs.mkdirSync(logsDir, { recursive: true });
 			}
