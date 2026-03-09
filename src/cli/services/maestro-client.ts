@@ -119,10 +119,15 @@ export class MaestroClient {
 	private setupMessageHandler(): void {
 		if (!this.ws) return;
 
-		this.ws.on('close', () => {
+		this.ws.on('close', (code?: number, reason?: Buffer) => {
+			const reasonStr = reason?.toString();
 			for (const [, pending] of this.pendingRequests) {
 				clearTimeout(pending.timeout);
-				pending.reject(new Error('Client disconnected'));
+				pending.reject(
+					new Error(
+						`Connection closed${code ? ` (code=${code})` : ''}${reasonStr ? `: ${reasonStr}` : ''}`
+					)
+				);
 			}
 			this.pendingRequests.clear();
 			this.ws = null;

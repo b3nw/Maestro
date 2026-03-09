@@ -22,6 +22,7 @@
  * - configure_auto_run: Configure and optionally launch an auto-run session
  */
 
+import path from 'path';
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 
@@ -33,6 +34,7 @@ const LOG_CONTEXT = 'WebServer';
  */
 export interface WebClientMessage {
 	type: string;
+	requestId?: string;
 	sessionId?: string;
 	tabId?: string;
 	command?: string;
@@ -249,7 +251,11 @@ export class WebSocketMessageHandler {
 		if (message.sessionId) {
 			client.subscribedSessionId = message.sessionId as string;
 		}
-		this.send(client, { type: 'subscribed', sessionId: message.sessionId });
+		this.send(client, {
+			type: 'subscribed',
+			sessionId: message.sessionId,
+			requestId: message.requestId,
+		});
 	}
 
 	/**
@@ -314,7 +320,12 @@ export class WebSocketMessageHandler {
 			this.callbacks
 				.executeCommand(sessionId, command, clientInputMode)
 				.then((success) => {
-					this.send(client, { type: 'command_result', success, sessionId });
+					this.send(client, {
+						type: 'command_result',
+						success,
+						sessionId,
+						requestId: message.requestId,
+					});
 					if (!success) {
 						logger.warn(
 							`[Web Command] ${mode} command rejected for session ${sessionId}`,
@@ -362,7 +373,13 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.switchMode(sessionId, mode)
 			.then((success) => {
-				this.send(client, { type: 'mode_switch_result', success, sessionId, mode });
+				this.send(client, {
+					type: 'mode_switch_result',
+					success,
+					sessionId,
+					mode,
+					requestId: message.requestId,
+				});
 				logger.debug(
 					`Mode switch for session ${sessionId} to ${mode}: ${success ? 'success' : 'failed'}`,
 					LOG_CONTEXT
@@ -411,7 +428,12 @@ export class WebSocketMessageHandler {
 				} else {
 					logger.warn(`Failed to select session ${sessionId} in desktop`, LOG_CONTEXT);
 				}
-				this.send(client, { type: 'select_session_result', success, sessionId });
+				this.send(client, {
+					type: 'select_session_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to select session: ${error.message}`);
@@ -466,7 +488,13 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.selectTab(sessionId, tabId)
 			.then((success) => {
-				this.send(client, { type: 'select_tab_result', success, sessionId, tabId });
+				this.send(client, {
+					type: 'select_tab_result',
+					success,
+					sessionId,
+					tabId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to select tab: ${error.message}`);
@@ -498,6 +526,7 @@ export class WebSocketMessageHandler {
 					success: !!result,
 					sessionId,
 					tabId: result?.tabId,
+					requestId: message.requestId,
 				});
 			})
 			.catch((error) => {
@@ -529,7 +558,13 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.closeTab(sessionId, tabId)
 			.then((success) => {
-				this.send(client, { type: 'close_tab_result', success, sessionId, tabId });
+				this.send(client, {
+					type: 'close_tab_result',
+					success,
+					sessionId,
+					tabId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to close tab: ${error.message}`);
@@ -568,6 +603,7 @@ export class WebSocketMessageHandler {
 					sessionId,
 					tabId,
 					newName: newName || '',
+					requestId: message.requestId,
 				});
 			})
 			.catch((error) => {
@@ -600,7 +636,14 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.starTab(sessionId, tabId, !!starred)
 			.then((success) => {
-				this.send(client, { type: 'star_tab_result', success, sessionId, tabId, starred });
+				this.send(client, {
+					type: 'star_tab_result',
+					success,
+					sessionId,
+					tabId,
+					starred,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to star tab: ${error.message}`);
@@ -638,6 +681,7 @@ export class WebSocketMessageHandler {
 					sessionId,
 					fromIndex,
 					toIndex,
+					requestId: message.requestId,
 				});
 			})
 			.catch((error) => {
@@ -665,7 +709,12 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.toggleBookmark(sessionId)
 			.then((success) => {
-				this.send(client, { type: 'toggle_bookmark_result', success, sessionId });
+				this.send(client, {
+					type: 'toggle_bookmark_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to toggle bookmark: ${error.message}`);
@@ -692,7 +741,12 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.refreshFileTree(sessionId)
 			.then((success) => {
-				this.send(client, { type: 'refresh_file_tree_result', success, sessionId });
+				this.send(client, {
+					type: 'refresh_file_tree_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to refresh file tree: ${error.message}`);
@@ -719,7 +773,12 @@ export class WebSocketMessageHandler {
 		this.callbacks
 			.refreshAutoRunDocs(sessionId)
 			.then((success) => {
-				this.send(client, { type: 'refresh_auto_run_docs_result', success, sessionId });
+				this.send(client, {
+					type: 'refresh_auto_run_docs_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to refresh auto-run docs: ${error.message}`);
@@ -770,11 +829,35 @@ export class WebSocketMessageHandler {
 			return;
 		}
 
+		// Validate and coerce optional config fields at the WebSocket boundary
+		if (message.loopEnabled !== undefined && typeof message.loopEnabled !== 'boolean') {
+			this.sendError(client, 'loopEnabled must be a boolean');
+			return;
+		}
+		if (message.maxLoops !== undefined) {
+			const maxLoops = Number(message.maxLoops);
+			if (!Number.isFinite(maxLoops) || maxLoops < 0) {
+				this.sendError(client, 'maxLoops must be a finite non-negative number');
+				return;
+			}
+		}
+		if (message.launch !== undefined && typeof message.launch !== 'boolean') {
+			this.sendError(client, 'launch must be a boolean');
+			return;
+		}
+		if (
+			message.saveAsPlaybook !== undefined &&
+			(typeof message.saveAsPlaybook !== 'string' || message.saveAsPlaybook.trim() === '')
+		) {
+			this.sendError(client, 'saveAsPlaybook must be a non-empty string');
+			return;
+		}
+
 		const config = {
 			documents,
 			prompt: message.prompt as string | undefined,
 			loopEnabled: message.loopEnabled as boolean | undefined,
-			maxLoops: message.maxLoops as number | undefined,
+			maxLoops: message.maxLoops !== undefined ? Number(message.maxLoops) : undefined,
 			saveAsPlaybook: message.saveAsPlaybook as string | undefined,
 			launch: message.launch as boolean | undefined,
 		};
@@ -788,6 +871,7 @@ export class WebSocketMessageHandler {
 					playbookId: result.playbookId,
 					error: result.error,
 					sessionId,
+					requestId: message.requestId,
 				});
 			})
 			.catch((error) => {
@@ -811,15 +895,35 @@ export class WebSocketMessageHandler {
 			return;
 		}
 
+		// Path traversal protection: resolve against session root
+		const sessions = this.callbacks.getSessions?.();
+		const session = sessions?.find((s) => s.id === sessionId);
+		if (!session?.cwd) {
+			this.sendError(client, 'Session not found or has no working directory');
+			return;
+		}
+		const sessionRoot = path.resolve(session.cwd);
+		const resolved = path.resolve(sessionRoot, filePath);
+		if (!resolved.startsWith(sessionRoot + path.sep) && resolved !== sessionRoot) {
+			this.sendError(client, 'Invalid file path');
+			return;
+		}
+
 		if (!this.callbacks.openFileTab) {
 			this.sendError(client, 'File tab opening not configured');
 			return;
 		}
 
 		this.callbacks
-			.openFileTab(sessionId, filePath)
+			.openFileTab(sessionId, resolved)
 			.then((success) => {
-				this.send(client, { type: 'open_file_tab_result', success, sessionId, filePath });
+				this.send(client, {
+					type: 'open_file_tab_result',
+					success,
+					sessionId,
+					filePath,
+					requestId: message.requestId,
+				});
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to open file tab: ${error.message}`);

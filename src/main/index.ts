@@ -551,7 +551,6 @@ app.whenReady().then(async () => {
 		},
 		createWebServer,
 	});
-	// via live:startServer IPC call from the renderer
 
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
