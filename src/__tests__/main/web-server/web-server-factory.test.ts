@@ -260,6 +260,13 @@ describe('web-server/web-server-factory', () => {
 			expect(server.setCloseTabCallback).toHaveBeenCalled();
 			expect(server.setRenameTabCallback).toHaveBeenCalled();
 		});
+
+		it('should register file and auto-run callbacks', () => {
+			expect(server.setOpenFileTabCallback).toHaveBeenCalled();
+			expect(server.setRefreshFileTreeCallback).toHaveBeenCalled();
+			expect(server.setRefreshAutoRunDocsCallback).toHaveBeenCalled();
+			expect(server.setConfigureAutoRunCallback).toHaveBeenCalled();
+		});
 	});
 
 	describe('getSessionsCallback behavior', () => {

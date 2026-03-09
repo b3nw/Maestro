@@ -28,7 +28,7 @@ export async function status(): Promise<void> {
 
 			const sessionCount = sessionsResult.sessions?.length ?? 0;
 			console.log(
-				`Maestro is running on port ${info.port} with ${sessionCount} session${sessionCount !== 1 ? 's' : ''}`
+				`Maestro is running on port ${info.port} with ${sessionCount} agent${sessionCount !== 1 ? 's' : ''}`
 			);
 		});
 	} catch (error) {
