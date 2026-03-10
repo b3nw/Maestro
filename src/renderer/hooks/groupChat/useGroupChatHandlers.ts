@@ -14,6 +14,7 @@ import type { QueuedItem } from '../../types';
 import { useGroupChatStore } from '../../stores/groupChatStore';
 import { useModalStore } from '../../stores/modalStore';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useBatchStore } from '../../stores/batchStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useAgentErrorRecovery } from '../agent/useAgentErrorRecovery';
 import { notifyToast } from '../../stores/notificationStore';
@@ -229,12 +230,28 @@ export function useGroupChatHandlers(): GroupChatHandlersReturn {
 			}
 		);
 
+		// Force-complete the batch run for an autorun participant.
+		// Fired by the main process on both normal completion (reportAutoRunComplete) and
+		// on the participant timeout, so the AUTO badge and progress bar always clear.
+		const unsubBatchComplete = window.maestro.groupChat.onAutoRunBatchComplete?.(
+			(_groupChatId, participantName) => {
+				const session = useSessionStore.getState().sessions.find((s) => s.name === participantName);
+				if (!session) return;
+				// Dispatch COMPLETE_BATCH — no-op if already completed, cleans up if stuck.
+				useBatchStore.getState().dispatchBatch({
+					type: 'COMPLETE_BATCH',
+					sessionId: session.id,
+				});
+			}
+		);
+
 		return () => {
 			unsubState();
 			unsubParticipants();
 			unsubParticipantState?.();
 			unsubLiveOutput?.();
 			unsubModeratorSessionId?.();
+			unsubBatchComplete?.();
 		};
 	}, []); // Mount once — global listeners read activeGroupChatId from store at call time
 

@@ -102,6 +102,8 @@ export const groupChatEmitters: {
 	emitModeratorSessionIdChanged?: (groupChatId: string, sessionId: string) => void;
 	emitParticipantLiveOutput?: (groupChatId: string, participantName: string, chunk: string) => void;
 	emitAutoRunTriggered?: (groupChatId: string, participantName: string, filename?: string) => void;
+	/** Tells the renderer to force-complete the batch run for a participant (clears stuck AUTO badge). */
+	emitAutoRunBatchComplete?: (groupChatId: string, participantName: string) => void;
 } = {};
 
 // Helper to create handler options with consistent context
@@ -520,6 +522,17 @@ export function registerGroupChatHandlers(deps: GroupChatHandlerDependencies): v
 					summary,
 					processManager ?? undefined
 				);
+
+				// Reset participant state to idle (mirrors what exit-listener does for regular participants).
+				// Without this the participant card stays "Working" because no process exit fires for
+				// autorun participants (the batch runs in a separate Maestro session, not a group-chat session).
+				groupChatEmitters.emitParticipantState?.(groupChatId, participantName, 'idle');
+
+				// Signal the renderer to definitively complete the batch run for this participant.
+				// In the happy path this is a no-op (COMPLETE_BATCH was already dispatched by startBatchRun).
+				// In edge cases (synthesis re-triggered a second batch, or the process was slow to exit)
+				// this ensures the AUTO badge and progress bar are always cleared.
+				groupChatEmitters.emitAutoRunBatchComplete?.(groupChatId, participantName);
 
 				// Mark participant as done and trigger synthesis if all participants have responded.
 				// Unlike regular participants (whose process exit triggers this via exit-listener),
@@ -964,6 +977,22 @@ Respond with ONLY the summary text, no additional commentary.`;
 				participantName,
 				filename
 			);
+		}
+	};
+
+	/**
+	 * Tell the renderer to force-complete the batch run for an autorun participant.
+	 * Fired on both normal completion (reportAutoRunComplete) and on the timeout path,
+	 * so the AUTO badge and progress bar are always cleaned up regardless of how the
+	 * participant's involvement ends.
+	 */
+	groupChatEmitters.emitAutoRunBatchComplete = (
+		groupChatId: string,
+		participantName: string
+	): void => {
+		const mainWindow = getMainWindow();
+		if (isWebContentsAvailable(mainWindow)) {
+			mainWindow.webContents.send('groupChat:autoRunBatchComplete', groupChatId, participantName);
 		}
 	};
 

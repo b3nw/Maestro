@@ -1889,6 +1889,9 @@ interface MaestroAPI {
 		onAutoRunTriggered: (
 			callback: (groupChatId: string, participantName: string, filename?: string) => void
 		) => () => void;
+		onAutoRunBatchComplete: (
+			callback: (groupChatId: string, participantName: string) => void
+		) => () => void;
 	};
 	// Leaderboard API
 	leaderboard: {

@@ -171,6 +171,12 @@ function setParticipantResponseTimeout(
 			// Non-critical — synthesize anyway
 		}
 
+		// Reset participant state and force-complete the batch so the AUTO badge
+		// and progress bar clear immediately — the batch loop may still be awaiting
+		// a process exit that will never come.
+		groupChatEmitters.emitParticipantState?.(groupChatId, participantName, 'idle');
+		groupChatEmitters.emitAutoRunBatchComplete?.(groupChatId, participantName);
+
 		const isLast = markParticipantResponded(groupChatId, participantName);
 		if (isLast && processManager && agentDetector) {
 			spawnModeratorSynthesis(groupChatId, processManager, agentDetector).catch((err) => {
@@ -808,29 +814,35 @@ export async function routeModeratorResponse(
 
 	console.log(`[GroupChat:Debug] Chat loaded: "${chat.name}"`);
 
-	// Log the message as coming from moderator
-	await appendToLog(chat.logPath, 'moderator', message);
+	// Strip internal !autorun directives from the message before logging/display.
+	// These are machine-to-machine commands; storing them in the chat log causes
+	// the synthesis moderator to see them in history and potentially re-trigger them.
+	const { autoRunDirectives: _earlyAutoRunDirectives, cleanedText: displayMessage } =
+		extractAutoRunDirectives(message);
+
+	// Log the message as coming from moderator (cleaned of !autorun directives)
+	await appendToLog(chat.logPath, 'moderator', displayMessage);
 	console.log(`[GroupChat:Debug] Message appended to log`);
 
 	// Emit message event to renderer so it shows immediately
 	const moderatorMessage: GroupChatMessage = {
 		timestamp: new Date().toISOString(),
 		from: 'moderator',
-		content: message,
+		content: displayMessage,
 	};
 	groupChatEmitters.emitMessage?.(groupChatId, moderatorMessage);
 	console.log(`[GroupChat:Debug] Emitted moderator message to renderer`);
 
 	// Add history entry for moderator response
 	try {
-		const summary = extractFirstSentence(message);
+		const summary = extractFirstSentence(displayMessage);
 		const historyEntry = await addGroupChatHistoryEntry(groupChatId, {
 			timestamp: Date.now(),
 			summary,
 			participantName: 'Moderator',
 			participantColor: '#808080', // Gray for moderator
 			type: 'response',
-			fullResponse: message,
+			fullResponse: displayMessage,
 		});
 
 		// Emit history entry event to renderer
@@ -946,7 +958,8 @@ export async function routeModeratorResponse(
 	// Track participants that will need to respond for synthesis round
 	const participantsToRespond = new Set<string>();
 
-	// Extract !autorun directives from the moderator message
+	// Extract !autorun directives from the ORIGINAL message (before cleaning)
+	// Note: we parse the original to find directives, but we already logged/emitted the cleaned version
 	const { autoRunDirectives, autoRunParticipants } = extractAutoRunDirectives(message);
 	if (autoRunDirectives.length > 0) {
 		console.log(
@@ -1498,8 +1511,10 @@ ${historyContext}
 
 ## Your Task:
 Review the agent responses above. Either:
-1. Synthesize into a final answer for the user (NO @mentions) if the question is fully answered
-2. @mention specific agents for follow-up if you need more information`;
+1. Synthesize into a final answer for the user (NO @mentions, NO !autorun) if the question is fully answered
+2. @mention specific agents for follow-up if you need more information
+
+**IMPORTANT: Do NOT include any !autorun directives in this synthesis response.**`;
 
 	const agentConfigValues = getAgentConfigCallback?.(chat.moderatorAgentId) || {};
 	const baseArgs = buildAgentArgs(agent, {
