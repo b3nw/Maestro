@@ -194,10 +194,10 @@ describe('BaseSessionStorage', () => {
 				offset: 50,
 				limit: 10,
 			});
-			// When offset exceeds total, endIndex goes negative and slice returns
-			// elements from 0 to (length + endIndex). This matches existing behavior
-			// across all 4 storage implementations.
+			// When offset >= total, returns empty items but preserves total
+			expect(result.messages).toHaveLength(0);
 			expect(result.total).toBe(30);
+			expect(result.hasMore).toBe(false);
 		});
 
 		it('handles empty messages', () => {

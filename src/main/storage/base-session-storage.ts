@@ -216,8 +216,17 @@ export abstract class BaseSessionStorage implements AgentSessionStorage {
 		const offset = options?.offset ?? 0;
 		const limit = options?.limit ?? 20;
 
-		const startIndex = Math.max(0, allMessages.length - offset - limit);
+		// When offset >= total, there are no messages left to return
+		if (offset >= allMessages.length) {
+			return {
+				messages: [],
+				total: allMessages.length,
+				hasMore: false,
+			};
+		}
+
 		const endIndex = allMessages.length - offset;
+		const startIndex = Math.max(0, endIndex - limit);
 		const slice = allMessages.slice(startIndex, endIndex);
 
 		return {

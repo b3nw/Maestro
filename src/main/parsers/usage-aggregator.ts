@@ -116,7 +116,7 @@ export function estimateContextUsage(
 		stats.contextWindow && stats.contextWindow > 0
 			? stats.contextWindow
 			: agentId && agentId !== 'terminal'
-				? DEFAULT_CONTEXT_WINDOWS[agentId] || 0
+				? (DEFAULT_CONTEXT_WINDOWS[agentId] ?? 0)
 				: 0;
 
 	if (!effectiveContextWindow || effectiveContextWindow <= 0) {

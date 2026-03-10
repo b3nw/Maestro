@@ -108,12 +108,15 @@ function normalizeDirectory(dir: string): string {
  * Get a human-readable display name for a provider/tool type.
  */
 export function getProviderDisplayName(toolType: ToolType): string {
-	const displayNames: Partial<Record<ToolType, string>> = {
+	const displayNames: Record<ToolType, string> = {
 		'claude-code': 'Claude Code',
 		opencode: 'OpenCode',
 		codex: 'Codex',
 		'factory-droid': 'Factory Droid',
+		'gemini-cli': 'Gemini CLI',
+		'qwen3-coder': 'Qwen3 Coder',
+		aider: 'Aider',
 		terminal: 'Terminal',
 	};
-	return displayNames[toolType] || toolType;
+	return displayNames[toolType];
 }

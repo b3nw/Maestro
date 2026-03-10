@@ -44,6 +44,9 @@ export {
 	matchErrorPattern,
 	registerErrorPatterns,
 	clearPatternRegistry,
+	getSshErrorPatterns,
+	matchSshErrorPattern,
+	SSH_ERROR_PATTERNS,
 } from './error-patterns';
 
 // Import parser implementations
