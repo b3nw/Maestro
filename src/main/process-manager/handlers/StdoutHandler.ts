@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import { appendToBuffer } from '../utils/bufferUtils';
 import { aggregateModelUsage, type ModelStats } from '../../parsers/usage-aggregator';
 import { matchSshErrorPattern } from '../../parsers/error-patterns';
+import { FALLBACK_CONTEXT_WINDOW } from '../../../shared/agentConstants';
 import type { ManagedProcess, UsageStats, UsageTotals, AgentError } from '../types';
 import type { DataBufferManager } from './DataBufferManager';
 
@@ -500,7 +501,7 @@ export class StdoutHandler {
 			totalCostUsd: usage.costUsd || 0,
 			// Prioritize Claude Code's reported contextWindow over spawn config
 			// This ensures we use the actual model's context limit, not a stale config value
-			contextWindow: usage.contextWindow || managedProcess.contextWindow || 200000,
+			contextWindow: usage.contextWindow || managedProcess.contextWindow || FALLBACK_CONTEXT_WINDOW,
 			reasoningTokens: usage.reasoningTokens,
 		};
 	}
