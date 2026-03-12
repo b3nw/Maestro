@@ -1751,7 +1751,7 @@ describe('QuickActionsModal', () => {
 			expect(dialog).toHaveAttribute('aria-label', 'Switch Agent');
 		});
 
-		it('shows only agent jump actions in agents mode', () => {
+		it('shows only raw agent names in agents mode', () => {
 			const props = createDefaultProps({
 				initialMode: 'agents',
 				sessions: [
@@ -1761,9 +1761,10 @@ describe('QuickActionsModal', () => {
 			});
 			render(<QuickActionsModal {...props} />);
 
-			// Agent jump actions should be visible
-			expect(screen.getByText('Jump to: Agent Alpha')).toBeInTheDocument();
-			expect(screen.getByText('Jump to: Agent Beta')).toBeInTheDocument();
+			// Agent names should be shown without "Jump to:" prefix
+			expect(screen.getByText('Agent Alpha')).toBeInTheDocument();
+			expect(screen.getByText('Agent Beta')).toBeInTheDocument();
+			expect(screen.queryByText(/Jump to/)).not.toBeInTheDocument();
 
 			// Non-agent actions should NOT be present
 			expect(screen.queryByText('Create New Agent')).not.toBeInTheDocument();
@@ -1784,18 +1785,45 @@ describe('QuickActionsModal', () => {
 			const input = screen.getByPlaceholderText('Jump to agent...');
 			fireEvent.change(input, { target: { value: 'alpha' } });
 
-			expect(screen.getByText('Jump to: Agent Alpha')).toBeInTheDocument();
-			expect(screen.queryByText('Jump to: Agent Beta')).not.toBeInTheDocument();
+			expect(screen.getByText('Agent Alpha')).toBeInTheDocument();
+			expect(screen.queryByText('Agent Beta')).not.toBeInTheDocument();
 		});
 
 		it('closes modal and switches agent on selection in agents mode', () => {
 			const props = createDefaultProps({ initialMode: 'agents' });
 			render(<QuickActionsModal {...props} />);
 
-			fireEvent.click(screen.getByText('Jump to: Test Session'));
+			fireEvent.click(screen.getByText('Test Session'));
 
 			expect(props.setActiveSessionId).toHaveBeenCalledWith('session-1');
 			expect(props.setQuickActionOpen).toHaveBeenCalledWith(false);
+		});
+
+		it('sorts agents alphabetically with group chats at the bottom', () => {
+			const props = createDefaultProps({
+				initialMode: 'agents',
+				sessions: [
+					createMockSession({ id: 'session-1', name: 'Zulu' }),
+					createMockSession({ id: 'session-2', name: 'Alpha' }),
+					createMockSession({ id: 'session-3', name: 'Mike' }),
+				],
+				groupChats: [{ id: 'gc-1', name: 'Design Review', participants: ['a', 'b'] }],
+				onOpenGroupChat: vi.fn(),
+			});
+			render(<QuickActionsModal {...props} />);
+
+			const buttons = screen.getAllByRole('button');
+			const labels = buttons.map((b) => b.textContent?.replace(/\d/, '').trim() ?? '');
+
+			// Agents alphabetically first, then group chats
+			const alphaIdx = labels.findIndex((l) => l.startsWith('Alpha'));
+			const mikeIdx = labels.findIndex((l) => l.startsWith('Mike'));
+			const zuluIdx = labels.findIndex((l) => l.startsWith('Zulu'));
+			const gcIdx = labels.findIndex((l) => l.startsWith('Design Review'));
+
+			expect(alphaIdx).toBeLessThan(mikeIdx);
+			expect(mikeIdx).toBeLessThan(zuluIdx);
+			expect(zuluIdx).toBeLessThan(gcIdx);
 		});
 	});
 });

@@ -1421,7 +1421,33 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 		{ id: 'create-new', label: '+ Create New Group', action: handleCreateGroup },
 	];
 
-	const agentActions: QuickAction[] = [...sessionActions, ...groupChatActions];
+	// Agent switcher mode: clean names only, no "Jump to:" prefix
+	const agentActions: QuickAction[] = [
+		...sessions.map((s) => ({
+			id: `jump-${s.id}`,
+			label: s.name,
+			action: () => {
+				setActiveSessionId(s.id);
+				if (s.groupId) {
+					setGroups((prev) =>
+						prev.map((g) => (g.id === s.groupId && g.collapsed ? { ...g, collapsed: false } : g))
+					);
+				}
+			},
+			subtext: s.state.toUpperCase(),
+		})),
+		...(groupChats && onOpenGroupChat
+			? groupChats.map((gc) => ({
+					id: `groupchat-${gc.id}`,
+					label: gc.name,
+					action: () => {
+						onOpenGroupChat(gc.id);
+						setQuickActionOpen(false);
+					},
+					subtext: `GROUP CHAT · ${gc.participants.length} participant${gc.participants.length !== 1 ? 's' : ''}`,
+				}))
+			: []),
+	];
 
 	const actions = mode === 'agents' ? agentActions : mode === 'main' ? mainActions : groupActions;
 
@@ -1438,7 +1464,15 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 			}
 			return a.label.toLowerCase().includes(searchLower);
 		})
-		.sort((a, b) => a.label.localeCompare(b.label));
+		.sort((a, b) => {
+			// In agents mode, sort agents first (alphabetically), then group chats at the bottom
+			if (mode === 'agents') {
+				const aIsGroup = a.id.startsWith('groupchat-');
+				const bIsGroup = b.id.startsWith('groupchat-');
+				if (aIsGroup !== bIsGroup) return aIsGroup ? 1 : -1;
+			}
+			return a.label.localeCompare(b.label);
+		});
 
 	// Use a ref for filtered actions so the onSelect callback stays stable
 	const filteredRef = useRef(filtered);
