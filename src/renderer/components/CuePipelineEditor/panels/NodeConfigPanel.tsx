@@ -45,6 +45,8 @@ interface NodeConfigPanelProps {
 	onUpdateEdgePrompt?: (edgeId: string, prompt: string) => void;
 	onDeleteNode: (nodeId: string) => void;
 	onSwitchToAgent?: (sessionId: string) => void;
+	triggerDrawerOpen?: boolean;
+	agentDrawerOpen?: boolean;
 }
 
 const EVENT_ICONS: Record<CueEventType, typeof Clock> = {
@@ -386,7 +388,7 @@ function EdgePromptRow({
 						fontFamily: 'inherit',
 						lineHeight: 1.4,
 						marginTop: 4,
-						...(expanded ? { flex: 1, minHeight: 0 } : {}),
+						...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: 56 }),
 					}}
 				/>
 			</label>
@@ -514,7 +516,7 @@ function AgentConfig({
 									resize: 'vertical',
 									fontFamily: 'inherit',
 									lineHeight: 1.4,
-									...(expanded ? { flex: 1, minHeight: 0 } : {}),
+									...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: 72 }),
 								}}
 							/>
 						</label>
@@ -562,7 +564,7 @@ function AgentConfig({
 								fontFamily: 'inherit',
 								lineHeight: 1.4,
 								cursor: outputDisabled ? 'not-allowed' : undefined,
-								...(expanded ? { flex: 1, minHeight: 0 } : {}),
+								...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: 72 }),
 							}}
 						/>
 					</label>
@@ -638,6 +640,8 @@ export function NodeConfigPanel({
 	onUpdateEdgePrompt,
 	onDeleteNode,
 	onSwitchToAgent,
+	triggerDrawerOpen,
+	agentDrawerOpen,
 }: NodeConfigPanelProps) {
 	const [expanded, setExpanded] = useState(false);
 	const isVisible = selectedNode !== null;
@@ -651,14 +655,16 @@ export function NodeConfigPanel({
 	const Icon = triggerData ? (EVENT_ICONS[triggerData.eventType] ?? Zap) : null;
 	const ExpandIcon = expanded ? ChevronsDown : ChevronsUp;
 
+	const collapsedHeight = isTrigger ? 'auto' : 240;
+
 	return (
 		<div
 			style={{
 				position: 'absolute',
 				bottom: 0,
-				left: 220,
-				right: 240,
-				height: expanded ? '80%' : 200,
+				left: triggerDrawerOpen ? 220 : 0,
+				right: agentDrawerOpen ? 240 : 0,
+				height: expanded ? '80%' : collapsedHeight,
 				backgroundColor: '#1a1a2e',
 				borderTop: '1px solid #333',
 				borderLeft: '1px solid #333',
@@ -669,7 +675,7 @@ export function NodeConfigPanel({
 				flexDirection: 'column',
 				zIndex: 10,
 				animation: 'slideUp 0.15s ease-out',
-				transition: 'height 0.2s ease-out',
+				transition: isTrigger ? undefined : 'height 0.2s ease-out',
 			}}
 		>
 			<style>{`
@@ -772,8 +778,8 @@ export function NodeConfigPanel({
 			{/* Content */}
 			<div
 				style={{
-					flex: 1,
-					overflow: expanded ? 'hidden' : 'auto',
+					flex: isTrigger ? undefined : 1,
+					overflow: 'auto',
 					padding: '12px 16px',
 					display: 'flex',
 					flexDirection: 'column',

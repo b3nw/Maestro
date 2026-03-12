@@ -1709,6 +1709,8 @@ function CuePipelineEditorInner({
 						onUpdateEdgePrompt={onUpdateEdgePrompt}
 						onDeleteNode={onDeleteNode}
 						onSwitchToAgent={onSwitchToSession}
+						triggerDrawerOpen={triggerDrawerOpen}
+						agentDrawerOpen={agentDrawerOpen}
 					/>
 				)}
 				{selectedEdge && !selectedNode && (
