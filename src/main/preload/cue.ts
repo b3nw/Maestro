@@ -129,6 +129,10 @@ export function createCueApi() {
 		refreshSession: (sessionId: string, projectRoot: string): Promise<void> =>
 			ipcRenderer.invoke('cue:refreshSession', { sessionId, projectRoot }),
 
+		// Remove a session from Cue tracking
+		removeSession: (sessionId: string): Promise<void> =>
+			ipcRenderer.invoke('cue:removeSession', { sessionId }),
+
 		// Read raw YAML content from a session's maestro-cue.yaml
 		readYaml: (projectRoot: string): Promise<string | null> =>
 			ipcRenderer.invoke('cue:readYaml', { projectRoot }),

@@ -2855,6 +2855,7 @@ interface MaestroAPI {
 		triggerSubscription: (subscriptionName: string) => Promise<boolean>;
 		getQueueStatus: () => Promise<Record<string, number>>;
 		refreshSession: (sessionId: string, projectRoot: string) => Promise<void>;
+		removeSession: (sessionId: string) => Promise<void>;
 		readYaml: (projectRoot: string) => Promise<string | null>;
 		writeYaml: (
 			projectRoot: string,

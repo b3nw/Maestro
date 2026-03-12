@@ -28,6 +28,7 @@ import { CueHelpContent } from './CueHelpModal';
 // import { CueGraphView } from './CueGraphView';
 import { CuePipelineEditor } from './CuePipelineEditor';
 import { useSessionStore } from '../stores/sessionStore';
+import { getModalActions } from '../stores/modalStore';
 import type { CuePipeline } from '../../shared/cue-pipeline-types';
 import { getPipelineColorForAgent } from './CuePipelineEditor/pipelineColors';
 import { graphSessionsToPipelines } from './CuePipelineEditor/utils/yamlToPipeline';
@@ -731,8 +732,8 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 	const pipelineDirtyRef = useRef(false);
 	pipelineDirtyRef.current = pipelineDirty;
 
-	const handleEditYaml = useCallback((_session: CueSessionStatus) => {
-		// TODO: Implement YAML editor integration
+	const handleEditYaml = useCallback((session: CueSessionStatus) => {
+		getModalActions().openCueYamlEditor(session.sessionId, session.projectRoot);
 	}, []);
 
 	const handleViewInPipeline = useCallback((_session: CueSessionStatus) => {

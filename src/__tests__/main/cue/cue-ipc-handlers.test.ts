@@ -77,6 +77,12 @@ import * as yaml from 'js-yaml';
 // Create a mock CueEngine
 function createMockEngine() {
 	return {
+		getSettings: vi.fn().mockReturnValue({
+			timeout_minutes: 30,
+			timeout_on_fail: 'break',
+			max_concurrent: 1,
+			queue_size: 10,
+		}),
 		getStatus: vi.fn().mockReturnValue([]),
 		getActiveRuns: vi.fn().mockReturnValue([]),
 		getActivityLog: vi.fn().mockReturnValue([]),
@@ -84,7 +90,11 @@ function createMockEngine() {
 		stop: vi.fn(),
 		stopRun: vi.fn().mockReturnValue(true),
 		stopAll: vi.fn(),
+		triggerSubscription: vi.fn().mockReturnValue(true),
+		getQueueStatus: vi.fn().mockReturnValue(new Map()),
 		refreshSession: vi.fn(),
+		removeSession: vi.fn(),
+		getGraphData: vi.fn().mockReturnValue([]),
 		isEnabled: vi.fn().mockReturnValue(false),
 	};
 }
@@ -120,6 +130,7 @@ describe('Cue IPC Handlers', () => {
 			});
 
 			const expectedChannels = [
+				'cue:getSettings',
 				'cue:getStatus',
 				'cue:getActiveRuns',
 				'cue:getActivityLog',
@@ -127,7 +138,11 @@ describe('Cue IPC Handlers', () => {
 				'cue:disable',
 				'cue:stopRun',
 				'cue:stopAll',
+				'cue:triggerSubscription',
+				'cue:getQueueStatus',
 				'cue:refreshSession',
+				'cue:removeSession',
+				'cue:getGraphData',
 				'cue:readYaml',
 				'cue:writeYaml',
 				'cue:deleteYaml',
@@ -217,6 +232,14 @@ describe('Cue IPC Handlers', () => {
 			const handler = registerAndGetHandler('cue:disable');
 			await handler(null);
 			expect(mockEngine.stop).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe('cue:removeSession', () => {
+		it('should call engine.removeSession()', async () => {
+			const handler = registerAndGetHandler('cue:removeSession');
+			await handler(null, { sessionId: 's1' });
+			expect(mockEngine.removeSession).toHaveBeenCalledWith('s1');
 		});
 	});
 

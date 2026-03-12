@@ -72,12 +72,12 @@ function createMockConfig(overrides: Partial<CueConfig> = {}): CueConfig {
 function createMockDeps(overrides: Partial<CueEngineDeps> = {}): CueEngineDeps {
 	return {
 		getSessions: vi.fn(() => [createMockSession()]),
-		onCueRun: vi.fn(async () => ({
+		onCueRun: vi.fn(async (request: Parameters<CueEngineDeps['onCueRun']>[0]) => ({
 			runId: 'run-1',
 			sessionId: 'session-1',
 			sessionName: 'Test Session',
-			subscriptionName: 'test',
-			event: {} as CueEvent,
+			subscriptionName: request.subscriptionName,
+			event: request.event,
 			status: 'completed' as const,
 			stdout: 'output',
 			stderr: '',
@@ -86,6 +86,7 @@ function createMockDeps(overrides: Partial<CueEngineDeps> = {}): CueEngineDeps {
 			startedAt: new Date().toISOString(),
 			endedAt: new Date().toISOString(),
 		})),
+		onStopCueRun: vi.fn(() => true),
 		onLog: vi.fn(),
 		...overrides,
 	};
@@ -227,9 +228,12 @@ describe('CueEngine', () => {
 
 			// Should fire immediately
 			expect(deps.onCueRun).toHaveBeenCalledWith(
-				'session-1',
-				'Run check',
-				expect.objectContaining({ type: 'time.heartbeat', triggerName: 'periodic' })
+				expect.objectContaining({
+					sessionId: 'session-1',
+					prompt: 'Run check',
+					timeoutMs: 30 * 60 * 1000,
+					event: expect.objectContaining({ type: 'time.heartbeat', triggerName: 'periodic' }),
+				})
 			);
 		});
 
@@ -377,11 +381,13 @@ describe('CueEngine', () => {
 			engine.notifyAgentCompleted('agent-a');
 
 			expect(deps.onCueRun).toHaveBeenCalledWith(
-				'session-1',
-				'follow up',
 				expect.objectContaining({
-					type: 'agent.completed',
-					triggerName: 'on-done',
+					sessionId: 'session-1',
+					prompt: 'follow up',
+					event: expect.objectContaining({
+						type: 'agent.completed',
+						triggerName: 'on-done',
+					}),
 				})
 			);
 		});
@@ -435,11 +441,13 @@ describe('CueEngine', () => {
 			// Second completion — should fire
 			engine.notifyAgentCompleted('agent-b');
 			expect(deps.onCueRun).toHaveBeenCalledWith(
-				'session-1',
-				'aggregate',
 				expect.objectContaining({
-					type: 'agent.completed',
-					triggerName: 'all-done',
+					sessionId: 'session-1',
+					prompt: 'aggregate',
+					event: expect.objectContaining({
+						type: 'agent.completed',
+						triggerName: 'all-done',
+					}),
 				})
 			);
 		});
@@ -889,6 +897,35 @@ describe('CueEngine', () => {
 			expect(engine.stopRun('nonexistent')).toBe(false);
 		});
 
+		it('stopRun signals the executor callback for active runs', async () => {
+			const deps = createMockDeps({
+				onCueRun: vi.fn(() => new Promise<CueRunResult>(() => {})),
+			});
+			const config = createMockConfig({
+				subscriptions: [
+					{
+						name: 'timer',
+						event: 'time.heartbeat',
+						enabled: true,
+						prompt: 'test',
+						interval_minutes: 60,
+					},
+				],
+			});
+			mockLoadCueConfig.mockReturnValue(config);
+			const engine = new CueEngine(deps);
+			engine.start();
+
+			await vi.advanceTimersByTimeAsync(10);
+
+			const activeRun = engine.getActiveRuns()[0];
+			expect(activeRun).toBeDefined();
+			expect(engine.stopRun(activeRun.runId)).toBe(true);
+			expect(deps.onStopCueRun).toHaveBeenCalledWith(activeRun.runId);
+
+			engine.stop();
+		});
+
 		it('stopAll clears all active runs', async () => {
 			// Use a slow-resolving onCueRun to keep runs active
 			const deps = createMockDeps({
@@ -915,6 +952,7 @@ describe('CueEngine', () => {
 			expect(engine.getActiveRuns().length).toBeGreaterThan(0);
 			engine.stopAll();
 			expect(engine.getActiveRuns()).toHaveLength(0);
+			expect(deps.onStopCueRun).toHaveBeenCalled();
 
 			engine.stop();
 		});
@@ -1257,11 +1295,11 @@ describe('CueEngine', () => {
 			expect(onCueRun).toHaveBeenCalledTimes(2);
 
 			// First call is the main prompt
-			expect(onCueRun.mock.calls[0][1]).toBe('do work');
+			expect(onCueRun.mock.calls[0][0].prompt).toBe('do work');
 
 			// Second call is the output prompt with context appended
-			expect(onCueRun.mock.calls[1][1]).toContain('format results');
-			expect(onCueRun.mock.calls[1][1]).toContain('main task output');
+			expect(onCueRun.mock.calls[1][0].prompt).toContain('format results');
+			expect(onCueRun.mock.calls[1][0].prompt).toContain('main task output');
 
 			// Activity log should have the output prompt's stdout
 			const log = engine.getActivityLog();

@@ -29,7 +29,15 @@ import { createCueFileWatcher } from './cue-file-watcher';
 import { createCueGitHubPoller } from './cue-github-poller';
 import { createCueTaskScanner } from './cue-task-scanner';
 import { matchesFilter, describeFilter } from './cue-filter';
-import { initCueDb, closeCueDb, updateHeartbeat, getLastHeartbeat, pruneCueEvents } from './cue-db';
+import {
+	initCueDb,
+	closeCueDb,
+	updateHeartbeat,
+	getLastHeartbeat,
+	pruneCueEvents,
+	recordCueEvent,
+	updateCueEventStatus,
+} from './cue-db';
 import { reconcileMissedTimeEvents } from './cue-reconciler';
 import type { ReconcileSessionInfo } from './cue-reconciler';
 
@@ -81,7 +89,15 @@ export function calculateNextScheduledTime(times: string[], days?: string[]): nu
 /** Dependencies injected into the CueEngine */
 export interface CueEngineDeps {
 	getSessions: () => SessionInfo[];
-	onCueRun: (sessionId: string, prompt: string, event: CueEvent) => Promise<CueRunResult>;
+	onCueRun: (request: {
+		runId: string;
+		sessionId: string;
+		prompt: string;
+		subscriptionName: string;
+		event: CueEvent;
+		timeoutMs: number;
+	}) => Promise<CueRunResult>;
+	onStopCueRun?: (runId: string) => boolean;
 	onLog: (level: MainLogLevel, message: string, data?: unknown) => void;
 }
 
@@ -128,6 +144,7 @@ export class CueEngine {
 	private pendingYamlWatchers = new Map<string, () => void>();
 	private activeRunCount = new Map<string, number>();
 	private eventQueue = new Map<string, QueuedEvent[]>();
+	private manuallyStoppedRuns = new Set<string>();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private deps: CueEngineDeps;
 
@@ -137,6 +154,8 @@ export class CueEngine {
 
 	/** Enable the engine and scan all sessions for Cue configs */
 	start(): void {
+		if (this.enabled) return;
+
 		this.enabled = true;
 		this.deps.onLog('cue', '[CUE] Engine started');
 
@@ -162,6 +181,8 @@ export class CueEngine {
 
 	/** Disable the engine, clearing all timers and watchers */
 	stop(): void {
+		if (!this.enabled) return;
+
 		this.enabled = false;
 		for (const [sessionId] of this.sessions) {
 			this.teardownSession(sessionId);
@@ -177,6 +198,7 @@ export class CueEngine {
 		// Clear concurrency state
 		this.eventQueue.clear();
 		this.activeRunCount.clear();
+		this.manuallyStoppedRuns.clear();
 
 		// Stop heartbeat and close database
 		this.stopHeartbeat();
@@ -325,6 +347,8 @@ export class CueEngine {
 		const run = this.activeRuns.get(runId);
 		if (!run) return false;
 
+		this.manuallyStoppedRuns.add(runId);
+		this.deps.onStopCueRun?.(runId);
 		run.abortController?.abort();
 		run.result.status = 'stopped';
 		run.result.endedAt = new Date().toISOString();
@@ -332,7 +356,12 @@ export class CueEngine {
 
 		this.activeRuns.delete(runId);
 		this.pushActivityLog(run.result);
-		this.deps.onLog('cue', `[CUE] Run stopped: ${runId}`);
+		this.deps.onLog('cue', `[CUE] Run stopped: ${runId}`, {
+			type: 'runStopped',
+			runId,
+			sessionId: run.result.sessionId,
+			subscriptionName: run.result.subscriptionName,
+		});
 		return true;
 	}
 
@@ -342,7 +371,6 @@ export class CueEngine {
 			this.stopRun(runId);
 		}
 		this.eventQueue.clear();
-		this.activeRunCount.clear();
 	}
 
 	/** Returns master enabled state */
@@ -1145,6 +1173,7 @@ export class CueEngine {
 		outputPrompt?: string
 	): Promise<void> {
 		const session = this.deps.getSessions().find((s) => s.id === sessionId);
+		const state = this.sessions.get(sessionId);
 		const runId = crypto.randomUUID();
 		const abortController = new AbortController();
 
@@ -1164,9 +1193,39 @@ export class CueEngine {
 		};
 
 		this.activeRuns.set(runId, { result, abortController });
+		const timeoutMs = (state?.config.settings.timeout_minutes ?? 30) * 60 * 1000;
+		try {
+			recordCueEvent({
+				id: runId,
+				type: event.type,
+				triggerName: event.triggerName,
+				sessionId,
+				subscriptionName,
+				status: 'running',
+				payload: JSON.stringify(event.payload),
+			});
+		} catch {
+			// Non-fatal if DB is unavailable
+		}
+		this.deps.onLog('cue', `[CUE] Run started: ${subscriptionName}`, {
+			type: 'runStarted',
+			runId,
+			sessionId,
+			subscriptionName,
+		});
 
 		try {
-			const runResult = await this.deps.onCueRun(sessionId, prompt, event);
+			const runResult = await this.deps.onCueRun({
+				runId,
+				sessionId,
+				prompt,
+				subscriptionName,
+				event,
+				timeoutMs,
+			});
+			if (this.manuallyStoppedRuns.has(runId)) {
+				return;
+			}
 			result.status = runResult.status;
 			result.stdout = runResult.stdout;
 			result.stderr = runResult.stderr;
@@ -1190,7 +1249,17 @@ export class CueEngine {
 				};
 
 				const contextPrompt = `${outputPrompt}\n\n---\n\nContext from completed task:\n${result.stdout.substring(0, SOURCE_OUTPUT_MAX_CHARS)}`;
-				const outputResult = await this.deps.onCueRun(sessionId, contextPrompt, outputEvent);
+				const outputResult = await this.deps.onCueRun({
+					runId,
+					sessionId,
+					prompt: contextPrompt,
+					subscriptionName,
+					event: outputEvent,
+					timeoutMs,
+				});
+				if (this.manuallyStoppedRuns.has(runId)) {
+					return;
+				}
 
 				if (outputResult.status === 'completed') {
 					result.stdout = outputResult.stdout;
@@ -1202,29 +1271,55 @@ export class CueEngine {
 				}
 			}
 		} catch (error) {
+			if (this.manuallyStoppedRuns.has(runId)) {
+				return;
+			}
 			result.status = 'failed';
 			result.stderr = error instanceof Error ? error.message : String(error);
 		} finally {
 			result.endedAt = new Date().toISOString();
 			result.durationMs = Date.now() - new Date(result.startedAt).getTime();
 			this.activeRuns.delete(runId);
-			this.pushActivityLog(result);
 
 			// Decrement active run count and drain queue
 			const count = this.activeRunCount.get(sessionId) ?? 1;
 			this.activeRunCount.set(sessionId, Math.max(0, count - 1));
 			this.drainQueue(sessionId);
 
-			// Emit completion event for agent completion chains
-			// This allows downstream subscriptions to react to this Cue run's completion
-			this.notifyAgentCompleted(sessionId, {
-				sessionName: result.sessionName,
-				status: result.status,
-				exitCode: result.exitCode,
-				durationMs: result.durationMs,
-				stdout: result.stdout,
-				triggeredBy: subscriptionName,
-			});
+			const wasManuallyStopped = this.manuallyStoppedRuns.has(runId);
+			if (wasManuallyStopped) {
+				try {
+					updateCueEventStatus(runId, 'stopped');
+				} catch {
+					// Non-fatal if DB is unavailable
+				}
+				this.manuallyStoppedRuns.delete(runId);
+			} else {
+				this.pushActivityLog(result);
+				try {
+					updateCueEventStatus(runId, result.status);
+				} catch {
+					// Non-fatal if DB is unavailable
+				}
+				this.deps.onLog('cue', `[CUE] Run finished: ${subscriptionName} (${result.status})`, {
+					type: 'runFinished',
+					runId,
+					sessionId,
+					subscriptionName,
+					status: result.status,
+				});
+
+				// Emit completion event for agent completion chains
+				// This allows downstream subscriptions to react to this Cue run's completion
+				this.notifyAgentCompleted(sessionId, {
+					sessionName: result.sessionName,
+					status: result.status,
+					exitCode: result.exitCode,
+					durationMs: result.durationMs,
+					stdout: result.stdout,
+					triggeredBy: subscriptionName,
+				});
+			}
 		}
 	}
 

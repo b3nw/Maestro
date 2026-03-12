@@ -68,6 +68,14 @@ vi.mock('../../../renderer/stores/sessionStore', () => ({
 	},
 }));
 
+// Mock modalStore getModalActions
+const mockOpenCueYamlEditor = vi.fn();
+vi.mock('../../../renderer/stores/modalStore', () => ({
+	getModalActions: () => ({
+		openCueYamlEditor: mockOpenCueYamlEditor,
+	}),
+}));
+
 // Mock window.maestro.cue
 const mockGetGraphData = vi.fn().mockResolvedValue([]);
 const mockDeleteYaml = vi.fn().mockResolvedValue(undefined);
@@ -462,7 +470,7 @@ describe('CueModal', () => {
 			expect(screen.getByText('Edit YAML')).toBeInTheDocument();
 		});
 
-		it('should not crash when Edit YAML is clicked (handler is a stub)', () => {
+		it('should call openCueYamlEditor with sessionId and projectRoot when Edit YAML is clicked', () => {
 			mockUseCueReturn = {
 				...defaultUseCueReturn,
 				sessions: [mockSession],
@@ -470,9 +478,10 @@ describe('CueModal', () => {
 
 			render(<CueModal theme={mockTheme} onClose={mockOnClose} />);
 			fireEvent.click(screen.getByText('Dashboard'));
+			fireEvent.click(screen.getByText('Edit YAML'));
 
-			// Edit YAML handler is currently a stub (CueYamlEditor was replaced by pipeline editor)
-			expect(() => fireEvent.click(screen.getByText('Edit YAML'))).not.toThrow();
+			expect(mockOpenCueYamlEditor).toHaveBeenCalledOnce();
+			expect(mockOpenCueYamlEditor).toHaveBeenCalledWith('sess-1', '/test/project');
 		});
 	});
 
