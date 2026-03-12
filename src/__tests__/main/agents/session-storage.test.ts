@@ -1049,7 +1049,7 @@ describe('OpenCodeSessionStorage SSH Remote Support', () => {
 			expect(localPath).not.toContain('~');
 
 			// Verify local path is absolute
-			expect(localPath?.startsWith('/') || localPath?.match(/^[A-Z]:\\/)).toBeTruthy();
+			expect(path.isAbsolute(localPath!)).toBeTruthy();
 		});
 
 		it(
@@ -1771,7 +1771,7 @@ describe('SSH Config Integration Flow Verification', () => {
 			// Without SSH config - local path
 			const localPath = storage.getSessionPath(projectPath, sessionId);
 			expect(localPath).not.toContain('~'); // Local paths are absolute
-			expect(localPath?.startsWith('/') || localPath?.match(/^[A-Z]:\\/)).toBeTruthy();
+			expect(path.isAbsolute(localPath!)).toBeTruthy();
 		});
 
 		it('should correctly differentiate local and remote paths for Factory Droid', async () => {
