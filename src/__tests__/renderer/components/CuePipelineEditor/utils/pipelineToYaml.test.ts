@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	pipelineToYamlSubscriptions,
 	pipelinesToYaml,
+	ensureSourceOutputVariable,
 } from '../../../../../renderer/components/CuePipelineEditor/utils/pipelineToYaml';
 import type { CuePipeline } from '../../../../../shared/cue-pipeline-types';
 
@@ -136,7 +137,7 @@ describe('pipelineToYamlSubscriptions', () => {
 		expect(subs[1].name).toBe('test-pipeline-chain-1');
 		expect(subs[1].event).toBe('agent.completed');
 		expect(subs[1].source_session).toBe('builder');
-		expect(subs[1].prompt).toBe('Test it');
+		expect(subs[1].prompt).toBe('{{CUE_SOURCE_OUTPUT}}\n\nTest it');
 	});
 
 	it('handles fan-out (trigger -> [agent1, agent2])', () => {
@@ -249,7 +250,7 @@ describe('pipelineToYamlSubscriptions', () => {
 		expect(fanInSub).toBeDefined();
 		expect(fanInSub!.event).toBe('agent.completed');
 		expect(fanInSub!.source_session).toEqual(['worker-a', 'worker-b']);
-		expect(fanInSub!.prompt).toBe('Combine');
+		expect(fanInSub!.prompt).toBe('{{CUE_SOURCE_OUTPUT}}\n\nCombine');
 	});
 
 	it('maps github.pull_request trigger config', () => {
@@ -767,5 +768,31 @@ describe('pipelinesToYaml', () => {
 		);
 		expect(promptEntries).toHaveLength(2);
 		expect(promptEntries[0][0]).not.toBe(promptEntries[1][0]); // Different file paths
+	});
+});
+
+describe('ensureSourceOutputVariable', () => {
+	it('auto-injects when prompt is missing it', () => {
+		expect(ensureSourceOutputVariable('Review the code')).toBe(
+			'{{CUE_SOURCE_OUTPUT}}\n\nReview the code'
+		);
+	});
+
+	it('preserves existing {{CUE_SOURCE_OUTPUT}} in prompt', () => {
+		const prompt = 'Here is the output: {{CUE_SOURCE_OUTPUT}}\n\nNow review.';
+		expect(ensureSourceOutputVariable(prompt)).toBe(prompt);
+	});
+
+	it('returns bare variable for empty prompt', () => {
+		expect(ensureSourceOutputVariable('')).toBe('{{CUE_SOURCE_OUTPUT}}');
+	});
+
+	it('returns bare variable for whitespace-only prompt', () => {
+		expect(ensureSourceOutputVariable('   ')).toBe('{{CUE_SOURCE_OUTPUT}}');
+	});
+
+	it('case-insensitive check avoids double injection', () => {
+		const prompt = 'Use {{cue_source_output}} here';
+		expect(ensureSourceOutputVariable(prompt)).toBe(prompt);
 	});
 });
