@@ -16,6 +16,7 @@ import type {
 	CustomAICommand,
 	SpecKitCommand,
 	OpenSpecCommand,
+	BmadCommand,
 } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useAgentStore } from '../../stores/agentStore';
@@ -34,6 +35,8 @@ export interface UseQueueProcessingDeps {
 	speckitCommandsRef: React.RefObject<SpecKitCommand[]>;
 	/** Ref to current openspec commands */
 	openspecCommandsRef: React.RefObject<OpenSpecCommand[]>;
+	/** Ref to current BMAD commands */
+	bmadCommandsRef?: React.RefObject<BmadCommand[]>;
 }
 
 // ============================================================================
@@ -54,7 +57,13 @@ export interface UseQueueProcessingReturn {
 // ============================================================================
 
 export function useQueueProcessing(deps: UseQueueProcessingDeps): UseQueueProcessingReturn {
-	const { conductorProfile, customAICommandsRef, speckitCommandsRef, openspecCommandsRef } = deps;
+	const {
+		conductorProfile,
+		customAICommandsRef,
+		speckitCommandsRef,
+		openspecCommandsRef,
+		bmadCommandsRef,
+	} = deps;
 
 	// --- Reactive subscriptions ---
 	const sessionsLoaded = useSessionStore((s) => s.sessionsLoaded);
@@ -71,14 +80,22 @@ export function useQueueProcessing(deps: UseQueueProcessingDeps): UseQueueProces
 	// Process a queued item - delegates to agentStore action
 	const processQueuedItem = useCallback(
 		async (sessionId: string, item: QueuedItem) => {
-			await useAgentStore.getState().processQueuedItem(sessionId, item, {
+			const queueDeps = {
 				conductorProfile,
 				customAICommands: customAICommandsRef.current ?? [],
 				speckitCommands: speckitCommandsRef.current ?? [],
 				openspecCommands: openspecCommandsRef.current ?? [],
-			});
+			};
+
+			if (bmadCommandsRef) {
+				Object.assign(queueDeps, {
+					bmadCommands: bmadCommandsRef.current ?? [],
+				});
+			}
+
+			await useAgentStore.getState().processQueuedItem(sessionId, item, queueDeps);
 		},
-		[conductorProfile]
+		[conductorProfile, bmadCommandsRef]
 	);
 
 	// Update ref for processQueuedItem so batch exit handler can use it
