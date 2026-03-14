@@ -73,8 +73,9 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
 <step n="1" goal="Parse epic files and extract all work items">
 <action>Load {project_context} for project-wide patterns and conventions (if exists)</action>
 <action>Communicate in {communication_language} with {user_name}</action>
-<action>Look for all files matching `{epics_pattern}` in {epics_location}</action>
-<action>Could be a single `epics.md` file or multiple `epic-1.md`, `epic-2.md` files</action>
+<action>Look for whole-document candidates first: `epics.md`, `bmm-epics.md`, `user-stories.md`, and files matching `{epics_pattern}` in {epics_location}</action>
+<action>If no whole document is found, look for `epics/index.md` and then load every epic file referenced there</action>
+<action>If both whole and sharded sources exist, use the whole document only</action>
 
 <action>For each epic file found, extract:</action>
 

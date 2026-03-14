@@ -29,7 +29,7 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
 ### Paths
 
 - `validation` = `./checklist.md`
-- `story_file` = `` (explicit story path; auto-discovered if empty)
+- `story_path` = `` (explicit story path; auto-discovered if empty)
 - `sprint_status` = `{implementation_artifacts}/sprint-status.yaml`
 
 ### Context
@@ -100,6 +100,8 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
         <check if="user chooses '3'">
           <ask>Provide the story file path to develop:</ask>
           <action>Store user-provided story path as {{story_path}}</action>
+          <action>Read COMPLETE story file</action>
+          <action>Extract story_key from filename or metadata</action>
           <goto anchor="task_check" />
         </check>
 
@@ -285,7 +287,7 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
     <action>Improve code structure while keeping tests green</action>
     <action>Ensure code follows architecture patterns and coding standards from Dev Notes</action>
 
-    <action>Document technical approach and decisions in Dev Agent Record → Implementation Plan</action>
+    <action>Document technical approach and decisions in Dev Agent Record → Completion Notes</action>
 
     <action if="new dependencies required beyond story specifications">HALT: "Additional dependencies need user approval"</action>
     <action if="3 consecutive implementation failures occur">HALT and request guidance</action>

@@ -84,6 +84,7 @@ For UI features, generate tests that:
 Execute tests to verify they pass (use project's test command).
 
 If failures occur, report them clearly with likely causes and suggested fixes, but do not modify product code in this workflow.
+Set `tests_verified = true` only when the relevant test command passes; otherwise set `tests_verified = false`.
 
 ### Step 5: Create Summary
 
@@ -144,4 +145,5 @@ If the project needs:
 
 Save summary to: `{default_output_file}`
 
-**Done!** Tests generated and verified. Validate against `{checklist}`.
+- If `tests_verified = true`: `**Done!** Tests generated and verified. Validate against `{checklist}`.`
+- If `tests_verified = false`: `**Done!** Tests were generated, but verification failed. Review the reported failures before treating them as passing.`

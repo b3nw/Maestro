@@ -80,6 +80,7 @@ Run `/bmad:bmm:workflows:sprint-planning` to generate it, then rerun sprint-stat
   - Stories: everything else (e.g., 1-2-login-form)
   <action>Map legacy story status "drafted" → "ready-for-dev"</action>
   <action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>
+  <action>Store grouped story keys as: stories_backlog, stories_ready_for_dev, stories_in_progress, stories_in_review, stories_done</action>
   <action>Map legacy epic status "contexted" → "in-progress"</action>
   <action>Count epic statuses: backlog, in-progress, done</action>
   <action>Count retrospective statuses: optional, done</action>

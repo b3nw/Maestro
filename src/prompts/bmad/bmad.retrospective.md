@@ -984,7 +984,7 @@ Estimated: {{est_4}}
 - Major scope changes or descoping occurred that affects next epic
 - Technical approach needs fundamental change for Epic {{next_epic_num}}
 - Dependencies discovered that Epic {{next_epic_num}} doesn't account for
-- User needs significantly different than originally understood
+- User needs significantly different from originally understood
 - Performance/scalability concerns that affect Epic {{next_epic_num}} design
 - Security or compliance issues discovered that change approach
 - Integration assumptions proven incorrect

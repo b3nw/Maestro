@@ -64,7 +64,7 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
   <check if="{{story_path}} is provided by user or user provided the epic and story number such as 2-4 or 1.6 or epic 1 story 5">
     <action>Parse user-provided story path: extract epic_num, story_num, story_title from format like "1-2-user-auth"</action>
     <action>Set {{epic_num}}, {{story_num}}, {{story_key}} from user input</action>
-    <action>GOTO step 2a</action>
+    <action>GOTO step 2</action>
   </check>
 
 <action>Check if {{sprint_status}} file exists for auto discover</action>
@@ -87,12 +87,12 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
     <check if="user provides epic-story number">
       <action>Parse user input: extract epic_num, story_num, story_title</action>
       <action>Set {{epic_num}}, {{story_num}}, {{story_key}} from user input</action>
-      <action>GOTO step 2a</action>
+      <action>GOTO step 2</action>
     </check>
 
     <check if="user provides story docs path">
       <action>Use user-provided path for story documents</action>
-      <action>GOTO step 2a</action>
+      <action>GOTO step 2</action>
     </check>
 
   </check>
@@ -155,7 +155,7 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
       <output>📊 Epic {{epic_num}} status updated to in-progress</output>
     </check>
 
-    <action>GOTO step 2a</action>
+    <action>GOTO step 2</action>
 
   </check>
 </step>

@@ -29,6 +29,7 @@ import { useNotificationStore, notifyToast } from '../../stores/notificationStor
 import { getSpeckitCommands } from '../../services/speckit';
 import { getOpenSpecCommands } from '../../services/openspec';
 import { getBmadCommands } from '../../services/bmad';
+import { captureException } from '../../utils/sentry';
 import { exposeWindowsWarningModalDebug } from '../../components/WindowsWarningModal';
 import type { GistInfo } from '../../components/GistPublishModal';
 
@@ -236,7 +237,11 @@ export function useAppInitialization(): AppInitializationReturn {
 				const commands = await getBmadCommands();
 				setBmadCommands(commands);
 			} catch (error) {
-				console.error('[BMAD] Failed to load commands:', error);
+				captureException(error, {
+					extra: {
+						context: 'useAppInitialization - BMAD load',
+					},
+				});
 			}
 		})();
 	}, []);

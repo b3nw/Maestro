@@ -75,29 +75,33 @@ function applyMaestroPromptFixes(id, prompt) {
 
 function httpsGet(url, options = {}) {
 	return new Promise((resolve, reject) => {
+		const timeoutMs = options.timeoutMs ?? 15000;
 		const headers = {
 			'User-Agent': 'Maestro-BMAD-Refresher',
 			Accept: 'application/vnd.github+json',
 			...options.headers,
 		};
 
-		https
-			.get(url, { headers }, (res) => {
-				if (res.statusCode === 301 || res.statusCode === 302) {
-					return resolve(httpsGet(res.headers.location, options));
-				}
+		const req = https.get(url, { headers }, (res) => {
+			if (res.statusCode === 301 || res.statusCode === 302) {
+				return resolve(httpsGet(res.headers.location, options));
+			}
 
-				if (res.statusCode !== 200) {
-					reject(new Error(`HTTP ${res.statusCode}: ${url}`));
-					return;
-				}
+			if (res.statusCode !== 200) {
+				reject(new Error(`HTTP ${res.statusCode}: ${url}`));
+				return;
+			}
 
-				let data = '';
-				res.on('data', (chunk) => (data += chunk));
-				res.on('end', () => resolve({ data, headers: res.headers }));
-				res.on('error', reject);
-			})
-			.on('error', reject);
+			let data = '';
+			res.on('data', (chunk) => (data += chunk));
+			res.on('end', () => resolve({ data, headers: res.headers }));
+			res.on('error', reject);
+		});
+
+		req.setTimeout(timeoutMs, () => {
+			req.destroy(new Error(`Request timed out after ${timeoutMs}ms: ${url}`));
+		});
+		req.on('error', reject);
 	});
 }
 

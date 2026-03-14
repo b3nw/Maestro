@@ -13,6 +13,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
 import { bmadCatalog } from '../prompts/bmad/catalog';
+import { captureException } from './utils/sentry';
 import { logger } from './utils/logger';
 
 const LOG_CONTEXT = '[BMAD]';
@@ -125,9 +126,88 @@ async function loadUserCustomizations(): Promise<StoredData | null> {
 	try {
 		const content = await fs.readFile(getUserDataPath(), 'utf-8');
 		return JSON.parse(content);
-	} catch {
-		return null;
+	} catch (error) {
+		if (
+			(error as NodeJS.ErrnoException)?.code === 'ENOENT' ||
+			(error instanceof Error && /ENOENT/.test(error.message))
+		) {
+			return null;
+		}
+		captureException(error, { operation: 'bmad:loadUserCustomizations' });
+		throw error;
 	}
+}
+
+function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
+	return fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).catch((error) => {
+		captureException(error, {
+			operation: 'bmad:fetch',
+			url,
+			timeoutMs,
+		});
+		throw error;
+	});
+}
+
+function applyMaestroRuntimePromptFixes(id: string, prompt: string): string {
+	let fixed = applyMaestroPromptFixes(id, prompt);
+
+	if (id === 'create-story') {
+		fixed = fixed.replace(/GOTO step 2a/g, 'GOTO step 2');
+		if (!fixed.includes('</workflow>')) {
+			fixed = `${fixed.trimEnd()}\n\n</workflow>\n`;
+		}
+	}
+
+	if (id === 'dev-story') {
+		fixed = fixed.replace(
+			'- `story_file` = `` (explicit story path; auto-discovered if empty)',
+			'- `story_path` = `` (explicit story path; auto-discovered if empty)'
+		);
+		fixed = fixed.replace(
+			'<action>Store user-provided story path as {{story_path}}</action>\n          <goto anchor="task_check" />',
+			'<action>Store user-provided story path as {{story_path}}</action>\n          <action>Read COMPLETE story file</action>\n          <action>Extract story_key from filename or metadata</action>\n          <goto anchor="task_check" />'
+		);
+		fixed = fixed.replace(
+			'Dev Agent Record → Implementation Plan',
+			'Dev Agent Record → Completion Notes'
+		);
+	}
+
+	if (id === 'qa-automate') {
+		fixed = fixed.replace(
+			'If failures occur, report them clearly with likely causes and suggested fixes, but do not modify product code in this workflow.',
+			'If failures occur, report them clearly with likely causes and suggested fixes, but do not modify product code in this workflow.\nSet `tests_verified = true` only when the relevant test command passes; otherwise set `tests_verified = false`.'
+		);
+		fixed = fixed.replace(
+			'**Done!** Tests generated and verified. Validate against `{checklist}`.',
+			'- If `tests_verified = true`: `**Done!** Tests generated and verified. Validate against `{checklist}`.`\n- If `tests_verified = false`: `**Done!** Tests were generated, but verification failed. Review the reported failures before treating them as passing.`'
+		);
+	}
+
+	if (id === 'retrospective') {
+		fixed = fixed.replace('{planning*artifacts}/\\_epic*.md', '{planning_artifacts}/*epic*.md');
+		fixed = fixed.replace(
+			'different than originally understood',
+			'different from originally understood'
+		);
+	}
+
+	if (id === 'sprint-planning') {
+		fixed = fixed.replace(
+			'<action>Look for all files matching `{epics_pattern}` in {epics_location}</action>\n<action>Could be a single `epics.md` file or multiple `epic-1.md`, `epic-2.md` files</action>',
+			'<action>Look for whole-document candidates first: `epics.md`, `bmm-epics.md`, `user-stories.md`, and files matching `{epics_pattern}` in {epics_location}</action>\n<action>If no whole document is found, look for `epics/index.md` and then load every epic file referenced there</action>\n<action>If both whole and sharded sources exist, use the whole document only</action>'
+		);
+	}
+
+	if (id === 'sprint-status') {
+		fixed = fixed.replace(
+			'<action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>',
+			'<action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>\n  <action>Store grouped story keys as: stories_backlog, stories_ready_for_dev, stories_in_progress, stories_in_review, stories_done</action>'
+		);
+	}
+
+	return fixed;
 }
 
 /**
@@ -313,11 +393,9 @@ export async function resetBmadPrompt(id: string): Promise<string> {
 
 async function getLatestCommitSha(): Promise<string> {
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`${BMAD_REPO_URL.replace('https://github.com', 'https://api.github.com/repos')}/commits/main`,
-			{
-				headers: { 'User-Agent': 'Maestro-BMAD-Refresher' },
-			}
+			15000
 		);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch latest commit: ${response.statusText}`);
@@ -332,7 +410,7 @@ async function getLatestCommitSha(): Promise<string> {
 
 async function getLatestVersion(): Promise<string> {
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			'https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/package.json'
 		);
 		if (!response.ok) {
@@ -356,14 +434,14 @@ export async function refreshBmadPrompts(): Promise<BmadMetadata> {
 		const downloadedPrompts: Array<{ id: string; prompt: string }> = [];
 
 		for (const cmd of BMAD_COMMANDS) {
-			const response = await fetch(
+			const response = await fetchWithTimeout(
 				`https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/${cmd.sourcePath}`
 			);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch ${cmd.sourcePath}: ${response.statusText}`);
 			}
 
-			const prompt = applyMaestroPromptFixes(cmd.id, await response.text());
+			const prompt = applyMaestroRuntimePromptFixes(cmd.id, await response.text());
 			downloadedPrompts.push({ id: cmd.id, prompt });
 		}
 

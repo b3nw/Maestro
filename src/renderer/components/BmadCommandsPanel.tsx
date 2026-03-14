@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { Theme, BmadCommand, BmadMetadata } from '../types';
 import { useTemplateAutocomplete } from '../hooks';
+import { captureException } from '../utils/sentry';
 import { TemplateAutocompleteDropdown } from './TemplateAutocompleteDropdown';
 
 interface BmadCommandsPanelProps {
@@ -63,7 +64,7 @@ export function BmadCommandsPanel({ theme }: BmadCommandsPanelProps) {
 					setMetadata(metadataResult.metadata);
 				}
 			} catch (error) {
-				console.error('Failed to load BMAD commands:', error);
+				captureException(error, { extra: { context: 'BmadCommandsPanel.loadData' } });
 			} finally {
 				setIsLoading(false);
 			}
@@ -88,7 +89,7 @@ export function BmadCommandsPanel({ theme }: BmadCommandsPanelProps) {
 				setEditingCommand(null);
 			}
 		} catch (error) {
-			console.error('Failed to save prompt:', error);
+			captureException(error, { extra: { context: 'BmadCommandsPanel.handleSaveEdit' } });
 		}
 	};
 
@@ -103,7 +104,7 @@ export function BmadCommandsPanel({ theme }: BmadCommandsPanelProps) {
 				);
 			}
 		} catch (error) {
-			console.error('Failed to reset prompt:', error);
+			captureException(error, { extra: { context: 'BmadCommandsPanel.handleReset' } });
 		}
 	};
 
@@ -119,7 +120,7 @@ export function BmadCommandsPanel({ theme }: BmadCommandsPanelProps) {
 				}
 			}
 		} catch (error) {
-			console.error('Failed to refresh BMAD prompts:', error);
+			captureException(error, { extra: { context: 'BmadCommandsPanel.handleRefresh' } });
 		} finally {
 			setIsRefreshing(false);
 		}
@@ -326,7 +327,7 @@ export function BmadCommandsPanel({ theme }: BmadCommandsPanelProps) {
 											<span
 												className="px-1.5 py-0.5 rounded text-[10px] font-medium"
 												style={{
-													backgroundColor: theme.colors.warning + '20',
+													backgroundColor: `color-mix(in srgb, ${theme.colors.warning} 12.5%, transparent)`,
 													color: theme.colors.warning,
 												}}
 											>
