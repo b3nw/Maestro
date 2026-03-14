@@ -87,7 +87,7 @@ Changes in this point release include:
 
 - Desktop app performance improvements (more to come on this, we want Maestro blazing fast) 🐌
 - Added local manifest feature for custom playbooks 📖
-- Agents are now inherently aware of your activity history as seen in the history panel 📜 (this is built-in cross context memory!)
+- Agents are now inherently aware of your activity history as seen in the history panel 📜 (this is built-in cross-context memory!)
 - Added markdown rendering support for AI responses in mobile view 📱
 - Bugfix in tracking costs from JSONL files that were aged out 🏦
 - Added BlueSky social media handle for leaderboard 🦋
@@ -173,11 +173,11 @@ The big changes in the v0.12.x line are the following three:
 
 ## GitHub Spec-Kit Integration
 
-🎯 Added [GitHub Spec-Kit](https://github.com/github/spec-kit) commands into Maestro with a built in updater to grab the latest prompts from the repository. We do override `/speckit-implement` (the final step) to create Auto Run docs and guide the user through their execution, which thanks to Wortrees from v0.11.x allows us to run in parallel!
+🎯 Added [GitHub Spec-Kit](https://github.com/github/spec-kit) commands into Maestro with a built-in updater to grab the latest prompts from the repository. We do override `/speckit-implement` (the final step) to create Auto Run docs and guide the user through their execution, which thanks to Worktrees from v0.11.x allows us to run in parallel!
 
 ## Context Management Tools
 
-📖 Added context management options from tab right-click menu. You can now compress, merge, and transfer contexts between agents. You will received (configurable) warnings at 60% and 80% context consumption with a hint to compact.
+📖 Added context management options from tab right-click menu. You can now compress, merge, and transfer contexts between agents. You will receive (configurable) warnings at 60% and 80% context consumption with a hint to compact.
 
 ## Changes Specific to v0.12.3:
 
