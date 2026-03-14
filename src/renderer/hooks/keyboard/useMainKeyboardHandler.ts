@@ -614,8 +614,9 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 						showThinking: ctx.defaultShowThinking,
 					});
 					if (result) {
+						const newSession = { ...result.session, inputMode: 'ai' as const };
 						ctx.setSessions((prev: Session[]) =>
-							prev.map((s: Session) => (s.id === ctx.activeSession!.id ? result.session : s))
+							prev.map((s: Session) => (s.id === ctx.activeSession!.id ? newSession : s))
 						);
 						// Auto-focus the input so user can start typing immediately
 						ctx.setActiveFocus('main');

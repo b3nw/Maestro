@@ -231,12 +231,13 @@ export function validateCueConfig(config: unknown): { valid: boolean; errors: st
 				continue;
 			}
 
-			if (!sub.name || typeof sub.name !== 'string' || !String(sub.name).trim()) {
+			const normalized = sub.name && typeof sub.name === 'string' ? String(sub.name).trim() : '';
+			if (!normalized) {
 				errors.push(`${prefix}: "name" is required and must be a non-empty string`);
-			} else if (seenNames.has(sub.name as string)) {
-				errors.push(`${prefix}: duplicate subscription name "${sub.name}"`);
+			} else if (seenNames.has(normalized)) {
+				errors.push(`${prefix}: duplicate subscription name "${normalized}"`);
 			} else {
-				seenNames.add(sub.name as string);
+				seenNames.add(normalized);
 			}
 
 			if (!sub.event || typeof sub.event !== 'string') {

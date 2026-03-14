@@ -1133,6 +1133,19 @@ subscriptions:
 			);
 			expect(nameErrors).toHaveLength(0);
 		});
+
+		it('detects duplicates after trimming whitespace', () => {
+			const result = validateCueConfig({
+				subscriptions: [
+					{ name: 'watcher', event: 'time.heartbeat', prompt: 'First', interval_minutes: 5 },
+					{ name: '  watcher  ', event: 'file.changed', prompt: 'Second', watch: 'src/**' },
+				],
+			});
+			expect(result.valid).toBe(false);
+			expect(result.errors).toEqual(
+				expect.arrayContaining([expect.stringContaining('duplicate subscription name "watcher"')])
+			);
+		});
 	});
 
 	describe('validateCueConfig — schedule_times range validation', () => {

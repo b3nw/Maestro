@@ -230,6 +230,18 @@ describe('cue-filter', () => {
 				expect(matchesFilter({ size: Infinity }, { size: '>0' })).toBe(false);
 			});
 
+			it('rejects -Infinity payload value with numeric filter', () => {
+				expect(matchesFilter({ size: -Infinity }, { size: '>0' })).toBe(false);
+			});
+
+			it('rejects NaN payload value with numeric filter', () => {
+				expect(matchesFilter({ size: NaN }, { size: '>0' })).toBe(false);
+			});
+
+			it('rejects NaN threshold in filter expression', () => {
+				expect(matchesFilter({ size: 100 }, { size: '>NaN' })).toBe(false);
+			});
+
 			it('rejects empty threshold in filter expression', () => {
 				// filterValue '>=' sliced to '' → Number('') = 0, but should reject
 				expect(matchesFilter({ size: 5 }, { size: '>=' })).toBe(false);
