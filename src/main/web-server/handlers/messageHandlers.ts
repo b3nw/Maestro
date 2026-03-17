@@ -25,12 +25,14 @@
  * - get_auto_run_document: Read content of a specific auto-run document
  * - save_auto_run_document: Write content to a specific auto-run document
  * - stop_auto_run: Stop an active auto-run for a session
+ * - get_settings: Fetch current web settings
+ * - set_setting: Modify a single setting (allowlisted keys only)
  */
 
 import path from 'path';
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
-import type { AutoRunDocument, AutoRunState } from '../types';
+import type { AutoRunDocument, AutoRunState, WebSettings, SettingValue } from '../types';
 
 // Logger context for all message handler logs
 const LOG_CONTEXT = 'WebServer';
@@ -128,6 +130,8 @@ export interface MessageHandlerCallbacks {
 	getAutoRunDocContent: (sessionId: string, filename: string) => Promise<string>;
 	saveAutoRunDoc: (sessionId: string, filename: string, content: string) => Promise<boolean>;
 	stopAutoRun: (sessionId: string) => Promise<boolean>;
+	getSettings: () => WebSettings;
+	setSetting: (key: string, value: SettingValue) => Promise<boolean>;
 }
 
 /**
@@ -260,6 +264,14 @@ export class WebSocketMessageHandler {
 
 			case 'stop_auto_run':
 				this.handleStopAutoRun(client, message);
+				break;
+
+			case 'get_settings':
+				this.handleGetSettings(client, message);
+				break;
+
+			case 'set_setting':
+				this.handleSetSetting(client, message);
 				break;
 
 			default:
@@ -1164,6 +1176,82 @@ export class WebSocketMessageHandler {
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to stop auto-run: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Allowlist of setting keys modifiable from the web interface.
+	 */
+	private static readonly ALLOWED_SETTING_KEYS = new Set([
+		'activeThemeId',
+		'fontSize',
+		'enterToSendAI',
+		'enterToSendTerminal',
+		'defaultSaveToHistory',
+		'defaultShowThinking',
+		'autoScroll',
+		'notificationsEnabled',
+		'audioFeedbackEnabled',
+		'colorBlindMode',
+		'conductorProfile',
+	]);
+
+	/**
+	 * Handle get_settings message - return current settings
+	 */
+	private handleGetSettings(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getSettings) {
+			this.sendError(client, 'Settings not configured');
+			return;
+		}
+
+		const settings = this.callbacks.getSettings();
+		this.send(client, {
+			type: 'settings',
+			settings,
+			requestId: message.requestId,
+		});
+	}
+
+	/**
+	 * Handle set_setting message - modify a single setting
+	 */
+	private handleSetSetting(client: WebClient, message: WebClientMessage): void {
+		const key = message.key as string;
+		const value = message.value as SettingValue;
+
+		if (!key || typeof key !== 'string') {
+			this.sendError(client, 'Missing or invalid setting key');
+			return;
+		}
+
+		if (!WebSocketMessageHandler.ALLOWED_SETTING_KEYS.has(key)) {
+			this.sendError(client, `Setting key '${key}' is not modifiable from the web interface`);
+			return;
+		}
+
+		if (value === undefined) {
+			this.sendError(client, 'Missing setting value');
+			return;
+		}
+
+		if (!this.callbacks.setSetting) {
+			this.sendError(client, 'Setting modification not configured');
+			return;
+		}
+
+		this.callbacks
+			.setSetting(key, value)
+			.then((success) => {
+				this.send(client, {
+					type: 'set_setting_result',
+					success,
+					key,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to set setting: ${error.message}`);
 			});
 	}
 
