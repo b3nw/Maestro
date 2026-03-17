@@ -712,6 +712,7 @@ export function createWebServerFactory(deps: WebServerFactoryDependencies) {
 
 		// Set up callback for web server to modify settings
 		// Uses IPC request-response pattern — forwards to renderer which applies via existing settings infrastructure
+		// After a successful set, re-reads all settings and broadcasts the change to all web clients
 		server.setSetSettingCallback(async (key: string, value: unknown) => {
 			const mainWindow = getMainWindow();
 			if (!mainWindow) {
@@ -727,7 +728,27 @@ export function createWebServerFactory(deps: WebServerFactoryDependencies) {
 					if (resolved) return;
 					resolved = true;
 					clearTimeout(timeoutId);
-					resolve(result ?? false);
+					const success = result ?? false;
+
+					// After successful setting change, broadcast updated settings to all web clients
+					if (success) {
+						const settings = {
+							theme: settingsStore.get('activeThemeId', 'dracula') as string,
+							fontSize: settingsStore.get('fontSize', 14) as number,
+							enterToSendAI: settingsStore.get('enterToSendAI', false) as boolean,
+							enterToSendTerminal: settingsStore.get('enterToSendTerminal', true) as boolean,
+							defaultSaveToHistory: settingsStore.get('defaultSaveToHistory', true) as boolean,
+							defaultShowThinking: settingsStore.get('defaultShowThinking', 'off') as string,
+							autoScroll: settingsStore.get('autoScrollAiMode', false) as boolean,
+							notificationsEnabled: settingsStore.get('osNotificationsEnabled', true) as boolean,
+							audioFeedbackEnabled: settingsStore.get('audioFeedbackEnabled', false) as boolean,
+							colorBlindMode: settingsStore.get('colorBlindMode', 'false') as string,
+							conductorProfile: settingsStore.get('conductorProfile', '') as string,
+						};
+						server.broadcastSettingsChanged(settings);
+					}
+
+					resolve(success);
 				};
 
 				ipcMain.once(responseChannel, handleResponse);

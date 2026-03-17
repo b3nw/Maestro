@@ -517,6 +517,17 @@ export class WebServer {
 			getLiveSessionInfo: (sessionId: string) =>
 				this.liveSessionManager.getLiveSessionInfo(sessionId),
 			isSessionLive: (sessionId: string) => this.liveSessionManager.isSessionLive(sessionId),
+			getAutoRunDocs: async (sessionId: string) =>
+				this.callbackRegistry.getAutoRunDocs(sessionId),
+			getAutoRunDocContent: async (sessionId: string, filename: string) =>
+				this.callbackRegistry.getAutoRunDocContent(sessionId, filename),
+			saveAutoRunDoc: async (sessionId: string, filename: string, content: string) =>
+				this.callbackRegistry.saveAutoRunDoc(sessionId, filename, content),
+			stopAutoRun: async (sessionId: string) =>
+				this.callbackRegistry.stopAutoRun(sessionId),
+			getSettings: () => this.callbackRegistry.getSettings(),
+			setSetting: async (key: string, value: any) =>
+				this.callbackRegistry.setSetting(key, value),
 		});
 	}
 
@@ -574,6 +585,10 @@ export class WebServer {
 
 	broadcastCustomCommands(commands: CustomAICommand[]): void {
 		this.broadcastService.broadcastCustomCommands(commands);
+	}
+
+	broadcastSettingsChanged(settings: WebSettings): void {
+		this.broadcastService.broadcastSettingsChanged(settings);
 	}
 
 	broadcastAutoRunState(sessionId: string, state: AutoRunState | null): void {

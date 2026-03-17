@@ -32,6 +32,7 @@ import type {
 	AutoRunDocument,
 	CliActivity,
 	NotificationEvent,
+	WebSettings,
 } from '../types';
 
 // Re-export types for backwards compatibility
@@ -239,6 +240,18 @@ export class BroadcastService {
 		this.broadcastToAll({
 			type: 'custom_commands',
 			commands,
+			timestamp: Date.now(),
+		});
+	}
+
+	/**
+	 * Broadcast settings change to all connected web clients
+	 * Called when a setting is modified (from web or desktop)
+	 */
+	broadcastSettingsChanged(settings: WebSettings): void {
+		this.broadcastToAll({
+			type: 'settings_changed',
+			settings,
 			timestamp: Date.now(),
 		});
 	}
