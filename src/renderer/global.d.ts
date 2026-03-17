@@ -373,6 +373,10 @@ interface MaestroAPI {
 		) => () => void;
 		sendRemoteSaveAutoRunDocResponse: (responseChannel: string, success: boolean) => void;
 		onRemoteStopAutoRun: (callback: (sessionId: string) => void) => () => void;
+		onRemoteSetSetting: (
+			callback: (key: string, value: unknown, responseChannel: string) => void
+		) => () => void;
+		sendRemoteSetSettingResponse: (responseChannel: string, success: boolean) => void;
 		onStderr: (callback: (sessionId: string, data: string) => void) => () => void;
 		onCommandExit: (callback: (sessionId: string, code: number) => void) => () => void;
 		onUsage: (callback: (sessionId: string, usageStats: UsageStats) => void) => () => void;

@@ -135,6 +135,25 @@ describe('useRemoteIntegration', () => {
 		}),
 		sendRemoteNewTabResponse: vi.fn(),
 		sendRemoteConfigureAutoRunResponse: vi.fn(),
+		onRemoteGetAutoRunDocs: vi.fn().mockImplementation(() => {
+			return () => {};
+		}),
+		onRemoteGetAutoRunDocContent: vi.fn().mockImplementation(() => {
+			return () => {};
+		}),
+		onRemoteSaveAutoRunDoc: vi.fn().mockImplementation(() => {
+			return () => {};
+		}),
+		sendRemoteSaveAutoRunDocResponse: vi.fn(),
+		sendRemoteGetAutoRunDocsResponse: vi.fn(),
+		sendRemoteGetAutoRunDocContentResponse: vi.fn(),
+		onRemoteStopAutoRun: vi.fn().mockImplementation(() => {
+			return () => {};
+		}),
+		onRemoteSetSetting: vi.fn().mockImplementation(() => {
+			return () => {};
+		}),
+		sendRemoteSetSettingResponse: vi.fn(),
 	};
 
 	const mockLive = {

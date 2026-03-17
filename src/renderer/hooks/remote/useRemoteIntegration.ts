@@ -558,6 +558,24 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
 		};
 	}, []);
 
+	// Handle remote set setting from web interface
+	// Uses the existing settings infrastructure via window.maestro.settings.set()
+	useEffect(() => {
+		const unsubscribe = window.maestro.process.onRemoteSetSetting(
+			async (key: string, value: unknown, responseChannel: string) => {
+				try {
+					await window.maestro.settings.set(key, value);
+					window.maestro.process.sendRemoteSetSettingResponse(responseChannel, true);
+				} catch {
+					window.maestro.process.sendRemoteSetSettingResponse(responseChannel, false);
+				}
+			}
+		);
+		return () => {
+			unsubscribe();
+		};
+	}, []);
+
 	// Broadcast tab changes to web clients when tabs, activeTabId, or tab properties change
 	// PERFORMANCE FIX: This effect was previously missing its dependency array, causing it to
 	// run on EVERY render (including every keystroke). Now it only runs when isLiveMode changes,

@@ -51,7 +51,6 @@ import type {
 	WebClient,
 	WebClientMessage,
 	WebSettings,
-	SettingValue,
 	GetSessionsCallback,
 	GetSessionDetailCallback,
 	WriteToSessionCallback,
