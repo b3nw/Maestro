@@ -122,6 +122,7 @@ export type ServerMessageType =
 	| 'theme'
 	| 'custom_commands'
 	| 'autorun_state'
+	| 'autorun_docs_changed'
 	| 'tabs_changed'
 	| 'pong'
 	| 'subscribed'
@@ -287,6 +288,21 @@ export interface AutoRunStateMessage extends ServerMessage {
 }
 
 /**
+ * AutoRun documents changed message from server
+ * Sent when Auto Run document list changes on the desktop
+ */
+export interface AutoRunDocsChangedMessage extends ServerMessage {
+	type: 'autorun_docs_changed';
+	sessionId: string;
+	documents: Array<{
+		filename: string;
+		path: string;
+		taskCount: number;
+		completedCount: number;
+	}>;
+}
+
+/**
  * Tabs changed message from server
  * Sent when tabs are added, removed, or active tab changes in a session
  */
@@ -324,6 +340,7 @@ export type TypedServerMessage =
 	| ThemeMessage
 	| CustomCommandsMessage
 	| AutoRunStateMessage
+	| AutoRunDocsChangedMessage
 	| TabsChangedMessage
 	| ErrorMessage
 	| ServerMessage;
@@ -363,6 +380,8 @@ export interface WebSocketEventHandlers {
 	onCustomCommands?: (commands: CustomCommand[]) => void;
 	/** Called when AutoRun state changes (batch processing on desktop) */
 	onAutoRunStateChange?: (sessionId: string, state: AutoRunState | null) => void;
+	/** Called when AutoRun document list changes */
+	onAutoRunDocsChanged?: (sessionId: string, documents: AutoRunDocsChangedMessage['documents']) => void;
 	/** Called when tabs change in a session */
 	onTabsChanged?: (sessionId: string, aiTabs: AITabData[], activeTabId: string) => void;
 	/** Called when connection state changes */
@@ -713,6 +732,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 							'WebSocket'
 						);
 						handlersRef.current?.onAutoRunStateChange?.(autoRunMsg.sessionId, autoRunMsg.state);
+						break;
+					}
+
+					case 'autorun_docs_changed': {
+						const docsMsg = message as AutoRunDocsChangedMessage;
+						handlersRef.current?.onAutoRunDocsChanged?.(docsMsg.sessionId, docsMsg.documents);
 						break;
 					}
 
