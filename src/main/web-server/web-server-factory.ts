@@ -770,6 +770,248 @@ export function createWebServerFactory(deps: WebServerFactoryDependencies) {
 			});
 		});
 
+		// Set up callback for web server to read groups
+		// Direct read from groupsStore, derive sessionIds from sessions
+		server.setGetGroupsCallback(() => {
+			const groups = groupsStore.get<Group[]>('groups', []);
+			const sessions = sessionsStore.get<StoredSession[]>('sessions', []);
+			return groups.map((g) => ({
+				id: g.id,
+				name: g.name,
+				emoji: g.emoji || null,
+				sessionIds: sessions.filter((s) => s.groupId === g.id).map((s) => s.id),
+			}));
+		});
+
+		// Set up callback for web server to create a session
+		// Uses IPC request-response pattern — renderer creates the session and responds with sessionId
+		server.setCreateSessionCallback(async (name: string, toolType: string, cwd: string, groupId?: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for createSession', 'WebServer');
+				return null;
+			}
+
+			return new Promise((resolve) => {
+				const responseChannel = `remote:createSession:response:${randomUUID()}`;
+				let resolved = false;
+
+				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
+					if (resolved) return;
+					resolved = true;
+					clearTimeout(timeoutId);
+					resolve(result || null);
+				};
+
+				ipcMain.once(responseChannel, handleResponse);
+				if (!isWebContentsAvailable(mainWindow)) {
+					logger.warn('webContents is not available for createSession', 'WebServer');
+					ipcMain.removeListener(responseChannel, handleResponse);
+					resolve(null);
+					return;
+				}
+				mainWindow.webContents.send('remote:createSession', name, toolType, cwd, groupId, responseChannel);
+
+				const timeoutId = setTimeout(() => {
+					if (resolved) return;
+					resolved = true;
+					ipcMain.removeListener(responseChannel, handleResponse);
+					logger.warn(`createSession callback timed out`, 'WebServer');
+					resolve(null);
+				}, 10000);
+			});
+		});
+
+		// Set up callback for web server to delete a session
+		// Fire-and-forget pattern
+		server.setDeleteSessionCallback(async (sessionId: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for deleteSession', 'WebServer');
+				return false;
+			}
+
+			if (!isWebContentsAvailable(mainWindow)) {
+				logger.warn('webContents is not available for deleteSession', 'WebServer');
+				return false;
+			}
+			mainWindow.webContents.send('remote:deleteSession', sessionId);
+			return true;
+		});
+
+		// Set up callback for web server to rename a session
+		// Uses IPC request-response pattern
+		server.setRenameSessionCallback(async (sessionId: string, newName: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for renameSession', 'WebServer');
+				return false;
+			}
+
+			return new Promise((resolve) => {
+				const responseChannel = `remote:renameSession:response:${randomUUID()}`;
+				let resolved = false;
+
+				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
+					if (resolved) return;
+					resolved = true;
+					clearTimeout(timeoutId);
+					resolve(result ?? false);
+				};
+
+				ipcMain.once(responseChannel, handleResponse);
+				if (!isWebContentsAvailable(mainWindow)) {
+					logger.warn('webContents is not available for renameSession', 'WebServer');
+					ipcMain.removeListener(responseChannel, handleResponse);
+					resolve(false);
+					return;
+				}
+				mainWindow.webContents.send('remote:renameSession', sessionId, newName, responseChannel);
+
+				const timeoutId = setTimeout(() => {
+					if (resolved) return;
+					resolved = true;
+					ipcMain.removeListener(responseChannel, handleResponse);
+					logger.warn(`renameSession callback timed out for session ${sessionId}`, 'WebServer');
+					resolve(false);
+				}, 5000);
+			});
+		});
+
+		// Set up callback for web server to create a group
+		// Uses IPC request-response pattern
+		server.setCreateGroupCallback(async (name: string, emoji?: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for createGroup', 'WebServer');
+				return null;
+			}
+
+			return new Promise((resolve) => {
+				const responseChannel = `remote:createGroup:response:${randomUUID()}`;
+				let resolved = false;
+
+				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
+					if (resolved) return;
+					resolved = true;
+					clearTimeout(timeoutId);
+					resolve(result || null);
+				};
+
+				ipcMain.once(responseChannel, handleResponse);
+				if (!isWebContentsAvailable(mainWindow)) {
+					logger.warn('webContents is not available for createGroup', 'WebServer');
+					ipcMain.removeListener(responseChannel, handleResponse);
+					resolve(null);
+					return;
+				}
+				mainWindow.webContents.send('remote:createGroup', name, emoji, responseChannel);
+
+				const timeoutId = setTimeout(() => {
+					if (resolved) return;
+					resolved = true;
+					ipcMain.removeListener(responseChannel, handleResponse);
+					logger.warn(`createGroup callback timed out`, 'WebServer');
+					resolve(null);
+				}, 5000);
+			});
+		});
+
+		// Set up callback for web server to rename a group
+		// Uses IPC request-response pattern
+		server.setRenameGroupCallback(async (groupId: string, name: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for renameGroup', 'WebServer');
+				return false;
+			}
+
+			return new Promise((resolve) => {
+				const responseChannel = `remote:renameGroup:response:${randomUUID()}`;
+				let resolved = false;
+
+				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
+					if (resolved) return;
+					resolved = true;
+					clearTimeout(timeoutId);
+					resolve(result ?? false);
+				};
+
+				ipcMain.once(responseChannel, handleResponse);
+				if (!isWebContentsAvailable(mainWindow)) {
+					logger.warn('webContents is not available for renameGroup', 'WebServer');
+					ipcMain.removeListener(responseChannel, handleResponse);
+					resolve(false);
+					return;
+				}
+				mainWindow.webContents.send('remote:renameGroup', groupId, name, responseChannel);
+
+				const timeoutId = setTimeout(() => {
+					if (resolved) return;
+					resolved = true;
+					ipcMain.removeListener(responseChannel, handleResponse);
+					logger.warn(`renameGroup callback timed out for group ${groupId}`, 'WebServer');
+					resolve(false);
+				}, 5000);
+			});
+		});
+
+		// Set up callback for web server to delete a group
+		// Fire-and-forget pattern
+		server.setDeleteGroupCallback(async (groupId: string) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for deleteGroup', 'WebServer');
+				return false;
+			}
+
+			if (!isWebContentsAvailable(mainWindow)) {
+				logger.warn('webContents is not available for deleteGroup', 'WebServer');
+				return false;
+			}
+			mainWindow.webContents.send('remote:deleteGroup', groupId);
+			return true;
+		});
+
+		// Set up callback for web server to move a session to a group
+		// Uses IPC request-response pattern
+		server.setMoveSessionToGroupCallback(async (sessionId: string, groupId: string | null) => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) {
+				logger.warn('mainWindow is null for moveSessionToGroup', 'WebServer');
+				return false;
+			}
+
+			return new Promise((resolve) => {
+				const responseChannel = `remote:moveSessionToGroup:response:${randomUUID()}`;
+				let resolved = false;
+
+				const handleResponse = (_event: Electron.IpcMainEvent, result: any) => {
+					if (resolved) return;
+					resolved = true;
+					clearTimeout(timeoutId);
+					resolve(result ?? false);
+				};
+
+				ipcMain.once(responseChannel, handleResponse);
+				if (!isWebContentsAvailable(mainWindow)) {
+					logger.warn('webContents is not available for moveSessionToGroup', 'WebServer');
+					ipcMain.removeListener(responseChannel, handleResponse);
+					resolve(false);
+					return;
+				}
+				mainWindow.webContents.send('remote:moveSessionToGroup', sessionId, groupId, responseChannel);
+
+				const timeoutId = setTimeout(() => {
+					if (resolved) return;
+					resolved = true;
+					ipcMain.removeListener(responseChannel, handleResponse);
+					logger.warn(`moveSessionToGroup callback timed out for session ${sessionId}`, 'WebServer');
+					resolve(false);
+				}, 5000);
+			});
+		});
+
 		// Set up callback for web server to stop Auto Run
 		// Fire-and-forget pattern (like interrupt)
 		server.setStopAutoRunCallback(async (sessionId: string) => {

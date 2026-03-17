@@ -33,6 +33,7 @@ import type {
 	CliActivity,
 	NotificationEvent,
 	WebSettings,
+	GroupData,
 } from '../types';
 
 // Re-export types for backwards compatibility
@@ -252,6 +253,18 @@ export class BroadcastService {
 		this.broadcastToAll({
 			type: 'settings_changed',
 			settings,
+			timestamp: Date.now(),
+		});
+	}
+
+	/**
+	 * Broadcast groups change to all connected web clients
+	 * Called when groups are created, renamed, deleted, or sessions are moved
+	 */
+	broadcastGroupsChanged(groups: GroupData[]): void {
+		this.broadcastToAll({
+			type: 'groups_changed',
+			groups,
 			timestamp: Date.now(),
 		});
 	}

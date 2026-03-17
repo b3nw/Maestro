@@ -34,8 +34,17 @@ import type {
 	StopAutoRunCallback,
 	GetSettingsCallback,
 	SetSettingCallback,
+	GetGroupsCallback,
+	CreateGroupCallback,
+	RenameGroupCallback,
+	DeleteGroupCallback,
+	MoveSessionToGroupCallback,
+	CreateSessionCallback,
+	DeleteSessionCallback,
+	RenameSessionCallback,
 	WebSettings,
 	SettingValue,
+	GroupData,
 } from '../types';
 
 const LOG_CONTEXT = 'CallbackRegistry';
@@ -71,6 +80,14 @@ export interface WebServerCallbacks {
 	stopAutoRun: StopAutoRunCallback | null;
 	getSettings: GetSettingsCallback | null;
 	setSetting: SetSettingCallback | null;
+	getGroups: GetGroupsCallback | null;
+	createGroup: CreateGroupCallback | null;
+	renameGroup: RenameGroupCallback | null;
+	deleteGroup: DeleteGroupCallback | null;
+	moveSessionToGroup: MoveSessionToGroupCallback | null;
+	createSession: CreateSessionCallback | null;
+	deleteSession: DeleteSessionCallback | null;
+	renameSession: RenameSessionCallback | null;
 }
 
 export class CallbackRegistry {
@@ -102,6 +119,14 @@ export class CallbackRegistry {
 		stopAutoRun: null,
 		getSettings: null,
 		setSetting: null,
+		getGroups: null,
+		createGroup: null,
+		renameGroup: null,
+		deleteGroup: null,
+		moveSessionToGroup: null,
+		createSession: null,
+		deleteSession: null,
+		renameSession: null,
 	};
 
 	// ============ Getter Methods ============
@@ -262,6 +287,45 @@ export class CallbackRegistry {
 		return this.callbacks.setSetting(key, value);
 	}
 
+	getGroups(): GroupData[] {
+		return this.callbacks.getGroups?.() ?? [];
+	}
+
+	async createGroup(name: string, emoji?: string): Promise<{ id: string } | null> {
+		if (!this.callbacks.createGroup) return null;
+		return this.callbacks.createGroup(name, emoji);
+	}
+
+	async renameGroup(groupId: string, name: string): Promise<boolean> {
+		if (!this.callbacks.renameGroup) return false;
+		return this.callbacks.renameGroup(groupId, name);
+	}
+
+	async deleteGroup(groupId: string): Promise<boolean> {
+		if (!this.callbacks.deleteGroup) return false;
+		return this.callbacks.deleteGroup(groupId);
+	}
+
+	async moveSessionToGroup(sessionId: string, groupId: string | null): Promise<boolean> {
+		if (!this.callbacks.moveSessionToGroup) return false;
+		return this.callbacks.moveSessionToGroup(sessionId, groupId);
+	}
+
+	async createSession(name: string, toolType: string, cwd: string, groupId?: string): Promise<{ sessionId: string } | null> {
+		if (!this.callbacks.createSession) return null;
+		return this.callbacks.createSession(name, toolType, cwd, groupId);
+	}
+
+	async deleteSession(sessionId: string): Promise<boolean> {
+		if (!this.callbacks.deleteSession) return false;
+		return this.callbacks.deleteSession(sessionId);
+	}
+
+	async renameSession(sessionId: string, newName: string): Promise<boolean> {
+		if (!this.callbacks.renameSession) return false;
+		return this.callbacks.renameSession(sessionId, newName);
+	}
+
 	// ============ Setter Methods ============
 
 	setGetSessionsCallback(callback: GetSessionsCallback): void {
@@ -376,6 +440,38 @@ export class CallbackRegistry {
 
 	setSetSettingCallback(callback: SetSettingCallback): void {
 		this.callbacks.setSetting = callback;
+	}
+
+	setGetGroupsCallback(callback: GetGroupsCallback): void {
+		this.callbacks.getGroups = callback;
+	}
+
+	setCreateGroupCallback(callback: CreateGroupCallback): void {
+		this.callbacks.createGroup = callback;
+	}
+
+	setRenameGroupCallback(callback: RenameGroupCallback): void {
+		this.callbacks.renameGroup = callback;
+	}
+
+	setDeleteGroupCallback(callback: DeleteGroupCallback): void {
+		this.callbacks.deleteGroup = callback;
+	}
+
+	setMoveSessionToGroupCallback(callback: MoveSessionToGroupCallback): void {
+		this.callbacks.moveSessionToGroup = callback;
+	}
+
+	setCreateSessionCallback(callback: CreateSessionCallback): void {
+		this.callbacks.createSession = callback;
+	}
+
+	setDeleteSessionCallback(callback: DeleteSessionCallback): void {
+		this.callbacks.deleteSession = callback;
+	}
+
+	setRenameSessionCallback(callback: RenameSessionCallback): void {
+		this.callbacks.renameSession = callback;
 	}
 
 	// ============ Check Methods ============

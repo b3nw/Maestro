@@ -32,7 +32,7 @@
 import path from 'path';
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
-import type { AutoRunDocument, AutoRunState, WebSettings, SettingValue } from '../types';
+import type { AutoRunDocument, AutoRunState, WebSettings, SettingValue, GroupData } from '../types';
 
 // Logger context for all message handler logs
 const LOG_CONTEXT = 'WebServer';
@@ -132,6 +132,14 @@ export interface MessageHandlerCallbacks {
 	stopAutoRun: (sessionId: string) => Promise<boolean>;
 	getSettings: () => WebSettings;
 	setSetting: (key: string, value: SettingValue) => Promise<boolean>;
+	getGroups: () => GroupData[];
+	createGroup: (name: string, emoji?: string) => Promise<{ id: string } | null>;
+	renameGroup: (groupId: string, name: string) => Promise<boolean>;
+	deleteGroup: (groupId: string) => Promise<boolean>;
+	moveSessionToGroup: (sessionId: string, groupId: string | null) => Promise<boolean>;
+	createSession: (name: string, toolType: string, cwd: string, groupId?: string) => Promise<{ sessionId: string } | null>;
+	deleteSession: (sessionId: string) => Promise<boolean>;
+	renameSession: (sessionId: string, newName: string) => Promise<boolean>;
 }
 
 /**
@@ -272,6 +280,38 @@ export class WebSocketMessageHandler {
 
 			case 'set_setting':
 				this.handleSetSetting(client, message);
+				break;
+
+			case 'create_session':
+				this.handleCreateSession(client, message);
+				break;
+
+			case 'delete_session':
+				this.handleDeleteSession(client, message);
+				break;
+
+			case 'rename_session':
+				this.handleRenameSession(client, message);
+				break;
+
+			case 'get_groups':
+				this.handleGetGroups(client, message);
+				break;
+
+			case 'create_group':
+				this.handleCreateGroup(client, message);
+				break;
+
+			case 'rename_group':
+				this.handleRenameGroup(client, message);
+				break;
+
+			case 'delete_group':
+				this.handleDeleteGroup(client, message);
+				break;
+
+			case 'move_session_to_group':
+				this.handleMoveSessionToGroup(client, message);
 				break;
 
 			default:
@@ -1252,6 +1292,290 @@ export class WebSocketMessageHandler {
 			})
 			.catch((error) => {
 				this.sendError(client, `Failed to set setting: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Known agent types for validation
+	 */
+	private static readonly VALID_AGENT_TYPES = new Set([
+		'claude-code',
+		'codex',
+		'opencode',
+		'factory-droid',
+	]);
+
+	/**
+	 * Handle create_session message - create a new agent session
+	 */
+	private handleCreateSession(client: WebClient, message: WebClientMessage): void {
+		const name = message.name as string;
+		const toolType = message.toolType as string;
+		const cwd = message.cwd as string;
+		const groupId = message.groupId as string | undefined;
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid name');
+			return;
+		}
+
+		if (!toolType || !WebSocketMessageHandler.VALID_AGENT_TYPES.has(toolType)) {
+			this.sendError(client, `Invalid toolType. Must be one of: ${[...WebSocketMessageHandler.VALID_AGENT_TYPES].join(', ')}`);
+			return;
+		}
+
+		if (!cwd || typeof cwd !== 'string') {
+			this.sendError(client, 'Missing or invalid cwd');
+			return;
+		}
+
+		if (!this.callbacks.createSession) {
+			this.sendError(client, 'Session creation not configured');
+			return;
+		}
+
+		this.callbacks
+			.createSession(name, toolType, cwd, groupId)
+			.then((result) => {
+				this.send(client, {
+					type: 'create_session_result',
+					success: !!result,
+					sessionId: result?.sessionId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to create session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle delete_session message - delete an agent session
+	 */
+	private handleDeleteSession(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.deleteSession) {
+			this.sendError(client, 'Session deletion not configured');
+			return;
+		}
+
+		this.callbacks
+			.deleteSession(sessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'delete_session_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to delete session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle rename_session message - rename an agent session
+	 */
+	private handleRenameSession(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const newName = message.newName as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!newName || typeof newName !== 'string' || newName.length === 0) {
+			this.sendError(client, 'Missing or empty newName');
+			return;
+		}
+
+		if (newName.length > 100) {
+			this.sendError(client, 'newName must be 100 characters or less');
+			return;
+		}
+
+		if (!this.callbacks.renameSession) {
+			this.sendError(client, 'Session renaming not configured');
+			return;
+		}
+
+		this.callbacks
+			.renameSession(sessionId, newName)
+			.then((success) => {
+				this.send(client, {
+					type: 'rename_session_result',
+					success,
+					sessionId,
+					newName,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to rename session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_groups message - return list of groups
+	 */
+	private handleGetGroups(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getGroups) {
+			this.sendError(client, 'Groups not configured');
+			return;
+		}
+
+		const groups = this.callbacks.getGroups();
+		this.send(client, {
+			type: 'groups_list',
+			groups,
+			requestId: message.requestId,
+		});
+	}
+
+	/**
+	 * Handle create_group message - create a new group
+	 */
+	private handleCreateGroup(client: WebClient, message: WebClientMessage): void {
+		const name = message.name as string;
+		const emoji = message.emoji as string | undefined;
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid group name');
+			return;
+		}
+
+		if (!this.callbacks.createGroup) {
+			this.sendError(client, 'Group creation not configured');
+			return;
+		}
+
+		this.callbacks
+			.createGroup(name, emoji)
+			.then((result) => {
+				this.send(client, {
+					type: 'create_group_result',
+					success: !!result,
+					groupId: result?.id,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to create group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle rename_group message - rename a group
+	 */
+	private handleRenameGroup(client: WebClient, message: WebClientMessage): void {
+		const groupId = message.groupId as string;
+		const name = message.name as string;
+
+		if (!groupId) {
+			this.sendError(client, 'Missing groupId');
+			return;
+		}
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid group name');
+			return;
+		}
+
+		if (!this.callbacks.renameGroup) {
+			this.sendError(client, 'Group renaming not configured');
+			return;
+		}
+
+		this.callbacks
+			.renameGroup(groupId, name)
+			.then((success) => {
+				this.send(client, {
+					type: 'rename_group_result',
+					success,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to rename group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle delete_group message - delete a group
+	 */
+	private handleDeleteGroup(client: WebClient, message: WebClientMessage): void {
+		const groupId = message.groupId as string;
+
+		if (!groupId) {
+			this.sendError(client, 'Missing groupId');
+			return;
+		}
+
+		if (!this.callbacks.deleteGroup) {
+			this.sendError(client, 'Group deletion not configured');
+			return;
+		}
+
+		this.callbacks
+			.deleteGroup(groupId)
+			.then((success) => {
+				this.send(client, {
+					type: 'delete_group_result',
+					success,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to delete group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle move_session_to_group message - move a session to a group (or ungrouped)
+	 */
+	private handleMoveSessionToGroup(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const groupId = message.groupId as string | null;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		// groupId can be null (for ungrouped), but must be present in message
+		if (!('groupId' in message)) {
+			this.sendError(client, 'Missing groupId (use null for ungrouped)');
+			return;
+		}
+
+		if (!this.callbacks.moveSessionToGroup) {
+			this.sendError(client, 'Move to group not configured');
+			return;
+		}
+
+		this.callbacks
+			.moveSessionToGroup(sessionId, groupId)
+			.then((success) => {
+				this.send(client, {
+					type: 'move_session_to_group_result',
+					success,
+					sessionId,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to move session to group: ${error.message}`);
 			});
 	}
 

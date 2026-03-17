@@ -78,6 +78,15 @@ import type {
 	StopAutoRunCallback,
 	GetSettingsCallback,
 	SetSettingCallback,
+	GetGroupsCallback,
+	CreateGroupCallback,
+	RenameGroupCallback,
+	DeleteGroupCallback,
+	MoveSessionToGroupCallback,
+	CreateSessionCallback,
+	DeleteSessionCallback,
+	RenameSessionCallback,
+	GroupData,
 } from './types';
 
 // Logger context for all web server logs
@@ -358,6 +367,42 @@ export class WebServer {
 		this.callbackRegistry.setSetSettingCallback(callback);
 	}
 
+	setGetGroupsCallback(callback: GetGroupsCallback): void {
+		this.callbackRegistry.setGetGroupsCallback(callback);
+	}
+
+	setCreateGroupCallback(callback: CreateGroupCallback): void {
+		this.callbackRegistry.setCreateGroupCallback(callback);
+	}
+
+	setRenameGroupCallback(callback: RenameGroupCallback): void {
+		this.callbackRegistry.setRenameGroupCallback(callback);
+	}
+
+	setDeleteGroupCallback(callback: DeleteGroupCallback): void {
+		this.callbackRegistry.setDeleteGroupCallback(callback);
+	}
+
+	setMoveSessionToGroupCallback(callback: MoveSessionToGroupCallback): void {
+		this.callbackRegistry.setMoveSessionToGroupCallback(callback);
+	}
+
+	setCreateSessionCallback(callback: CreateSessionCallback): void {
+		this.callbackRegistry.setCreateSessionCallback(callback);
+	}
+
+	setDeleteSessionCallback(callback: DeleteSessionCallback): void {
+		this.callbackRegistry.setDeleteSessionCallback(callback);
+	}
+
+	setRenameSessionCallback(callback: RenameSessionCallback): void {
+		this.callbackRegistry.setRenameSessionCallback(callback);
+	}
+
+	broadcastGroupsChanged(groups: GroupData[]): void {
+		this.broadcastService.broadcastGroupsChanged(groups);
+	}
+
 	// ============ Rate Limiting ============
 
 	setRateLimitConfig(config: Partial<RateLimitConfig>): void {
@@ -527,6 +572,21 @@ export class WebServer {
 			getSettings: () => this.callbackRegistry.getSettings(),
 			setSetting: async (key: string, value: any) =>
 				this.callbackRegistry.setSetting(key, value),
+			getGroups: () => this.callbackRegistry.getGroups(),
+			createGroup: async (name: string, emoji?: string) =>
+				this.callbackRegistry.createGroup(name, emoji),
+			renameGroup: async (groupId: string, name: string) =>
+				this.callbackRegistry.renameGroup(groupId, name),
+			deleteGroup: async (groupId: string) =>
+				this.callbackRegistry.deleteGroup(groupId),
+			moveSessionToGroup: async (sessionId: string, groupId: string | null) =>
+				this.callbackRegistry.moveSessionToGroup(sessionId, groupId),
+			createSession: async (name: string, toolType: string, cwd: string, groupId?: string) =>
+				this.callbackRegistry.createSession(name, toolType, cwd, groupId),
+			deleteSession: async (sessionId: string) =>
+				this.callbackRegistry.deleteSession(sessionId),
+			renameSession: async (sessionId: string, newName: string) =>
+				this.callbackRegistry.renameSession(sessionId, newName),
 		});
 	}
 
