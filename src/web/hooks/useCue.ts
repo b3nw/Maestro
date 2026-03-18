@@ -7,9 +7,33 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { UseWebSocketReturn } from './useWebSocket';
-import type { CueSubscriptionInfo, CueActivityEntry } from '../../main/web-server/types';
 
-export type { CueSubscriptionInfo, CueActivityEntry };
+/** Web-specific Cue subscription metadata (simplified from engine types) */
+export interface CueSubscriptionInfo {
+	id: string;
+	name: string;
+	eventType: string;
+	pattern?: string;
+	schedule?: string;
+	sessionId: string;
+	sessionName: string;
+	enabled: boolean;
+	lastTriggered?: number;
+	triggerCount: number;
+}
+
+/** Web-specific Cue activity log entry (simplified from engine types) */
+export interface CueActivityEntry {
+	id: string;
+	subscriptionId: string;
+	subscriptionName: string;
+	eventType: string;
+	sessionId: string;
+	timestamp: number;
+	status: 'triggered' | 'running' | 'completed' | 'failed';
+	result?: string;
+	duration?: number;
+}
 
 /**
  * Return value from useCue hook.

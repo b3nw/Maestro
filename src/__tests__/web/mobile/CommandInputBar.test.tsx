@@ -91,23 +91,9 @@ vi.mock('../../../web/mobile/SlashCommandAutocomplete', () => ({
 	],
 }));
 
-vi.mock('../../../web/mobile/QuickActionsMenu', () => ({
-	QuickActionsMenu: vi.fn(
-		({ isOpen, onClose, onSelectAction, inputMode, anchorPosition, hasActiveSession }) =>
-			isOpen ? (
-				<div data-testid="quick-actions-menu">
-					<span data-testid="qa-mode">{inputMode}</span>
-					<span data-testid="qa-has-session">{String(hasActiveSession)}</span>
-					<button data-testid="qa-switch-mode" onClick={() => onSelectAction('switch_mode')}>
-						Switch Mode
-					</button>
-					<button data-testid="qa-close" onClick={onClose}>
-						Close
-					</button>
-				</div>
-			) : null
-	),
-}));
+// Note: QuickActionsMenu is no longer rendered inside CommandInputBar.
+// Long-press on the send button now calls the onOpenCommandPalette prop directly,
+// and the App-level component is responsible for showing QuickActionsMenu.
 
 vi.mock('../../../web/utils/logger', () => ({
 	webLogger: {
@@ -671,8 +657,9 @@ describe('CommandInputBar', () => {
 			expect(screen.queryByTestId('quick-actions-menu')).not.toBeInTheDocument();
 		});
 
-		it('shows quick actions menu on long-press of send button', async () => {
-			renderComponent({ value: 'test' });
+		it('calls onOpenCommandPalette on long-press of send button', async () => {
+			const onOpenCommandPalette = vi.fn();
+			renderComponent({ value: 'test', onOpenCommandPalette });
 
 			const sendButton = screen.getByRole('button', { name: /send/i });
 
@@ -686,7 +673,7 @@ describe('CommandInputBar', () => {
 				await vi.advanceTimersByTimeAsync(600);
 			});
 
-			expect(screen.getByTestId('quick-actions-menu')).toBeInTheDocument();
+			expect(onOpenCommandPalette).toHaveBeenCalledTimes(1);
 		});
 
 		it('cancels long-press if touch ends before duration', () => {
@@ -735,9 +722,9 @@ describe('CommandInputBar', () => {
 			vi.useFakeTimers({ shouldAdvanceTime: true });
 		});
 
-		it('handles switch_mode action from quick actions', async () => {
-			const onModeToggle = vi.fn();
-			renderComponent({ value: 'test', inputMode: 'ai', onModeToggle });
+		it('does not call onOpenCommandPalette if touch ends before long-press duration', async () => {
+			const onOpenCommandPalette = vi.fn();
+			renderComponent({ value: 'test', inputMode: 'ai', onOpenCommandPalette });
 
 			const sendButton = screen.getByRole('button', { name: /send/i });
 
@@ -745,18 +732,19 @@ describe('CommandInputBar', () => {
 				touches: [{ clientX: 100, clientY: 100 }],
 			});
 
+			// End touch before 500ms
+			fireEvent.touchEnd(sendButton);
+
 			await act(async () => {
 				await vi.advanceTimersByTimeAsync(600);
 			});
 
-			const switchModeButton = screen.getByTestId('qa-switch-mode');
-			fireEvent.click(switchModeButton);
-
-			expect(onModeToggle).toHaveBeenCalledWith('terminal');
+			expect(onOpenCommandPalette).not.toHaveBeenCalled();
 		});
 
-		it('closes quick actions menu on close button', async () => {
-			renderComponent({ value: 'test' });
+		it('does not call onOpenCommandPalette if touch moves before long-press duration', async () => {
+			const onOpenCommandPalette = vi.fn();
+			renderComponent({ value: 'test', onOpenCommandPalette });
 
 			const sendButton = screen.getByRole('button', { name: /send/i });
 
@@ -764,14 +752,16 @@ describe('CommandInputBar', () => {
 				touches: [{ clientX: 100, clientY: 100 }],
 			});
 
+			// Move touch - should cancel the timer
+			fireEvent.touchMove(sendButton, {
+				touches: [{ clientX: 150, clientY: 150 }],
+			});
+
 			await act(async () => {
 				await vi.advanceTimersByTimeAsync(600);
 			});
 
-			const closeButton = screen.getByTestId('qa-close');
-			fireEvent.click(closeButton);
-
-			expect(screen.queryByTestId('quick-actions-menu')).not.toBeInTheDocument();
+			expect(onOpenCommandPalette).not.toHaveBeenCalled();
 		});
 	});
 
