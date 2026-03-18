@@ -13,6 +13,8 @@ import {
 	type AutoRunState,
 	type AITabData,
 	type GroupData,
+	type GroupChatMessage,
+	type GroupChatState,
 } from '../hooks/useWebSocket';
 // Command history is no longer used in the mobile UI
 import { useNotifications } from '../hooks/useNotifications';
@@ -45,6 +47,9 @@ import { AutoRunSetupSheet } from './AutoRunSetupSheet';
 import { NotificationSettingsSheet } from './NotificationSettingsSheet';
 import { SettingsPanel } from './SettingsPanel';
 import { AgentCreationSheet } from './AgentCreationSheet';
+import { GroupChatPanel } from './GroupChatPanel';
+import { GroupChatSetupSheet } from './GroupChatSetupSheet';
+import { useGroupChat } from '../hooks/useGroupChat';
 import { useAutoRun, type LaunchConfig } from '../hooks/useAutoRun';
 import { useSettings, type WebSettings } from '../hooks/useSettings';
 import { useAgentManagement } from '../hooks/useAgentManagement';
@@ -73,12 +78,14 @@ interface MobileHeaderProps {
 	activeSession?: Session | null;
 	autoRunState?: AutoRunState | null;
 	onAutoRunTap?: () => void;
+	onGroupChatTap?: () => void;
+	groupChatCount?: number;
 	onNotificationTap?: () => void;
 	onSettingsTap?: () => void;
 	notificationCount?: number;
 }
 
-function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onNotificationTap, onSettingsTap, notificationCount = 0 }: MobileHeaderProps) {
+function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTap, groupChatCount = 0, onNotificationTap, onSettingsTap, notificationCount = 0 }: MobileHeaderProps) {
 	const colors = useThemeColors();
 	const { isSession, goToDashboard } = useMaestroMode();
 
@@ -338,6 +345,64 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onNotificatio
 					</button>
 				)}
 
+				{/* Group Chat button */}
+				<button
+					onClick={onGroupChatTap}
+					style={{
+						width: '36px',
+						height: '36px',
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						borderRadius: '8px',
+						backgroundColor: groupChatCount > 0 ? `${colors.accent}20` : 'transparent',
+						border: groupChatCount > 0 ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
+						color: groupChatCount > 0 ? colors.accent : colors.textDim,
+						cursor: 'pointer',
+						touchAction: 'manipulation',
+						WebkitTapHighlightColor: 'transparent',
+						flexShrink: 0,
+						position: 'relative',
+					}}
+					aria-label="Group Chat"
+					title="Group Chat"
+				>
+					{/* Speech bubble icon */}
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+					</svg>
+					{/* Active chat count badge */}
+					{groupChatCount > 0 && (
+						<span
+							style={{
+								position: 'absolute',
+								top: '-4px',
+								right: '-4px',
+								fontSize: '9px',
+								fontWeight: 700,
+								color: 'white',
+								backgroundColor: colors.accent,
+								borderRadius: '8px',
+								padding: '1px 4px',
+								minWidth: '16px',
+								textAlign: 'center',
+								lineHeight: '14px',
+							}}
+						>
+							{groupChatCount}
+						</span>
+					)}
+				</button>
+
 				{/* Notification settings bell button (only with active session) */}
 				{activeSession && (
 					<button
@@ -449,6 +514,156 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onNotificatio
 }
 
 /**
+ * Small bottom sheet listing available group chats with a "New" button
+ */
+interface GroupChatListSheetProps {
+	chats: GroupChatState[];
+	onSelectChat: (chatId: string) => void;
+	onNewChat: () => void;
+	onClose: () => void;
+}
+
+function GroupChatListSheet({ chats, onSelectChat, onNewChat, onClose }: GroupChatListSheetProps) {
+	const colors = useThemeColors();
+	const [isVisible, setIsVisible] = useState(false);
+
+	useEffect(() => {
+		requestAnimationFrame(() => setIsVisible(true));
+	}, []);
+
+	const handleClose = useCallback(() => {
+		setIsVisible(false);
+		setTimeout(() => onClose(), 300);
+	}, [onClose]);
+
+	const handleBackdropTap = useCallback(
+		(e: React.MouseEvent) => {
+			if (e.target === e.currentTarget) handleClose();
+		},
+		[handleClose],
+	);
+
+	const activeChats = chats.filter((c) => c.isActive);
+	const endedChats = chats.filter((c) => !c.isActive);
+
+	return (
+		<div
+			onClick={handleBackdropTap}
+			style={{
+				position: 'fixed',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				backgroundColor: `rgba(0, 0, 0, ${isVisible ? 0.5 : 0})`,
+				zIndex: 220,
+				display: 'flex',
+				alignItems: 'flex-end',
+				transition: 'background-color 0.3s ease-out',
+			}}
+		>
+			<div
+				style={{
+					width: '100%',
+					maxHeight: '60vh',
+					backgroundColor: colors.bgMain,
+					borderTopLeftRadius: 16,
+					borderTopRightRadius: 16,
+					display: 'flex',
+					flexDirection: 'column',
+					transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
+					transition: 'transform 0.3s ease-out',
+					paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+				}}
+			>
+				{/* Drag handle */}
+				<div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+					<div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: `${colors.textDim}40` }} />
+				</div>
+
+				{/* Header */}
+				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 12px' }}>
+					<h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: colors.textMain }}>Group Chats</h2>
+					<button
+						onClick={onNewChat}
+						style={{
+							padding: '6px 14px',
+							borderRadius: 8,
+							backgroundColor: colors.accent,
+							border: 'none',
+							color: 'white',
+							fontSize: 13,
+							fontWeight: 600,
+							cursor: 'pointer',
+							touchAction: 'manipulation',
+						}}
+						aria-label="New group chat"
+					>
+						+ New
+					</button>
+				</div>
+
+				{/* Chat list */}
+				<div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+					{chats.length === 0 && (
+						<div style={{ textAlign: 'center', padding: 20, color: colors.textDim, fontSize: 13 }}>
+							No group chats yet
+						</div>
+					)}
+					{activeChats.map((chat) => (
+						<button
+							key={chat.id}
+							onClick={() => onSelectChat(chat.id)}
+							style={{
+								width: '100%',
+								textAlign: 'left',
+								padding: '12px 14px',
+								borderRadius: 10,
+								border: `1px solid ${colors.accent}30`,
+								backgroundColor: `${colors.accent}08`,
+								color: colors.textMain,
+								cursor: 'pointer',
+								marginBottom: 6,
+								touchAction: 'manipulation',
+							}}
+						>
+							<div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{chat.topic}</div>
+							<div style={{ fontSize: 12, color: colors.textDim }}>
+								{chat.participants.length} participants · {chat.messages.length} messages · Active
+							</div>
+						</button>
+					))}
+					{endedChats.map((chat) => (
+						<button
+							key={chat.id}
+							onClick={() => onSelectChat(chat.id)}
+							style={{
+								width: '100%',
+								textAlign: 'left',
+								padding: '12px 14px',
+								borderRadius: 10,
+								border: `1px solid ${colors.border}`,
+								backgroundColor: colors.bgSidebar,
+								color: colors.textMain,
+								cursor: 'pointer',
+								marginBottom: 6,
+								opacity: 0.7,
+								touchAction: 'manipulation',
+							}}
+						>
+							<div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{chat.topic}</div>
+							<div style={{ fontSize: 12, color: colors.textDim }}>
+								{chat.participants.length} participants · {chat.messages.length} messages · Ended
+							</div>
+						</button>
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/**
  * Main mobile app component with WebSocket connection management
  */
 export default function MobileApp() {
@@ -497,6 +712,11 @@ export default function MobileApp() {
 	// Agent creation sheet state
 	const [showAgentCreation, setShowAgentCreation] = useState(false);
 
+	// Group chat state
+	const [showGroupChatSetup, setShowGroupChatSetup] = useState(false);
+	const [showGroupChatList, setShowGroupChatList] = useState(false);
+	const [activeGroupChatId, setActiveGroupChatId] = useState<string | null>(null);
+
 	// Git diff viewer state
 	const [gitDiffFile, setGitDiffFile] = useState<string | null>(null);
 
@@ -540,6 +760,10 @@ export default function MobileApp() {
 
 	// Ref for groups changed handler (bridges useWebSocket → useAgentManagement ordering)
 	const groupsChangedRef = useRef<((groups: GroupData[]) => void) | null>(null);
+
+	// Refs for group chat handlers (bridges useWebSocket → useGroupChat ordering)
+	const groupChatMessageRef = useRef<((chatId: string, message: GroupChatMessage) => void) | null>(null);
+	const groupChatStateChangeRef = useRef<((chatId: string, state: Partial<GroupChatState>) => void) | null>(null);
 
 	// Save view state when overlays change (using hook's persistence function)
 	useEffect(() => {
@@ -711,6 +935,12 @@ export default function MobileApp() {
 			onGroupsChanged: (groups) => {
 				groupsChangedRef.current?.(groups);
 			},
+			onGroupChatMessage: (chatId, message) => {
+				groupChatMessageRef.current?.(chatId, message);
+			},
+			onGroupChatStateChange: (chatId, state) => {
+				groupChatStateChangeRef.current?.(chatId, state);
+			},
 		},
 	});
 
@@ -871,6 +1101,9 @@ export default function MobileApp() {
 	// Agent management hook — uses WebSocket for agent/group CRUD
 	const agentManagement = useAgentManagement(sendRequest, isActuallyConnected);
 
+	// Group chat hook — uses WebSocket for group chat management
+	const groupChat = useGroupChat(sendRequest, send, isActuallyConnected);
+
 	// Git status hook — uses WebSocket for git status/diff
 	const gitStatus = useGitStatus(sendRequest, isActuallyConnected, activeSessionId || undefined);
 
@@ -883,6 +1116,14 @@ export default function MobileApp() {
 	useEffect(() => {
 		groupsChangedRef.current = agentManagement.handleGroupsChanged;
 	}, [agentManagement.handleGroupsChanged]);
+
+	// Keep group chat refs in sync
+	useEffect(() => {
+		groupChatMessageRef.current = groupChat.handleGroupChatMessage;
+	}, [groupChat.handleGroupChatMessage]);
+	useEffect(() => {
+		groupChatStateChangeRef.current = groupChat.handleGroupChatStateChange;
+	}, [groupChat.handleGroupChatStateChange]);
 
 	// Offline queue hook - stores commands typed while offline and sends when reconnected
 	const {
@@ -960,6 +1201,61 @@ export default function MobileApp() {
 		},
 		[handleSelectSession],
 	);
+
+	// Group chat handlers
+	const activeGroupChats = useMemo(
+		() => groupChat.chats.filter((c) => c.isActive),
+		[groupChat.chats],
+	);
+
+	const handleGroupChatTap = useCallback(() => {
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+		if (activeGroupChats.length > 0) {
+			setShowGroupChatList(true);
+		} else {
+			setShowGroupChatSetup(true);
+		}
+	}, [activeGroupChats.length]);
+
+	const handleGroupChatStart = useCallback(
+		async (topic: string, participantIds: string[]) => {
+			const chatId = await groupChat.startChat(topic, participantIds);
+			if (chatId) {
+				setActiveGroupChatId(chatId);
+				await groupChat.loadChatState(chatId);
+			}
+		},
+		[groupChat],
+	);
+
+	const handleGroupChatOpen = useCallback(
+		(chatId: string) => {
+			setActiveGroupChatId(chatId);
+			setShowGroupChatList(false);
+			groupChat.loadChatState(chatId);
+		},
+		[groupChat],
+	);
+
+	const handleGroupChatBack = useCallback(() => {
+		setActiveGroupChatId(null);
+	}, []);
+
+	const handleGroupChatSendMessage = useCallback(
+		(message: string) => {
+			if (activeGroupChatId) {
+				groupChat.sendMessage(activeGroupChatId, message);
+			}
+		},
+		[activeGroupChatId, groupChat],
+	);
+
+	const handleGroupChatStop = useCallback(async () => {
+		if (activeGroupChatId) {
+			await groupChat.stopChat(activeGroupChatId);
+			await groupChat.loadChatState(activeGroupChatId);
+		}
+	}, [activeGroupChatId, groupChat]);
 
 	// Handle opening the right drawer on a specific tab
 	const handleOpenRightDrawer = useCallback((tab: RightDrawerTab = 'files') => {
@@ -1386,6 +1682,8 @@ export default function MobileApp() {
 				activeSession={activeSession}
 				autoRunState={currentAutoRunState}
 				onAutoRunTap={handleOpenAutoRunPanel}
+				onGroupChatTap={handleGroupChatTap}
+				groupChatCount={activeGroupChats.length}
 				onNotificationTap={handleOpenNotificationSettings}
 				onSettingsTap={handleOpenSettingsPanel}
 				notificationCount={notificationCount}
@@ -1555,6 +1853,38 @@ export default function MobileApp() {
 					createAgent={agentManagement.createAgent}
 					onCreated={handleAgentCreated}
 					onClose={() => setShowAgentCreation(false)}
+				/>
+			)}
+
+			{/* Group Chat panel — full-screen overlay */}
+			{activeGroupChatId && groupChat.activeChat && (
+				<GroupChatPanel
+					chatState={groupChat.activeChat}
+					onSendMessage={handleGroupChatSendMessage}
+					onStop={handleGroupChatStop}
+					onBack={handleGroupChatBack}
+				/>
+			)}
+
+			{/* Group Chat setup sheet */}
+			{showGroupChatSetup && (
+				<GroupChatSetupSheet
+					sessions={sessions}
+					onStart={handleGroupChatStart}
+					onClose={() => setShowGroupChatSetup(false)}
+				/>
+			)}
+
+			{/* Group Chat list — small bottom sheet listing active chats */}
+			{showGroupChatList && (
+				<GroupChatListSheet
+					chats={groupChat.chats}
+					onSelectChat={handleGroupChatOpen}
+					onNewChat={() => {
+						setShowGroupChatList(false);
+						setShowGroupChatSetup(true);
+					}}
+					onClose={() => setShowGroupChatList(false)}
 				/>
 			)}
 
