@@ -26,6 +26,7 @@ import type { Theme } from '../../types';
 import type {
 	CuePipelineState,
 	CuePipeline,
+	CueGraphSession,
 	PipelineNode,
 	PipelineEdge as PipelineEdgeType,
 	PipelineLayoutState,
@@ -53,30 +54,6 @@ import {
 import { CueSettingsPanel } from './panels/CueSettingsPanel';
 import type { CueSettings } from '../../../main/cue/cue-types';
 import { DEFAULT_CUE_SETTINGS } from '../../../main/cue/cue-types';
-
-interface CueGraphSession {
-	sessionId: string;
-	sessionName: string;
-	toolType: string;
-	subscriptions: Array<{
-		name: string;
-		event: string;
-		enabled: boolean;
-		prompt?: string;
-		output_prompt?: string;
-		interval_minutes?: number;
-		schedule_times?: string[];
-		schedule_days?: string[];
-		watch?: string;
-		source_session?: string | string[];
-		fan_out?: string[];
-		filter?: Record<string, string | number | boolean>;
-		repo?: string;
-		poll_minutes?: number;
-		agent_id?: string;
-		label?: string;
-	}>;
-}
 
 interface SessionInfo {
 	id: string;
