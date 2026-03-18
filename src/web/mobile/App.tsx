@@ -51,6 +51,8 @@ import { GroupChatPanel } from './GroupChatPanel';
 import { GroupChatSetupSheet } from './GroupChatSetupSheet';
 import { ContextManagementSheet } from './ContextManagementSheet';
 import { CuePanel } from './CuePanel';
+import { UsageDashboardPanel } from './UsageDashboardPanel';
+import { AchievementsPanel } from './AchievementsPanel';
 import { useGroupChat } from '../hooks/useGroupChat';
 import { useCue } from '../hooks/useCue';
 import { useAutoRun, type LaunchConfig } from '../hooks/useAutoRun';
@@ -75,25 +77,112 @@ function getActiveTabFromSession(session: Session | null | undefined): AITabData
 }
 
 /**
+ * Shared icon button style for the header
+ */
+function headerIconButton(colors: ReturnType<typeof useThemeColors>, isActive = false): React.CSSProperties {
+	return {
+		width: '32px',
+		height: '32px',
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: '6px',
+		backgroundColor: isActive ? `${colors.accent}20` : 'transparent',
+		border: isActive ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
+		color: isActive ? colors.accent : colors.textDim,
+		cursor: 'pointer',
+		touchAction: 'manipulation',
+		WebkitTapHighlightColor: 'transparent',
+		flexShrink: 0,
+		position: 'relative' as const,
+		padding: 0,
+	};
+}
+
+/**
+ * Overflow menu item component
+ */
+function OverflowMenuItem({ icon, label, onClick, colors }: {
+	icon: React.ReactNode;
+	label: string;
+	onClick: () => void;
+	colors: ReturnType<typeof useThemeColors>;
+}) {
+	return (
+		<button
+			onClick={onClick}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: '10px',
+				width: '100%',
+				padding: '10px 14px',
+				border: 'none',
+				backgroundColor: 'transparent',
+				color: colors.textMain,
+				fontSize: '14px',
+				cursor: 'pointer',
+				touchAction: 'manipulation',
+				WebkitTapHighlightColor: 'transparent',
+				textAlign: 'left',
+				borderRadius: '6px',
+			}}
+			onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = `${colors.textDim}15`; }}
+			onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+		>
+			<span style={{ color: colors.textDim, flexShrink: 0, display: 'flex', alignItems: 'center' }}>{icon}</span>
+			<span>{label}</span>
+		</button>
+	);
+}
+
+/**
  * Header component for the mobile app
- * Compact single-line header showing: Maestro | Session Name | Claude ID | Status | Cost | Context
+ * Reorganized: Left (menu) | Center (session name + status) | Right (priority icons + overflow)
  */
 interface MobileHeaderProps {
 	activeSession?: Session | null;
 	autoRunState?: AutoRunState | null;
+	onMenuTap?: () => void;
+	onSearchTap?: () => void;
 	onAutoRunTap?: () => void;
-	onGroupChatTap?: () => void;
-	groupChatCount?: number;
+	onRightDrawerTap?: () => void;
 	onCueTap?: () => void;
 	hasRunningCue?: boolean;
 	onNotificationTap?: () => void;
 	onSettingsTap?: () => void;
 	notificationCount?: number;
+	// Overflow menu actions
+	onGroupChatTap?: () => void;
+	groupChatCount?: number;
+	onUsageDashboardTap?: () => void;
+	onAchievementsTap?: () => void;
+	onContextManagementTap?: () => void;
+	onNewAgentTap?: () => void;
 }
 
-function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTap, groupChatCount = 0, onCueTap, hasRunningCue = false, onNotificationTap, onSettingsTap, notificationCount = 0 }: MobileHeaderProps) {
+function MobileHeader({
+	activeSession,
+	autoRunState,
+	onMenuTap,
+	onSearchTap,
+	onAutoRunTap,
+	onRightDrawerTap,
+	onCueTap,
+	hasRunningCue = false,
+	onNotificationTap,
+	onSettingsTap,
+	notificationCount = 0,
+	onGroupChatTap,
+	groupChatCount = 0,
+	onUsageDashboardTap,
+	onAchievementsTap,
+	onContextManagementTap,
+	onNewAgentTap,
+}: MobileHeaderProps) {
 	const colors = useThemeColors();
-	const { isSession, goToDashboard } = useMaestroMode();
+	const [showOverflow, setShowOverflow] = useState(false);
+	const overflowRef = useRef<HTMLDivElement>(null);
 
 	// Get active tab for per-tab data (agentSessionId, usageStats)
 	const activeTab = getActiveTabFromSession(activeSession);
@@ -101,13 +190,27 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTa
 	// Session status and usage - prefer tab-level data
 	const sessionState = activeTab?.state || activeSession?.state || 'idle';
 	const isThinking = sessionState === 'busy';
-	// Use tab's usageStats if available, otherwise fall back to session-level (deprecated)
-	const tabUsageStats = activeTab?.usageStats;
-	const cost = tabUsageStats?.totalCostUsd ?? activeSession?.usageStats?.totalCostUsd;
-	const contextUsage = estimateContextUsage(
-		tabUsageStats ?? activeSession?.usageStats ?? {},
-		activeSession?.toolType
-	);
+
+	// Responsive: detect wider screens for showing more icons
+	const [isWide, setIsWide] = useState(() => window.innerWidth > 768);
+	useEffect(() => {
+		const mq = window.matchMedia('(min-width: 769px)');
+		const handler = (e: MediaQueryListEvent) => setIsWide(e.matches);
+		mq.addEventListener('change', handler);
+		return () => mq.removeEventListener('change', handler);
+	}, []);
+
+	// Close overflow menu when clicking outside
+	useEffect(() => {
+		if (!showOverflow) return;
+		const handler = (e: MouseEvent) => {
+			if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+				setShowOverflow(false);
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	}, [showOverflow]);
 
 	// Get status dot color
 	const getStatusDotColor = () => {
@@ -117,65 +220,46 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTa
 		return colors.success; // idle
 	};
 
+	const handleOverflowAction = useCallback((action: (() => void) | undefined) => {
+		setShowOverflow(false);
+		action?.();
+	}, []);
+
 	return (
 		<header
 			style={{
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'space-between',
-				padding: '8px 12px',
-				paddingTop: 'max(8px, env(safe-area-inset-top))',
+				padding: '6px 10px',
+				paddingTop: 'max(6px, env(safe-area-inset-top))',
 				borderBottom: `1px solid ${colors.border}`,
 				backgroundColor: colors.bgSidebar,
 				minHeight: '44px',
-				gap: '8px',
+				gap: '6px',
 			}}
 		>
-			{/* Left: Maestro logo with wand icon */}
-			<div
-				onClick={isSession ? goToDashboard : undefined}
+			{/* Left: Menu / hamburger button */}
+			<button
+				onClick={onMenuTap}
 				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: '6px',
-					cursor: isSession ? 'pointer' : 'default',
-					flexShrink: 0,
+					...headerIconButton(colors),
+					border: 'none',
+					backgroundColor: 'transparent',
 				}}
-				title={isSession ? 'Go to dashboard' : undefined}
+				aria-label="Menu"
+				title="All Sessions"
 			>
-				{/* Wand icon */}
-				<svg
-					width="18"
-					height="18"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke={colors.accent}
-					strokeWidth="2"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-				>
-					<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" />
-					<path d="m14 7 3 3" />
-					<path d="M5 6v4" />
-					<path d="M19 14v4" />
-					<path d="M10 2v2" />
-					<path d="M7 8H3" />
-					<path d="M21 16h-4" />
-					<path d="M11 3H9" />
+				{/* Hamburger icon */}
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+					<line x1="3" y1="6" x2="21" y2="6" />
+					<line x1="3" y1="12" x2="21" y2="12" />
+					<line x1="3" y1="18" x2="21" y2="18" />
 				</svg>
-				<span
-					style={{
-						fontSize: '16px',
-						fontWeight: 600,
-						color: colors.textMain,
-					}}
-				>
-					Maestro
-				</span>
-			</div>
+			</button>
 
-			{/* Center: Session info (name + Claude session ID + status + usage) */}
-			{activeSession && (
+			{/* Center: Session name + status dot */}
+			{activeSession ? (
 				<div
 					style={{
 						flex: 1,
@@ -199,12 +283,11 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTa
 						}}
 						title={`Session ${sessionState}`}
 					/>
-
 					{/* Session name */}
 					<span
 						style={{
-							fontSize: '13px',
-							fontWeight: 500,
+							fontSize: '14px',
+							fontWeight: 600,
 							color: colors.textMain,
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
@@ -213,351 +296,177 @@ function MobileHeader({ activeSession, autoRunState, onAutoRunTap, onGroupChatTa
 					>
 						{activeSession.name}
 					</span>
-
-					{/* Claude Session ID pill - use active tab's agentSessionId */}
-					{(activeTab?.agentSessionId || activeSession.agentSessionId) && (
-						<span
-							style={{
-								fontSize: '10px',
-								color: colors.textDim,
-								fontFamily: 'monospace',
-								backgroundColor: colors.bgMain,
-								padding: '2px 4px',
-								borderRadius: '3px',
-								flexShrink: 0,
-							}}
-							title={`Claude Session: ${activeTab?.agentSessionId || activeSession.agentSessionId}`}
-						>
-							{(activeTab?.agentSessionId || activeSession.agentSessionId)?.slice(0, 8)}
-						</span>
-					)}
-
-					{/* Cost */}
-					{cost != null && cost > 0 && (
-						<span
-							style={{
-								fontSize: '10px',
-								color: colors.textDim,
-								backgroundColor: `${colors.textDim}15`,
-								padding: '2px 4px',
-								borderRadius: '3px',
-								flexShrink: 0,
-							}}
-							title={`Session cost: ${formatCost(cost)}`}
-						>
-							{formatCost(cost)}
-						</span>
-					)}
-
-					{/* Context usage bar */}
-					{contextUsage != null && (
-						<div
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: '3px',
-								flexShrink: 0,
-							}}
-							title={`Context: ${contextUsage}%`}
-						>
-							<div
-								style={{
-									width: '30px',
-									height: '4px',
-									backgroundColor: `${colors.textDim}20`,
-									borderRadius: '2px',
-									overflow: 'hidden',
-								}}
-							>
-								<div
-									style={{
-										width: `${contextUsage}%`,
-										height: '100%',
-										backgroundColor:
-											contextUsage >= 90
-												? colors.error
-												: contextUsage >= 70
-													? colors.warning
-													: colors.success,
-										borderRadius: '2px',
-									}}
-								/>
-							</div>
-							<span style={{ fontSize: '9px', color: colors.textDim }}>{contextUsage}%</span>
-						</div>
-					)}
+				</div>
+			) : (
+				<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+					<span style={{ fontSize: '14px', fontWeight: 600, color: colors.textMain }}>Maestro</span>
 				</div>
 			)}
 
-			{/* Right side buttons */}
-			<div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-				{/* Auto Run button (only with active session) */}
+			{/* Right: Priority icon buttons + overflow */}
+			<div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+				{/* Search / Quick Actions (Cmd+K) */}
+				<button onClick={onSearchTap} style={headerIconButton(colors)} aria-label="Search" title="Quick Actions (Cmd+K)">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<circle cx="11" cy="11" r="8" />
+						<line x1="21" y1="21" x2="16.65" y2="16.65" />
+					</svg>
+				</button>
+
+				{/* Auto Run status (only with active session) */}
 				{activeSession && (
-					<button
-						onClick={onAutoRunTap}
-						style={{
-							width: '36px',
-							height: '36px',
-							display: 'flex',
-							alignItems: 'center',
-							justifyContent: 'center',
-							borderRadius: '8px',
-							backgroundColor: autoRunState?.isRunning ? `${colors.accent}20` : 'transparent',
-							border: autoRunState?.isRunning ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-							color: autoRunState?.isRunning ? colors.accent : colors.textDim,
-							cursor: 'pointer',
-							touchAction: 'manipulation',
-							WebkitTapHighlightColor: 'transparent',
-							flexShrink: 0,
-							position: 'relative',
-						}}
-						aria-label="Auto Run"
-						title="Auto Run"
-					>
-						{/* Play icon */}
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill={autoRunState?.isRunning ? 'currentColor' : 'none'}
-							stroke="currentColor"
-							strokeWidth="2"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						>
+					<button onClick={onAutoRunTap} style={headerIconButton(colors, !!autoRunState?.isRunning)} aria-label="Auto Run" title="Auto Run">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill={autoRunState?.isRunning ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 							<polygon points="5,3 19,12 5,21" />
 						</svg>
-						{/* Progress badge when running */}
 						{autoRunState?.isRunning && autoRunState.totalTasks > 0 && (
-							<span
-								style={{
-									position: 'absolute',
-									top: '-4px',
-									right: '-4px',
-									fontSize: '9px',
-									fontWeight: 700,
-									color: 'white',
-									backgroundColor: colors.accent,
-									borderRadius: '8px',
-									padding: '1px 4px',
-									minWidth: '16px',
-									textAlign: 'center',
-									lineHeight: '14px',
-								}}
-							>
+							<span style={{ position: 'absolute', top: '-4px', right: '-4px', fontSize: '8px', fontWeight: 700, color: 'white', backgroundColor: colors.accent, borderRadius: '8px', padding: '1px 3px', minWidth: '14px', textAlign: 'center', lineHeight: '12px' }}>
 								{Math.round((autoRunState.completedTasks / autoRunState.totalTasks) * 100)}%
 							</span>
 						)}
 					</button>
 				)}
 
-				{/* Group Chat button */}
-				<button
-					onClick={onGroupChatTap}
-					style={{
-						width: '36px',
-						height: '36px',
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						borderRadius: '8px',
-						backgroundColor: groupChatCount > 0 ? `${colors.accent}20` : 'transparent',
-						border: groupChatCount > 0 ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-						color: groupChatCount > 0 ? colors.accent : colors.textDim,
-						cursor: 'pointer',
-						touchAction: 'manipulation',
-						WebkitTapHighlightColor: 'transparent',
-						flexShrink: 0,
-						position: 'relative',
-					}}
-					aria-label="Group Chat"
-					title="Group Chat"
-				>
-					{/* Speech bubble icon */}
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					>
-						<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+				{/* Right Drawer toggle */}
+				<button onClick={onRightDrawerTap} style={headerIconButton(colors)} aria-label="Files & History" title="Files / History / Git">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+						<polyline points="13 2 13 9 20 9" />
 					</svg>
-					{/* Active chat count badge */}
-					{groupChatCount > 0 && (
-						<span
-							style={{
-								position: 'absolute',
-								top: '-4px',
-								right: '-4px',
-								fontSize: '9px',
-								fontWeight: 700,
-								color: 'white',
-								backgroundColor: colors.accent,
-								borderRadius: '8px',
-								padding: '1px 4px',
-								minWidth: '16px',
-								textAlign: 'center',
-								lineHeight: '14px',
-							}}
-						>
-							{groupChatCount}
+				</button>
+
+				{/* Cue status */}
+				<button onClick={onCueTap} style={headerIconButton(colors, hasRunningCue)} aria-label="Maestro Cue" title="Maestro Cue">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill={hasRunningCue ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+					</svg>
+					{hasRunningCue && (
+						<span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '7px', height: '7px', borderRadius: '50%', backgroundColor: colors.success, animation: 'pulse 1.5s ease-in-out infinite' }} />
+					)}
+				</button>
+
+				{/* Notifications (badge with count) */}
+				<button onClick={onNotificationTap} style={headerIconButton(colors)} aria-label="Notifications" title="Notifications">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+						<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+					</svg>
+					{notificationCount > 0 && (
+						<span style={{ position: 'absolute', top: '-4px', right: '-4px', fontSize: '8px', fontWeight: 700, color: 'white', backgroundColor: colors.error, borderRadius: '8px', padding: '1px 3px', minWidth: '14px', textAlign: 'center', lineHeight: '12px' }}>
+							{notificationCount > 99 ? '99+' : notificationCount}
 						</span>
 					)}
 				</button>
 
-				{/* Cue automation button */}
-				<button
-					onClick={onCueTap}
-					style={{
-						width: '36px',
-						height: '36px',
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						borderRadius: '8px',
-						backgroundColor: hasRunningCue ? `${colors.accent}20` : 'transparent',
-						border: hasRunningCue ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-						color: hasRunningCue ? colors.accent : colors.textDim,
-						cursor: 'pointer',
-						touchAction: 'manipulation',
-						WebkitTapHighlightColor: 'transparent',
-						flexShrink: 0,
-						position: 'relative',
-					}}
-					aria-label="Maestro Cue"
-					title="Maestro Cue"
-				>
-					{/* Lightning bolt icon */}
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill={hasRunningCue ? 'currentColor' : 'none'}
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					>
-						<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-					</svg>
-					{/* Activity dot when running */}
-					{hasRunningCue && (
-						<span
-							style={{
-								position: 'absolute',
-								top: '-2px',
-								right: '-2px',
-								width: '8px',
-								height: '8px',
-								borderRadius: '50%',
-								backgroundColor: colors.success,
-								animation: 'pulse 1.5s ease-in-out infinite',
-							}}
-						/>
-					)}
-				</button>
-
-				{/* Notification settings bell button (only with active session) */}
-				{activeSession && (
-					<button
-						onClick={onNotificationTap}
-						style={{
-							width: '36px',
-							height: '36px',
-							display: 'flex',
-							alignItems: 'center',
-							justifyContent: 'center',
-							borderRadius: '8px',
-							backgroundColor: 'transparent',
-							border: `1px solid ${colors.border}`,
-							color: colors.textDim,
-							cursor: 'pointer',
-							touchAction: 'manipulation',
-							WebkitTapHighlightColor: 'transparent',
-							flexShrink: 0,
-							position: 'relative',
-						}}
-						aria-label="Notification settings"
-						title="Notification settings"
-					>
-						{/* Bell icon */}
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						>
-							<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-							<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+				{/* Settings — shown directly on wide screens */}
+				{isWide && (
+					<button onClick={onSettingsTap} style={headerIconButton(colors)} aria-label="Settings" title="Settings">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<circle cx="12" cy="12" r="3" />
+							<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
 						</svg>
-						{/* Unread notification count badge */}
-						{notificationCount > 0 && (
-							<span
-								style={{
-									position: 'absolute',
-									top: '-4px',
-									right: '-4px',
-									fontSize: '9px',
-									fontWeight: 700,
-									color: 'white',
-									backgroundColor: colors.error,
-									borderRadius: '8px',
-									padding: '1px 4px',
-									minWidth: '16px',
-									textAlign: 'center',
-									lineHeight: '14px',
-								}}
-							>
-								{notificationCount > 99 ? '99+' : notificationCount}
+					</button>
+				)}
+
+				{/* On wide screens, show Group Chat directly too */}
+				{isWide && (
+					<button onClick={onGroupChatTap} style={headerIconButton(colors, groupChatCount > 0)} aria-label="Group Chat" title="Group Chat">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+						</svg>
+						{groupChatCount > 0 && (
+							<span style={{ position: 'absolute', top: '-4px', right: '-4px', fontSize: '8px', fontWeight: 700, color: 'white', backgroundColor: colors.accent, borderRadius: '8px', padding: '1px 3px', minWidth: '14px', textAlign: 'center', lineHeight: '12px' }}>
+								{groupChatCount}
 							</span>
 						)}
 					</button>
 				)}
 
-				{/* Settings gear button (always visible) */}
-				<button
-					onClick={onSettingsTap}
-					style={{
-						width: '36px',
-						height: '36px',
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						borderRadius: '8px',
-						backgroundColor: 'transparent',
-						border: `1px solid ${colors.border}`,
-						color: colors.textDim,
-						cursor: 'pointer',
-						touchAction: 'manipulation',
-						WebkitTapHighlightColor: 'transparent',
-						flexShrink: 0,
-					}}
-					aria-label="Settings"
-					title="Settings"
-				>
-					{/* Gear icon */}
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
+				{/* Overflow menu (⋯) — always present for less-frequent actions */}
+				<div ref={overflowRef} style={{ position: 'relative' }}>
+					<button
+						onClick={() => setShowOverflow((prev) => !prev)}
+						style={{
+							...headerIconButton(colors),
+							border: 'none',
+							backgroundColor: showOverflow ? `${colors.textDim}15` : 'transparent',
+						}}
+						aria-label="More actions"
+						title="More actions"
 					>
-						<circle cx="12" cy="12" r="3" />
-						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-					</svg>
-				</button>
+						{/* Three dots icon */}
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+							<circle cx="12" cy="5" r="2" />
+							<circle cx="12" cy="12" r="2" />
+							<circle cx="12" cy="19" r="2" />
+						</svg>
+					</button>
+
+					{/* Overflow dropdown */}
+					{showOverflow && (
+						<div
+							style={{
+								position: 'absolute',
+								top: '100%',
+								right: 0,
+								marginTop: '4px',
+								minWidth: '200px',
+								backgroundColor: colors.bgSidebar,
+								border: `1px solid ${colors.border}`,
+								borderRadius: '10px',
+								boxShadow: `0 8px 24px rgba(0,0,0,0.25)`,
+								zIndex: 300,
+								padding: '4px',
+								overflow: 'hidden',
+							}}
+						>
+							{/* Settings — only in overflow on narrow screens */}
+							{!isWide && (
+								<OverflowMenuItem
+									icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>}
+									label="Settings"
+									onClick={() => handleOverflowAction(onSettingsTap)}
+									colors={colors}
+								/>
+							)}
+							{/* Group Chat — only in overflow on narrow screens */}
+							{!isWide && (
+								<OverflowMenuItem
+									icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>}
+									label={`Group Chat${groupChatCount > 0 ? ` (${groupChatCount})` : ''}`}
+									onClick={() => handleOverflowAction(onGroupChatTap)}
+									colors={colors}
+								/>
+							)}
+							<OverflowMenuItem
+								icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>}
+								label="Usage Dashboard"
+								onClick={() => handleOverflowAction(onUsageDashboardTap)}
+								colors={colors}
+							/>
+							<OverflowMenuItem
+								icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7" /><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" /></svg>}
+								label="Achievements"
+								onClick={() => handleOverflowAction(onAchievementsTap)}
+								colors={colors}
+							/>
+							{activeSession && (
+								<OverflowMenuItem
+									icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 12h8" /><path d="M12 8v8" /></svg>}
+									label="Context Management"
+									onClick={() => handleOverflowAction(onContextManagementTap)}
+									colors={colors}
+								/>
+							)}
+							<OverflowMenuItem
+								icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
+								label="New Agent"
+								onClick={() => handleOverflowAction(onNewAgentTap)}
+								colors={colors}
+							/>
+						</div>
+					)}
+				</div>
 			</div>
 
 			{/* Pulse animation for thinking state */}
@@ -783,6 +692,12 @@ export default function MobileApp() {
 
 	// Cue panel state
 	const [showCuePanel, setShowCuePanel] = useState(false);
+
+	// Usage Dashboard panel state
+	const [showUsageDashboard, setShowUsageDashboard] = useState(false);
+
+	// Achievements panel state
+	const [showAchievements, setShowAchievements] = useState(false);
 
 	// Git diff viewer state
 	const [gitDiffFile, setGitDiffFile] = useState<string | null>(null);
@@ -1727,6 +1642,22 @@ export default function MobileApp() {
 			action: () => setShowCuePanel(true),
 		});
 
+		// --- Analytics ---
+		acts.push({
+			id: 'analytics-usage',
+			label: 'Usage Dashboard',
+			category: 'Analytics',
+			icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
+			action: () => setShowUsageDashboard(true),
+		});
+		acts.push({
+			id: 'analytics-achievements',
+			label: 'Achievements',
+			category: 'Analytics',
+			icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7" /><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" /></svg>,
+			action: () => setShowAchievements(true),
+		});
+
 		// --- Settings ---
 		acts.push({
 			id: 'settings-open',
@@ -1987,14 +1918,21 @@ export default function MobileApp() {
 			<MobileHeader
 				activeSession={activeSession}
 				autoRunState={currentAutoRunState}
+				onMenuTap={handleOpenAllSessions}
+				onSearchTap={handleOpenCommandPalette}
 				onAutoRunTap={handleOpenAutoRunPanel}
-				onGroupChatTap={handleGroupChatTap}
-				groupChatCount={activeGroupChats.length}
+				onRightDrawerTap={() => handleOpenRightDrawer('files')}
 				onCueTap={handleCueTap}
 				hasRunningCue={hasRunningCue}
 				onNotificationTap={handleOpenNotificationSettings}
 				onSettingsTap={handleOpenSettingsPanel}
 				notificationCount={notificationCount}
+				onGroupChatTap={handleGroupChatTap}
+				groupChatCount={activeGroupChats.length}
+				onUsageDashboardTap={() => { setShowUsageDashboard(true); triggerHaptic(HAPTIC_PATTERNS.tap); }}
+				onAchievementsTap={() => { setShowAchievements(true); triggerHaptic(HAPTIC_PATTERNS.tap); }}
+				onContextManagementTap={() => setShowContextManagement(true)}
+				onNewAgentTap={handleOpenAgentCreation}
 			/>
 
 			{/* Session pill bar - Row 1: Groups/Sessions with search button */}
@@ -2184,6 +2122,22 @@ export default function MobileApp() {
 					onToggleSubscription={cue.toggleSubscription}
 					onRefresh={handleCueRefresh}
 					onClose={handleCloseCuePanel}
+				/>
+			)}
+
+			{/* Usage Dashboard panel — full-screen overlay */}
+			{showUsageDashboard && (
+				<UsageDashboardPanel
+					onClose={() => setShowUsageDashboard(false)}
+					sendRequest={sendRequest}
+				/>
+			)}
+
+			{/* Achievements panel — full-screen overlay */}
+			{showAchievements && (
+				<AchievementsPanel
+					onClose={() => setShowAchievements(false)}
+					sendRequest={sendRequest}
 				/>
 			)}
 
