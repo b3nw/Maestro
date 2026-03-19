@@ -41,6 +41,9 @@ export const LOOKBACK_OPTIONS: LookbackPeriod[] = [
 	{ label: 'All time', hours: null, bucketCount: 24 },
 ];
 
+/** Base CUE brand color — used in ActivityGraph, HistoryFilterToggle, HistoryEntryItem */
+export const CUE_COLOR = '#06b6d4';
+
 // Constants for history pagination
 export const MAX_HISTORY_IN_MEMORY = 500; // Maximum entries to keep in memory
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { ActivityGraph } from '../../../../renderer/components/History';
 import type { Theme, HistoryEntry, HistoryEntryType } from '../../../../renderer/types';
 
@@ -347,9 +347,11 @@ describe('ActivityGraph', () => {
 		const lastBar = bars[bars.length - 1];
 		fireEvent.mouseEnter(lastBar);
 
-		// Should show Cue row in tooltip
-		expect(screen.getByText('Cue')).toBeInTheDocument();
-		expect(screen.getByText('2')).toBeInTheDocument(); // 2 CUE entries
+		// Should show Cue row in tooltip with count scoped to the Cue row
+		const cueLabel = screen.getByText('Cue');
+		expect(cueLabel).toBeInTheDocument();
+		const cueRow = cueLabel.closest('div')!;
+		expect(within(cueRow).getByText('2')).toBeInTheDocument();
 	});
 
 	it('does not show Cue row in tooltip when bucket has no CUE entries', () => {

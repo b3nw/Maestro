@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Check } from 'lucide-react';
 import type { Theme, HistoryEntry } from '../../types';
-import { LOOKBACK_OPTIONS } from './historyConstants';
-
-/** Hardcoded CUE brand color — matches HistoryFilterToggle and HistoryEntryItem */
-const CUE_COLOR = '#06b6d4';
+import { LOOKBACK_OPTIONS, CUE_COLOR } from './historyConstants';
 
 // Activity bar graph component with configurable lookback window
 export interface ActivityGraphProps {

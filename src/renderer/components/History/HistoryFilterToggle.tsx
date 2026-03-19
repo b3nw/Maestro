@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Bot, User, Zap } from 'lucide-react';
 import type { Theme, HistoryEntryType } from '../../types';
+import { CUE_COLOR } from './historyConstants';
 
 export interface HistoryFilterToggleProps {
 	activeFilters: Set<HistoryEntryType>;
@@ -27,9 +28,9 @@ const getPillColor = (type: HistoryEntryType, theme: Theme) => {
 			};
 		case 'CUE':
 			return {
-				bg: '#06b6d420',
-				text: '#06b6d4',
-				border: '#06b6d440',
+				bg: CUE_COLOR + '20',
+				text: CUE_COLOR,
+				border: CUE_COLOR + '40',
 			};
 		default:
 			return {

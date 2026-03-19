@@ -114,13 +114,21 @@ describe('TriggerNode', () => {
 	});
 
 	it('should apply selection styling when selected', () => {
-		const { container } = renderTriggerNode({}, true);
+		const { container: selectedContainer } = renderTriggerNode({}, true);
+		const { container: unselectedContainer } = renderTriggerNode({}, false);
 
-		const rootDiv = container.querySelector('div[style*="min-width: 220px"]') as HTMLElement;
-		// Selected nodes have the full color border (not the 60% opacity variant)
-		expect(rootDiv.style.borderColor).not.toContain('60');
-		// Selected nodes have a box shadow
-		expect(rootDiv.style.boxShadow).toBeTruthy();
+		const selectedRoot = selectedContainer.querySelector(
+			'div[style*="min-width: 220px"]'
+		) as HTMLElement;
+		const unselectedRoot = unselectedContainer.querySelector(
+			'div[style*="min-width: 220px"]'
+		) as HTMLElement;
+
+		// Selected and unselected should have different border colors
+		expect(selectedRoot.style.borderColor).not.toBe(unselectedRoot.style.borderColor);
+		// Selected should have a box shadow, unselected should not
+		expect(selectedRoot.style.boxShadow).toBeTruthy();
+		expect(unselectedRoot.style.boxShadow).toBeFalsy();
 	});
 
 	it('should use correct color for each event type', () => {
@@ -128,6 +136,7 @@ describe('TriggerNode', () => {
 			'time.heartbeat': '#f59e0b',
 			'time.scheduled': '#8b5cf6',
 			'file.changed': '#3b82f6',
+			'agent.completed': '#22c55e',
 			'github.pull_request': '#a855f7',
 			'github.issue': '#f97316',
 			'task.pending': '#06b6d4',

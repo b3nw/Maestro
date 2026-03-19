@@ -3,7 +3,7 @@ import { Bot, User, Zap, ExternalLink, Check, X, Clock, Award } from 'lucide-rea
 import type { Theme, HistoryEntry, HistoryEntryType } from '../../types';
 import { formatElapsedTime } from '../../utils/formatters';
 import { stripMarkdown } from '../../utils/textProcessing';
-import { DoubleCheck } from './historyConstants';
+import { DoubleCheck, CUE_COLOR } from './historyConstants';
 
 // Get pill color based on entry type
 const getPillColor = (type: HistoryEntryType, theme: Theme) => {
@@ -22,9 +22,9 @@ const getPillColor = (type: HistoryEntryType, theme: Theme) => {
 			};
 		case 'CUE':
 			return {
-				bg: '#06b6d420',
-				text: '#06b6d4',
-				border: '#06b6d440',
+				bg: CUE_COLOR + '20',
+				text: CUE_COLOR,
+				border: CUE_COLOR + '40',
 			};
 		default:
 			return {
