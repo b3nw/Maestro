@@ -9,7 +9,12 @@ import { ProcessManager } from './process-manager';
 import { WebServer } from './web-server';
 import { AgentDetector } from './agents';
 import { CueEngine } from './cue/cue-engine';
-import { executeCuePrompt, recordCueHistoryEntry, stopCueRun } from './cue/cue-executor';
+import {
+	executeCuePrompt,
+	recordCueHistoryEntry,
+	stopCueRun,
+	getCueProcessList,
+} from './cue/cue-executor';
 import { logger } from './utils/logger';
 import { tunnelManager } from './tunnel-manager';
 import { powerManager } from './power-manager';
@@ -675,6 +680,21 @@ function setupIpcHandlers() {
 		settingsStore: store,
 		getMainWindow: () => mainWindow,
 		sessionsStore,
+		getCueProcesses: () => {
+			if (!cueEngine?.isEnabled()) return [];
+			const processList = getCueProcessList();
+			const activeRuns = cueEngine.getActiveRuns();
+			// Merge PID/command data from executor with metadata from run manager
+			return processList.map((proc) => {
+				const run = activeRuns.find((r) => r.runId === proc.runId);
+				return {
+					...proc,
+					sessionName: run?.sessionName ?? '',
+					subscriptionName: run?.subscriptionName ?? '',
+					eventType: run?.event.type ?? '',
+				};
+			});
+		},
 	});
 
 	// Persistence operations - extracted to src/main/ipc/handlers/persistence.ts

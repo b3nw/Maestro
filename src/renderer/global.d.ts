@@ -293,6 +293,14 @@ interface MaestroAPI {
 				cwd: string;
 				isTerminal: boolean;
 				isBatchMode: boolean;
+				startTime?: number;
+				command?: string;
+				args?: string[];
+				isCueRun?: boolean;
+				cueRunId?: string;
+				cueSessionName?: string;
+				cueSubscriptionName?: string;
+				cueEventType?: string;
 			}>
 		>;
 		onData: (callback: (sessionId: string, data: string) => void) => () => void;

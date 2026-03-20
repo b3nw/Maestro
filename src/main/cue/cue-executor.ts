@@ -45,8 +45,29 @@ export interface CueExecutionConfig {
 	agentConfigValues?: Record<string, unknown>;
 }
 
+/** Metadata stored alongside each active Cue process */
+interface CueActiveProcess {
+	child: ChildProcess;
+	command: string;
+	args: string[];
+	cwd: string;
+	toolType: string;
+	startTime: number;
+}
+
+/** Serializable process info for the Process Monitor */
+export interface CueProcessInfo {
+	runId: string;
+	pid: number;
+	command: string;
+	args: string[];
+	cwd: string;
+	toolType: string;
+	startTime: number;
+}
+
 /** Map of active Cue processes by runId */
-const activeProcesses = new Map<string, ChildProcess>();
+const activeProcesses = new Map<string, CueActiveProcess>();
 
 /**
  * Extract clean human-readable text from agent stdout.
@@ -313,7 +334,14 @@ export async function executeCuePrompt(config: CueExecutionConfig): Promise<CueR
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 
-		activeProcesses.set(runId, child);
+		activeProcesses.set(runId, {
+			child,
+			command,
+			args: spawnArgs,
+			cwd: spawnCwd,
+			toolType,
+			startTime: Date.now(),
+		});
 
 		let stdout = '';
 		let stderr = '';
@@ -413,15 +441,15 @@ export async function executeCuePrompt(config: CueExecutionConfig): Promise<CueR
  * @returns true if the process was found and signaled, false if not found
  */
 export function stopCueRun(runId: string): boolean {
-	const child = activeProcesses.get(runId);
-	if (!child) return false;
+	const entry = activeProcesses.get(runId);
+	if (!entry) return false;
 
-	child.kill('SIGTERM');
+	entry.child.kill('SIGTERM');
 
 	// Escalate to SIGKILL after delay
 	setTimeout(() => {
-		if (!child.killed) {
-			child.kill('SIGKILL');
+		if (!entry.child.killed) {
+			entry.child.kill('SIGKILL');
 		}
 	}, SIGKILL_DELAY_MS);
 
@@ -431,8 +459,30 @@ export function stopCueRun(runId: string): boolean {
 /**
  * Get the map of currently active processes (for testing/monitoring).
  */
-export function getActiveProcesses(): Map<string, ChildProcess> {
+export function getActiveProcesses(): Map<string, CueActiveProcess> {
 	return activeProcesses;
+}
+
+/**
+ * Get serializable info about active Cue processes (for Process Monitor).
+ * Filters out entries where the process PID is unavailable (spawn failure).
+ */
+export function getCueProcessList(): CueProcessInfo[] {
+	const result: CueProcessInfo[] = [];
+	for (const [runId, entry] of activeProcesses) {
+		if (entry.child.pid) {
+			result.push({
+				runId,
+				pid: entry.child.pid,
+				command: entry.command,
+				args: entry.args,
+				cwd: entry.cwd,
+				toolType: entry.toolType,
+				startTime: entry.startTime,
+			});
+		}
+	}
+	return result;
 }
 
 /**
