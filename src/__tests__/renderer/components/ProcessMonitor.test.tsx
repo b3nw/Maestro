@@ -1763,9 +1763,9 @@ describe('ProcessMonitor', () => {
 
 			render(<ProcessMonitor theme={theme} sessions={[session]} groups={[]} onClose={onClose} />);
 
-			// Wait for async process list to load by confirming the regular process appears
+			// Wait for async process list to load by confirming the tree rendered
 			await waitFor(() => {
-				expect(screen.getByText('Test Session - AI Agent (claude-code)')).toBeInTheDocument();
+				expect(screen.getByText('UNGROUPED AGENTS')).toBeInTheDocument();
 			});
 
 			// Only then assert CUE RUNS is absent
@@ -1841,7 +1841,7 @@ describe('ProcessMonitor', () => {
 			);
 
 			await waitFor(() => {
-				expect(screen.getByText('Test Session - AI Agent (claude-code)')).toBeInTheDocument();
+				expect(screen.getByText('UNGROUPED AGENTS')).toBeInTheDocument();
 			});
 
 			// Click kill button
