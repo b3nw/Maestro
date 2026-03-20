@@ -17,7 +17,7 @@ import { isWindowsPlatform } from './platformUtils';
 export function getStdinFlags(opts: {
 	isSshSession: boolean;
 	supportsStreamJsonInput: boolean;
-	hasImages?: boolean;
+	hasImages: boolean;
 }): {
 	sendPromptViaStdin: boolean;
 	sendPromptViaStdinRaw: boolean;

@@ -230,6 +230,15 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 							agentId: agent?.id,
 							systemPromptLength: config.appendSystemPrompt.length,
 						});
+					} else {
+						logger.warn(
+							'System prompt provided but no user prompt to embed it in; dropped',
+							LOG_CONTEXT,
+							{
+								agentId: agent?.id,
+								systemPromptLength: config.appendSystemPrompt.length,
+							}
+						);
 					}
 				}
 
@@ -288,13 +297,24 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 							? finalArgs[sessionArgIndex + 1]
 							: config.agentSessionId;
 
+				// Redact system prompt content from logged args (can be large and sensitive)
+				const appendPromptIdx = finalArgs.indexOf('--append-system-prompt');
+				const argsToLog =
+					appendPromptIdx !== -1
+						? [
+								...finalArgs.slice(0, appendPromptIdx + 1),
+								`<${finalArgs[appendPromptIdx + 1]?.length ?? 0} chars>`,
+								...finalArgs.slice(appendPromptIdx + 2),
+							]
+						: finalArgs;
+
 				logger.info(`Spawning process: ${config.command}`, LOG_CONTEXT, {
 					sessionId: config.sessionId,
 					toolType: config.toolType,
 					cwd: config.cwd,
 					command: config.command,
-					fullCommand: `${config.command} ${finalArgs.join(' ')}`,
-					args: finalArgs,
+					fullCommand: `${config.command} ${argsToLog.join(' ')}`,
+					args: argsToLog,
 					requiresPty: agent?.requiresPty || false,
 					shell: shellToUse,
 					...(agentSessionId && { agentSessionId }),
