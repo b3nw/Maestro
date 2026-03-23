@@ -7,7 +7,7 @@ import { ProcessManager } from '../../process-manager';
 import { AgentDetector } from '../../agents';
 import { logger } from '../../utils/logger';
 import { isWindows } from '../../../shared/platformDetection';
-import { addBreadcrumb } from '../../utils/sentry';
+import { addBreadcrumb, captureException } from '../../utils/sentry';
 import { isWebContentsAvailable } from '../../utils/safe-send';
 import {
 	buildAgentArgs,
@@ -625,8 +625,14 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 					setTimeout(() => {
 						try {
 							fs.unlinkSync(systemPromptTempFile!);
-						} catch {
-							// Ignore - temp dir cleanup will handle it
+						} catch (err: unknown) {
+							// ENOENT is expected (file already cleaned up); report anything else
+							if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+								captureException(err instanceof Error ? err : new Error(String(err)), {
+									context: 'systemPromptTempFile cleanup',
+									file: systemPromptTempFile,
+								});
+							}
 						}
 					}, 5000);
 				}

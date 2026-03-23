@@ -26,6 +26,7 @@ import type {
 	OpenSpecCommand,
 } from '../types';
 import { createTab, getActiveTab } from '../utils/tabHelpers';
+import { getStdinFlags } from '../utils/spawnHelpers';
 import { generateId } from '../utils/ids';
 import { useSessionStore } from './sessionStore';
 import { DEFAULT_IMAGE_ONLY_PROMPT } from '../hooks/input/useInputProcessing';
@@ -321,6 +322,12 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
 					});
 				}
 
+				const { sendPromptViaStdin, sendPromptViaStdinRaw } = getStdinFlags({
+					isSshSession: !!session.sshRemoteId || !!session.sessionSshRemoteConfig?.enabled,
+					supportsStreamJsonInput: agent.capabilities?.supportsStreamJsonInput ?? false,
+					hasImages: !!hasImages,
+				});
+
 				console.log('[processQueuedItem] Spawning agent with queued message:', {
 					sessionId: targetSessionId,
 					toolType: session.toolType,
@@ -351,6 +358,8 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
 					sessionCustomModel: session.customModel,
 					sessionCustomContextWindow: session.customContextWindow,
 					sessionSshRemoteConfig: session.sessionSshRemoteConfig,
+					sendPromptViaStdin,
+					sendPromptViaStdinRaw,
 				});
 			} else if (item.type === 'command' && item.command) {
 				// Process a slash command - find matching command
@@ -436,6 +445,14 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
 						pendingAICommandForSynopsis: matchingCommand.command,
 					}));
 
+					// Compute stdin flags for command spawn (commands never have images)
+					const { sendPromptViaStdin: cmdSendViaStdin, sendPromptViaStdinRaw: cmdSendViaStdinRaw } =
+						getStdinFlags({
+							isSshSession: !!session.sshRemoteId || !!session.sessionSshRemoteConfig?.enabled,
+							supportsStreamJsonInput: agent.capabilities?.supportsStreamJsonInput ?? false,
+							hasImages: false,
+						});
+
 					// Spawn agent with the prompt
 					await window.maestro.process.spawn({
 						sessionId: targetSessionId,
@@ -453,6 +470,8 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
 						sessionCustomModel: session.customModel,
 						sessionCustomContextWindow: session.customContextWindow,
 						sessionSshRemoteConfig: session.sessionSshRemoteConfig,
+						sendPromptViaStdin: cmdSendViaStdin,
+						sendPromptViaStdinRaw: cmdSendViaStdinRaw,
 					});
 				} else {
 					// Unknown command - add error log and reset to idle
