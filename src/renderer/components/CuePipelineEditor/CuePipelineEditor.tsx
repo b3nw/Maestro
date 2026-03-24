@@ -170,7 +170,8 @@ function CuePipelineEditorInner({
 					onTriggerPipeline,
 					isSaved: !isDirty,
 					runningPipelineIds,
-				}
+				},
+				theme
 			),
 		[
 			pipelineState.pipelines,
@@ -179,6 +180,7 @@ function CuePipelineEditorInner({
 			onTriggerPipeline,
 			isDirty,
 			runningPipelineIds,
+			theme,
 		]
 	);
 
@@ -188,9 +190,16 @@ function CuePipelineEditorInner({
 				pipelineState.pipelines,
 				pipelineState.selectedPipelineId,
 				runningPipelineIds,
-				selectedEdgeId
+				selectedEdgeId,
+				theme
 			),
-		[pipelineState.pipelines, pipelineState.selectedPipelineId, runningPipelineIds, selectedEdgeId]
+		[
+			pipelineState.pipelines,
+			pipelineState.selectedPipelineId,
+			runningPipelineIds,
+			selectedEdgeId,
+			theme,
+		]
 	);
 
 	// ─── Canvas callbacks ────────────────────────────────────────────────────
@@ -607,9 +616,11 @@ function CuePipelineEditorInner({
 			{contextMenu && (
 				<PipelineContextMenu
 					contextMenu={contextMenu}
+					theme={theme}
 					onConfigure={handleContextMenuConfigure}
 					onDelete={handleContextMenuDelete}
 					onDuplicate={handleContextMenuDuplicate}
+					onDismiss={() => setContextMenu(null)}
 				/>
 			)}
 		</div>

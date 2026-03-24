@@ -11,6 +11,7 @@ import type {
 	TriggerNodeData,
 	AgentNodeData,
 } from '../../../../shared/cue-pipeline-types';
+import type { Theme } from '../../../../shared/theme-types';
 import type { TriggerNodeDataProps } from '../nodes/TriggerNode';
 import type { AgentNodeDataProps } from '../nodes/AgentNode';
 import type { PipelineEdgeData } from '../edges/PipelineEdge';
@@ -69,7 +70,8 @@ export function convertToReactFlowNodes(
 		onTriggerPipeline?: (pipelineName: string) => void;
 		isSaved?: boolean;
 		runningPipelineIds?: Set<string>;
-	}
+	},
+	theme?: Theme
 ): Node[] {
 	const nodes: Node[] = [];
 
@@ -148,6 +150,7 @@ export function convertToReactFlowNodes(
 					pipelineName: pipeline.name,
 					isSaved: triggerOptions?.isSaved,
 					isRunning: triggerOptions?.runningPipelineIds?.has(pipeline.id),
+					theme,
 				};
 				nodes.push({
 					id: compositeId,
@@ -172,6 +175,7 @@ export function convertToReactFlowNodes(
 					pipelineCount: agentPipelineCount.get(agentData.sessionId) ?? 1,
 					pipelineColors,
 					onConfigure: onConfigureNode,
+					theme,
 				};
 				nodes.push({
 					id: compositeId,
@@ -199,7 +203,8 @@ export function convertToReactFlowEdges(
 	pipelines: CuePipelineState['pipelines'],
 	selectedPipelineId: string | null,
 	runningPipelineIds?: Set<string>,
-	selectedEdgeId?: string | null
+	selectedEdgeId?: string | null,
+	theme?: Theme
 ): Edge[] {
 	const edges: Edge[] = [];
 
@@ -214,6 +219,7 @@ export function convertToReactFlowEdges(
 				mode: pEdge.mode,
 				isActivePipeline: isActive,
 				isRunning,
+				theme,
 			};
 			edges.push({
 				id: compositeId,
