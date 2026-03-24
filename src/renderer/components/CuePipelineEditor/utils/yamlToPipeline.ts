@@ -349,6 +349,16 @@ export function subscriptionsToPipelines(
 					y: LAYOUT.baseY + existingRows * LAYOUT.verticalSpacing,
 				};
 
+				// Resolve source nodes BEFORE creating the target node and updating
+				// sessionToNode — if the source and target share a session name
+				// (e.g. Claude → Claude), the overwrite would make the lookup
+				// return the new target instead of the earlier source node.
+				const resolvedSources: PipelineNode[] = [];
+				for (const sourceSessionName of sourceSessions) {
+					const sourceNode = sessionToNode.get(sourceSessionName);
+					if (sourceNode) resolvedSources.push(sourceNode);
+				}
+
 				// Force a new node when this session already appeared earlier in the chain
 				// (e.g. A → B → A). Reusing the earlier node would create a back-edge
 				// instead of rendering the second occurrence as a distinct node.
@@ -380,19 +390,14 @@ export function subscriptionsToPipelines(
 					(targetNode.data as AgentNodeData).outputPrompt = sub.output_prompt;
 				}
 
-				// Create edges from source(s) to target
-				if (sourceSessions.length > 0) {
-					for (const sourceSessionName of sourceSessions) {
-						const sourceNode = sessionToNode.get(sourceSessionName);
-						if (sourceNode) {
-							edges.push({
-								id: `edge-${edgeCount++}`,
-								source: sourceNode.id,
-								target: targetNode.id,
-								mode: 'pass' as EdgeMode,
-							});
-						}
-					}
+				// Create edges from pre-resolved source(s) to target
+				for (const sourceNode of resolvedSources) {
+					edges.push({
+						id: `edge-${edgeCount++}`,
+						source: sourceNode.id,
+						target: targetNode.id,
+						mode: 'pass' as EdgeMode,
+					});
 				}
 			}
 		}

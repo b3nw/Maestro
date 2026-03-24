@@ -501,9 +501,61 @@ describe('subscriptionsToPipelines', () => {
 		// Should have 3 edges: trigger→alpha, alpha→beta, beta→alpha(2nd)
 		expect(pipelines[0].edges).toHaveLength(3);
 
-		// The last edge should point to the SECOND alpha node, not the first
+		// The last edge should connect beta → alpha(2nd), not create a self-edge
 		const lastEdge = pipelines[0].edges[2];
+		const betaNode = agents.find(
+			(a) => (a.data as { sessionName: string }).sessionName === 'beta'
+		)!;
+		expect(lastEdge.source).toBe(betaNode.id);
 		expect(lastEdge.target).toBe(alphaNodes[1].id);
+		expect(lastEdge.source).not.toBe(lastEdge.target);
+	});
+
+	it('connects edges correctly when same agent is consecutive (A → B → B)', () => {
+		const subs: CueSubscription[] = [
+			{
+				name: 'consec-test',
+				event: 'time.heartbeat',
+				enabled: true,
+				prompt: 'Start',
+				interval_minutes: 10,
+				agent_id: 'session-0',
+			},
+			{
+				name: 'consec-test-chain-1',
+				event: 'agent.completed',
+				enabled: true,
+				prompt: 'First pass',
+				source_session: 'opencode',
+				agent_id: 'session-1',
+			},
+			{
+				name: 'consec-test-chain-2',
+				event: 'agent.completed',
+				enabled: true,
+				prompt: 'Second pass',
+				source_session: 'claude',
+				agent_id: 'session-1',
+			},
+		];
+		const sessions = makeSessions('opencode', 'claude');
+
+		const pipelines = subscriptionsToPipelines(subs, sessions);
+		expect(pipelines).toHaveLength(1);
+
+		const agents = pipelines[0].nodes.filter((n) => n.type === 'agent');
+		const claudeNodes = agents.filter(
+			(a) => (a.data as { sessionName: string }).sessionName === 'claude'
+		);
+
+		// Two distinct nodes for "claude"
+		expect(claudeNodes).toHaveLength(2);
+
+		// Edge from first claude → second claude (not a self-edge)
+		const lastEdge = pipelines[0].edges[2];
+		expect(lastEdge.source).toBe(claudeNodes[0].id);
+		expect(lastEdge.target).toBe(claudeNodes[1].id);
+		expect(lastEdge.source).not.toBe(lastEdge.target);
 	});
 
 	it('sets default edge mode to pass', () => {
