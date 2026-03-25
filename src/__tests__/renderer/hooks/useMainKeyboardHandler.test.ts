@@ -2414,7 +2414,7 @@ describe('useMainKeyboardHandler', () => {
 	});
 
 	describe('jumpToTerminal shortcut', () => {
-		it('should navigate to closest terminal tab on Alt+J', () => {
+		it('should navigate to closest terminal tab on Opt+Cmd+J', () => {
 			const { result } = renderHook(() => useMainKeyboardHandler());
 			const mockSetSessions = vi.fn();
 			const mockSession = { id: 'test-session', name: 'Test', inputMode: 'ai' as const };
@@ -2440,6 +2440,7 @@ describe('useMainKeyboardHandler', () => {
 					new KeyboardEvent('keydown', {
 						key: 'j',
 						altKey: true,
+						metaKey: true,
 						bubbles: true,
 					})
 				);
@@ -2470,6 +2471,7 @@ describe('useMainKeyboardHandler', () => {
 					new KeyboardEvent('keydown', {
 						key: 'j',
 						altKey: true,
+						metaKey: true,
 						bubbles: true,
 					})
 				);
@@ -2498,6 +2500,7 @@ describe('useMainKeyboardHandler', () => {
 					new KeyboardEvent('keydown', {
 						key: 'j',
 						altKey: true,
+						metaKey: true,
 						bubbles: true,
 					})
 				);
