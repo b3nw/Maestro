@@ -1359,6 +1359,7 @@ describe('settingsStore', () => {
 		});
 
 		it('falls back to default for invalid fileExplorerIconTheme values', async () => {
+			useSettingsStore.setState({ fileExplorerIconTheme: 'rich' });
 			vi.mocked(window.maestro.settings.getAll).mockResolvedValue({
 				fileExplorerIconTheme: 'neon' as any,
 			});

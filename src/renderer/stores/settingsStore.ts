@@ -1484,11 +1484,10 @@ export async function loadAllSettings(): Promise<void> {
 		if (allSettings['showHiddenFiles'] !== undefined)
 			patch.showHiddenFiles = allSettings['showHiddenFiles'] as boolean;
 
-		if (
-			allSettings['fileExplorerIconTheme'] !== undefined &&
-			isFileExplorerIconTheme(allSettings['fileExplorerIconTheme'])
-		) {
-			patch.fileExplorerIconTheme = allSettings['fileExplorerIconTheme'];
+		if (allSettings['fileExplorerIconTheme'] !== undefined) {
+			patch.fileExplorerIconTheme = isFileExplorerIconTheme(allSettings['fileExplorerIconTheme'])
+				? allSettings['fileExplorerIconTheme']
+				: 'default';
 		}
 
 		if (allSettings['terminalWidth'] !== undefined)
