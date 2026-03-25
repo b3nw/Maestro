@@ -6,3 +6,4 @@ coverage/
 .gitignore
 .husky/_/
 src/renderer/assets/file-explorer-rich-icons/*.svg
+AGENTS.md
