@@ -54,6 +54,7 @@ import {
 	registerAgentErrorHandlers,
 	registerDirectorNotesHandlers,
 	registerWakatimeHandlers,
+	registerFeedbackHandlers,
 	setupLoggerEventForwarding,
 	cleanupAllGroomingSessions,
 	getActiveGroomingSessionCount,
@@ -690,6 +691,11 @@ function setupIpcHandlers() {
 
 	// Register WakaTime handlers (CLI check, API key validation)
 	registerWakatimeHandlers(wakatimeManager);
+
+	// Register feedback handlers (gh auth + feedback submission)
+	registerFeedbackHandlers({
+		getProcessManager: () => processManager,
+	});
 }
 
 // Handle process output streaming (set up after initialization)

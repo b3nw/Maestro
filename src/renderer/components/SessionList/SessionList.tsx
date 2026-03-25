@@ -86,6 +86,7 @@ interface SessionListProps {
 
 	// Wizard props
 	openWizard?: () => void;
+	openFeedback?: () => void;
 
 	// Tour props
 	startTour?: () => void;
@@ -1187,6 +1188,7 @@ function SessionListInner(props: SessionListProps) {
 				shortcuts={shortcuts}
 				addNewSession={addNewSession}
 				openWizard={openWizard}
+				openFeedback={props.openFeedback}
 				setLeftSidebarOpen={setLeftSidebarOpen}
 			/>
 

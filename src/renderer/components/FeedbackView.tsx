@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { Theme, Session } from '../types';
+import { feedbackPrompt } from '../../prompts';
+import { buildSpawnConfigForAgent } from '../utils/sessionHelpers';
 
 interface FeedbackViewProps {
 	theme: Theme;
@@ -15,8 +17,17 @@ interface FeedbackAuthState {
 	message?: string;
 }
 
+interface FeedbackAttachment {
+	id: string;
+	name: string;
+	dataUrl: string;
+	sizeBytes: number;
+}
+
 const MAX_FEEDBACK_LENGTH = 5000;
 const CHAR_COUNT_WARNING_THRESHOLD = 4000;
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 function isRunningSession(session: Session): boolean {
 	if (session.toolType === 'terminal') {
@@ -31,19 +42,87 @@ function isRunningSession(session: Session): boolean {
 	);
 }
 
+function getSessionAgentSessionId(session: Session): string | null {
+	const activeTab = session.aiTabs?.find((tab) => tab.id === session.activeTabId) ?? session.aiTabs?.[0];
+	return activeTab?.agentSessionId || session.agentSessionId || null;
+}
+
+function renderFeedbackPrompt(feedbackText: string, attachmentCount: number): string {
+	return feedbackPrompt
+		.replace('{{FEEDBACK}}', feedbackText)
+		.replace(
+			'{{ATTACHMENT_CONTEXT}}',
+			attachmentCount > 0
+				? `${attachmentCount} screenshot attachment(s) are included with this message.`
+				: 'None'
+		);
+}
+
+function formatAttachmentSize(sizeBytes: number): string {
+	if (sizeBytes >= 1024 * 1024) {
+		return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			if (typeof reader.result === 'string') {
+				resolve(reader.result);
+				return;
+			}
+
+			reject(new Error(`Unable to read ${file.name}.`));
+		};
+		reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
+		reader.readAsDataURL(file);
+	});
+}
+
 export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: FeedbackViewProps) {
 	const [feedbackText, setFeedbackText] = useState('');
 	const [selectedSessionId, setSelectedSessionId] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const [activeProcessIds, setActiveProcessIds] = useState<Set<string>>(new Set());
 	const [authState, setAuthState] = useState<FeedbackAuthState>({
 		checking: true,
 		authenticated: false,
 	});
 	const [submitError, setSubmitError] = useState('');
+	const [attachments, setAttachments] = useState<FeedbackAttachment[]>([]);
+	const [isDraggingAttachments, setIsDraggingAttachments] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const runningSessions = useMemo(() => {
-		return sessions.filter(isRunningSession);
-	}, [sessions]);
+	const feedbackTargets = useMemo(() => {
+		return sessions
+			.filter((session) => session.toolType !== 'terminal')
+			.map((session) => ({
+				session,
+				isLive: activeProcessIds.has(session.id) && isRunningSession(session),
+				agentSessionId: getSessionAgentSessionId(session),
+			}))
+			.filter((target) => target.isLive || Boolean(target.agentSessionId));
+	}, [activeProcessIds, sessions]);
+
+	const selectedTarget = useMemo(
+		() => feedbackTargets.find((target) => target.session.id === selectedSessionId) ?? null,
+		[feedbackTargets, selectedSessionId]
+	);
+
+	const refreshActiveProcesses = useCallback(async (): Promise<Set<string>> => {
+		try {
+			const processes = await window.maestro.process.getActiveProcesses();
+			const nextIds = new Set(processes.map((process) => process.sessionId));
+			setActiveProcessIds(nextIds);
+			return nextIds;
+		} catch {
+			setActiveProcessIds(new Set());
+			return new Set();
+		}
+	}, []);
 
 	const authCheck = useCallback(async () => {
 		setAuthState((prev) => ({ ...prev, checking: true, authenticated: false }));
@@ -72,7 +151,7 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 		!submitting &&
 		selectedSessionId.length > 0 &&
 		feedbackText.trim().length > 0 &&
-		runningSessions.length > 0 &&
+		Boolean(selectedTarget) &&
 		authState.authenticated;
 
 	useEffect(() => {
@@ -80,15 +159,115 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 	}, [authCheck]);
 
 	useEffect(() => {
-		if (runningSessions.length === 0) {
+		void refreshActiveProcesses();
+	}, [refreshActiveProcesses, sessions]);
+
+	useEffect(() => {
+		if (feedbackTargets.length === 0) {
 			setSelectedSessionId('');
 			return;
 		}
 
-		if (!runningSessions.find((session) => session.id === selectedSessionId)) {
-			setSelectedSessionId(runningSessions[0].id);
+		if (!feedbackTargets.find((target) => target.session.id === selectedSessionId)) {
+			setSelectedSessionId(feedbackTargets[0].session.id);
 		}
-	}, [runningSessions, selectedSessionId]);
+	}, [feedbackTargets, selectedSessionId]);
+
+	const addAttachmentFiles = useCallback(
+		async (files: File[]) => {
+			if (files.length === 0) {
+				return;
+			}
+
+			const availableSlots = MAX_ATTACHMENTS - attachments.length;
+			if (availableSlots <= 0) {
+				setSubmitError(`You can attach up to ${MAX_ATTACHMENTS} screenshots.`);
+				return;
+			}
+
+			const imageFiles = files.filter((file) => file.type.startsWith('image/')).slice(0, availableSlots);
+			if (imageFiles.length === 0) {
+				setSubmitError('Only image files can be attached to feedback.');
+				return;
+			}
+
+			const validFiles: File[] = [];
+			for (const file of imageFiles) {
+				if (file.size > MAX_ATTACHMENT_BYTES) {
+					setSubmitError(`${file.name} is larger than 10 MB.`);
+					continue;
+				}
+
+				validFiles.push(file);
+			}
+
+			if (validFiles.length === 0) {
+				return;
+			}
+
+			try {
+				const nextAttachments = await Promise.all(
+					validFiles.map(async (file) => ({
+						id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+						name: file.name,
+						dataUrl: await readFileAsDataUrl(file),
+						sizeBytes: file.size,
+					}))
+				);
+
+				setAttachments((prev) => [...prev, ...nextAttachments]);
+				setSubmitError('');
+			} catch (error) {
+				setSubmitError(
+					error instanceof Error ? error.message : 'Unable to read one or more screenshots.'
+				);
+			}
+		},
+		[attachments.length]
+	);
+
+	const handleAttachmentBrowse = useCallback(
+		async (event: React.ChangeEvent<HTMLInputElement>) => {
+			const files = Array.from(event.target.files || []);
+			await addAttachmentFiles(files);
+			event.target.value = '';
+		},
+		[addAttachmentFiles]
+	);
+
+	const handleAttachmentDrop = useCallback(
+		async (event: React.DragEvent<HTMLDivElement>) => {
+			event.preventDefault();
+			setIsDraggingAttachments(false);
+
+			if (isFormDisabled) {
+				return;
+			}
+
+			await addAttachmentFiles(Array.from(event.dataTransfer.files));
+		},
+		[addAttachmentFiles, isFormDisabled]
+	);
+
+	const handleAttachmentDragOver = useCallback(
+		(event: React.DragEvent<HTMLDivElement>) => {
+			event.preventDefault();
+			if (!isFormDisabled) {
+				setIsDraggingAttachments(true);
+			}
+		},
+		[isFormDisabled]
+	);
+
+	const handleAttachmentDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+		if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+			setIsDraggingAttachments(false);
+		}
+	}, []);
+
+	const handleRemoveAttachment = useCallback((attachmentId: string) => {
+		setAttachments((prev) => prev.filter((attachment) => attachment.id !== attachmentId));
+	}, []);
 
 	const handleSubmit = useCallback(async () => {
 		if (!canSubmit) {
@@ -112,14 +291,68 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 				return;
 			}
 
-			const result = await window.maestro.feedback.submit(selectedSessionId, feedbackText.trim());
-
-			if (!result.success) {
-				setSubmitError(
-					result.error || 'The selected agent is no longer running. Please select another agent.'
-				);
+			const latestActiveProcessIds = await refreshActiveProcesses();
+			const latestTarget =
+				feedbackTargets.find((target) => target.session.id === selectedSessionId) ?? selectedTarget;
+			if (!latestTarget) {
+				setSubmitError('The selected session is no longer available.');
 				setSubmitting(false);
 				return;
+			}
+
+			if (latestActiveProcessIds.has(selectedSessionId)) {
+				const result = await window.maestro.feedback.submit(
+					selectedSessionId,
+					feedbackText.trim(),
+					attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
+				);
+
+				if (!result.success) {
+					setSubmitError(
+						result.error || 'The selected agent is no longer running. Please select another agent.'
+					);
+					setSubmitting(false);
+					return;
+				}
+			} else {
+				if (!latestTarget.agentSessionId) {
+					setSubmitError(
+						'The selected session has no live process and cannot be resumed for feedback.'
+					);
+					setSubmitting(false);
+					return;
+				}
+
+				const spawnConfig = await buildSpawnConfigForAgent({
+					sessionId: latestTarget.session.id,
+					toolType: latestTarget.session.toolType,
+					cwd: latestTarget.session.cwd,
+					prompt: renderFeedbackPrompt(feedbackText.trim(), attachments.length),
+					agentSessionId: latestTarget.agentSessionId,
+					sessionCustomPath: latestTarget.session.customPath,
+					sessionCustomArgs: latestTarget.session.customArgs,
+					sessionCustomEnvVars: latestTarget.session.customEnvVars,
+					sessionCustomModel: latestTarget.session.customModel,
+					sessionCustomContextWindow: latestTarget.session.customContextWindow,
+					sessionSshRemoteConfig: latestTarget.session.sessionSshRemoteConfig,
+				});
+
+				if (!spawnConfig) {
+					setSubmitError('Unable to resume the selected agent for feedback.');
+					setSubmitting(false);
+					return;
+				}
+
+				const spawnResult = await window.maestro.process.spawn({
+					...spawnConfig,
+					images: attachments.map(({ dataUrl }) => dataUrl),
+				});
+
+				if (!spawnResult.success) {
+					setSubmitError('Unable to resume the selected agent for feedback.');
+					setSubmitting(false);
+					return;
+				}
 			}
 
 			onSubmitSuccess(selectedSessionId);
@@ -131,7 +364,16 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 			);
 			setSubmitting(false);
 		}
-	}, [canSubmit, selectedSessionId, feedbackText, onSubmitSuccess]);
+	}, [
+		attachments,
+		canSubmit,
+		feedbackTargets,
+		feedbackText,
+		onSubmitSuccess,
+		refreshActiveProcesses,
+		selectedSessionId,
+		selectedTarget,
+	]);
 
 	const handleTextareaKeyDown = useCallback(
 		(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -163,9 +405,10 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 				className={!authState.authenticated ? 'opacity-40 pointer-events-none' : ''}
 				aria-disabled={!authState.authenticated}
 			>
-				{runningSessions.length === 0 ? (
+				{feedbackTargets.length === 0 ? (
 					<div className="text-sm" style={{ color: theme.colors.textDim }}>
-						No running agents available. Start an agent first, then try again.
+						No live or resumable AI sessions are available yet. Start a session and send its first
+						prompt, or use an existing session that already has conversation history.
 					</div>
 				) : (
 					<>
@@ -189,13 +432,14 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 									boxShadow: `0 0 0 2px ${theme.colors.accent}10`,
 								}}
 							>
-								{runningSessions.map((session) => (
-									<option key={session.id} value={session.id}>
-										{session.name} ({session.toolType})
+								{feedbackTargets.map((target) => (
+									<option key={target.session.id} value={target.session.id}>
+										{target.session.name} ({target.session.toolType}
+										{target.isLive ? ', live' : ', will resume'})
 									</option>
 								))}
 							</select>
-						</div>
+							</div>
 
 						<div className="space-y-2">
 							<label
@@ -236,13 +480,120 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 									{feedbackText.length.toLocaleString()}/{MAX_FEEDBACK_LENGTH.toLocaleString()}
 								</p>
 							)}
+						</div>
 
-							{submitError && (
-								<p className="text-sm" style={{ color: theme.colors.error }}>
-									{submitError}
-								</p>
+						<div className="space-y-2">
+							<div className="flex items-center justify-between">
+								<span className="text-sm font-medium" style={{ color: theme.colors.textMain }}>
+									Screenshots
+								</span>
+								<span className="text-xs" style={{ color: theme.colors.textDim }}>
+									{attachments.length}/{MAX_ATTACHMENTS}
+								</span>
+							</div>
+
+							<div
+								data-testid="feedback-attachment-dropzone"
+								role="button"
+								tabIndex={isFormDisabled ? -1 : 0}
+								onClick={() => !isFormDisabled && fileInputRef.current?.click()}
+								onDragOver={handleAttachmentDragOver}
+								onDragLeave={handleAttachmentDragLeave}
+								onDrop={(event) => void handleAttachmentDrop(event)}
+								onKeyDown={(event) => {
+									if (!isFormDisabled && (event.key === 'Enter' || event.key === ' ')) {
+										event.preventDefault();
+										fileInputRef.current?.click();
+									}
+								}}
+								className="rounded-lg border border-dashed p-4 transition-colors cursor-pointer"
+								style={{
+									borderColor: isDraggingAttachments ? theme.colors.accent : theme.colors.border,
+									backgroundColor: isDraggingAttachments
+										? `${theme.colors.accent}12`
+										: theme.colors.bgActivity,
+									color: theme.colors.textMain,
+								}}
+								aria-label="Add screenshots"
+							>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept="image/*"
+									multiple
+									className="hidden"
+									onChange={(event) => void handleAttachmentBrowse(event)}
+									disabled={isFormDisabled}
+								/>
+
+								<div className="flex items-start gap-3">
+									<div
+										className="rounded-full p-2 shrink-0"
+										style={{
+											backgroundColor: `${theme.colors.accent}1A`,
+											color: theme.colors.accent,
+										}}
+									>
+										<ImagePlus className="w-4 h-4" />
+									</div>
+									<div className="space-y-1">
+										<p className="text-sm font-medium">Drag screenshots here or click to browse</p>
+										<p className="text-xs" style={{ color: theme.colors.textDim }}>
+											PNG, JPG, GIF, or WebP. Up to {MAX_ATTACHMENTS} images, 10 MB each.
+										</p>
+									</div>
+								</div>
+							</div>
+
+							{attachments.length > 0 && (
+								<div className="grid grid-cols-2 gap-2">
+									{attachments.map((attachment) => (
+										<div
+											key={attachment.id}
+											className="rounded border overflow-hidden"
+											style={{
+												borderColor: theme.colors.border,
+												backgroundColor: theme.colors.bgActivity,
+											}}
+										>
+											<img
+												src={attachment.dataUrl}
+												alt={attachment.name}
+												className="w-full h-24 object-cover"
+											/>
+											<div className="flex items-start justify-between gap-2 p-2">
+												<div className="min-w-0">
+													<p
+														className="text-xs font-medium truncate"
+														style={{ color: theme.colors.textMain }}
+													>
+														{attachment.name}
+													</p>
+													<p className="text-[11px]" style={{ color: theme.colors.textDim }}>
+														{formatAttachmentSize(attachment.sizeBytes)}
+													</p>
+												</div>
+												<button
+													type="button"
+													onClick={() => handleRemoveAttachment(attachment.id)}
+													className="rounded p-1 transition-colors hover:bg-white/5"
+													style={{ color: theme.colors.textDim }}
+													aria-label={`Remove ${attachment.name}`}
+												>
+													<X className="w-3 h-3" />
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
 							)}
 						</div>
+
+						{submitError && (
+							<p className="text-sm" style={{ color: theme.colors.error }}>
+								{submitError}
+							</p>
+						)}
 					</>
 				)}
 			</div>

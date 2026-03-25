@@ -19,6 +19,11 @@ import {
 } from '../../utils/cliDetection';
 import { execFileNoThrow } from '../../utils/execFile';
 import { ProcessManager } from '../../process-manager';
+import {
+	buildImagePromptPrefix,
+	cleanupTempFiles,
+	saveImageToTempFile,
+} from '../../process-manager/utils/imageUtils';
 
 const LOG_CONTEXT = '[Feedback]';
 
@@ -52,6 +57,11 @@ const handlerOpts = (
  */
 export interface FeedbackHandlerDependencies {
 	getProcessManager: () => ProcessManager | null;
+}
+
+export interface FeedbackAttachmentInput {
+	name: string;
+	dataUrl: string;
 }
 
 /**
@@ -114,9 +124,11 @@ export function registerFeedbackHandlers(deps: FeedbackHandlerDependencies): voi
 			async ({
 				sessionId,
 				feedbackText,
+				attachments,
 			}: {
 				sessionId: string;
 				feedbackText: string;
+				attachments?: FeedbackAttachmentInput[];
 			}): Promise<{ success: boolean; error?: string }> => {
 				if (!sessionId || typeof sessionId !== 'string') {
 					return { success: false, error: 'No target agent was selected.' };
@@ -135,8 +147,32 @@ export function registerFeedbackHandlers(deps: FeedbackHandlerDependencies): voi
 					return { success: false, error: 'Agent process not available' };
 				}
 
+				const normalizedAttachments = Array.isArray(attachments)
+					? attachments.filter(
+							(attachment): attachment is FeedbackAttachmentInput =>
+								Boolean(attachment) &&
+								typeof attachment.name === 'string' &&
+								typeof attachment.dataUrl === 'string' &&
+								attachment.dataUrl.startsWith('data:image/')
+						)
+					: [];
+				const tempImagePaths = normalizedAttachments
+					.map((attachment, index) => saveImageToTempFile(attachment.dataUrl, index))
+					.filter((filePath): filePath is string => Boolean(filePath));
+				const imagePromptPrefix = buildImagePromptPrefix(tempImagePaths);
+				if (tempImagePaths.length > 0) {
+					const cleanupTimer = setTimeout(() => cleanupTempFiles(tempImagePaths), 60 * 60 * 1000);
+					cleanupTimer.unref?.();
+				}
+
 				const promptTemplate = await fs.readFile(getPromptPath(), 'utf-8');
-				const finalPrompt = promptTemplate.replace('{{FEEDBACK}}', trimmedFeedback);
+				const attachmentContext =
+					tempImagePaths.length > 0
+						? tempImagePaths.map((filePath) => `- ${filePath}`).join('\n')
+						: 'None';
+				const finalPrompt = `${imagePromptPrefix}${promptTemplate
+					.replace('{{FEEDBACK}}', trimmedFeedback)
+					.replace('{{ATTACHMENT_CONTEXT}}', attachmentContext)}`;
 				const writeSuccess = processManager.write(sessionId, `${finalPrompt}\n`);
 
 				if (!writeSuccess) {

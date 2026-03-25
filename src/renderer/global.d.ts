@@ -348,7 +348,8 @@ interface MaestroAPI {
 		checkGhAuth: () => Promise<{ authenticated: boolean; message?: string }>;
 		submit: (
 			sessionId: string,
-			feedbackText: string
+			feedbackText: string,
+			attachments?: Array<{ name: string; dataUrl: string }>
 		) => Promise<{ success: boolean; error?: string }>;
 	};
 	agentError: {

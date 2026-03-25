@@ -906,6 +906,7 @@ function MaestroConsoleInner() {
 		handleOpenFuzzySearch,
 		handleOpenCreatePR,
 		handleOpenAboutModal,
+		handleOpenFeedbackModal,
 		handleOpenBatchRunner,
 		handleOpenMarketplace,
 		handleEditAgent,
@@ -2325,6 +2326,7 @@ function MaestroConsoleInner() {
 		handleDeleteWorktreeSession,
 		handleToggleWorktreeExpanded,
 		openWizardModal,
+		handleOpenFeedbackModal,
 		handleStartTour,
 
 		// Group Chat handlers

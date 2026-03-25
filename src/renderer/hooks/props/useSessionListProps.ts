@@ -53,6 +53,7 @@ export interface UseSessionListPropsDeps {
 	handleDeleteWorktreeSession: (session: Session) => void;
 	handleToggleWorktreeExpanded: (sessionId: string) => void;
 	openWizardModal: () => void;
+	handleOpenFeedbackModal: () => void;
 	handleStartTour: () => void;
 
 	// Group Chat handlers
@@ -110,6 +111,7 @@ export function useSessionListProps(deps: UseSessionListPropsDeps) {
 			onOpenWorktreeConfig: deps.handleOpenWorktreeConfigSession,
 			onDeleteWorktree: deps.handleDeleteWorktreeSession,
 			openWizard: deps.openWizardModal,
+			openFeedback: deps.handleOpenFeedbackModal,
 			startTour: deps.handleStartTour,
 
 			// Group Chat handlers
@@ -153,6 +155,7 @@ export function useSessionListProps(deps: UseSessionListPropsDeps) {
 			deps.handleDeleteWorktreeSession,
 			deps.handleToggleWorktreeExpanded,
 			deps.openWizardModal,
+			deps.handleOpenFeedbackModal,
 			deps.handleStartTour,
 			deps.handleOpenGroupChat,
 			deps.handleNewGroupChat,

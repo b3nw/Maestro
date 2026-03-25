@@ -24,6 +24,11 @@ export interface FeedbackSubmitResponse {
 	error?: string;
 }
 
+export interface FeedbackAttachmentPayload {
+	name: string;
+	dataUrl: string;
+}
+
 /**
  * Feedback API
  */
@@ -35,7 +40,11 @@ export interface FeedbackApi {
 	/**
 	 * Submit user feedback to an active agent session
 	 */
-	submit: (sessionId: string, feedbackText: string) => Promise<FeedbackSubmitResponse>;
+	submit: (
+		sessionId: string,
+		feedbackText: string,
+		attachments?: FeedbackAttachmentPayload[]
+	) => Promise<FeedbackSubmitResponse>;
 }
 
 /**
@@ -45,7 +54,11 @@ export function createFeedbackApi() {
 	return {
 		checkGhAuth: (): Promise<FeedbackAuthResponse> => ipcRenderer.invoke('feedback:check-gh-auth'),
 
-		submit: (sessionId: string, feedbackText: string): Promise<FeedbackSubmitResponse> =>
-			ipcRenderer.invoke('feedback:submit', { sessionId, feedbackText }),
+		submit: (
+			sessionId: string,
+			feedbackText: string,
+			attachments: FeedbackAttachmentPayload[] = []
+		): Promise<FeedbackSubmitResponse> =>
+			ipcRenderer.invoke('feedback:submit', { sessionId, feedbackText, attachments }),
 	};
 }
