@@ -535,8 +535,12 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 						);
 						// Focus the terminal after switching
 						setTimeout(() => ctx.mainPanelRef?.current?.focusActiveTerminal(), 100);
-						trackShortcut('jumpToTerminal');
+					} else if (ctx.activeSessionId) {
+						// No terminal tabs exist — create one (same as Cmd+J / toggleMode)
+						ctx.handleOpenTerminalTab();
+						setTimeout(() => ctx.mainPanelRef?.current?.focusActiveTerminal(), 100);
 					}
+					trackShortcut('jumpToTerminal');
 				}
 			}
 

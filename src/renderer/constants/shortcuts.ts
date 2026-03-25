@@ -91,8 +91,8 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
 	},
 	jumpToTerminal: {
 		id: 'jumpToTerminal',
-		label: 'Jump to Terminal Tab',
-		keys: ['Meta', 'Shift', 'j'],
+		label: 'Jump to Nearest Terminal',
+		keys: ['Alt', 'Meta', 'j'],
 	},
 	fontSizeReset: {
 		id: 'fontSizeReset',

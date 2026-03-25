@@ -2448,9 +2448,9 @@ describe('useMainKeyboardHandler', () => {
 			expect(mockSetSessions).toHaveBeenCalled();
 		});
 
-		it('should not navigate when no terminal tabs exist', () => {
+		it('should create a new terminal tab when no terminal tabs exist', () => {
 			const { result } = renderHook(() => useMainKeyboardHandler());
-			const mockSetSessions = vi.fn();
+			const mockHandleOpenTerminalTab = vi.fn();
 			const mockSession = { id: 'test-session', name: 'Test', inputMode: 'ai' as const };
 
 			result.current.keyboardHandlerRef.current = createMockContext({
@@ -2459,7 +2459,8 @@ describe('useMainKeyboardHandler', () => {
 				activeSession: mockSession,
 				activeGroupChatId: null,
 				navigateToClosestTerminalTab: vi.fn().mockReturnValue(null),
-				setSessions: mockSetSessions,
+				setSessions: vi.fn(),
+				handleOpenTerminalTab: mockHandleOpenTerminalTab,
 				mainPanelRef: { current: { focusActiveTerminal: vi.fn() } },
 				recordShortcutUsage: vi.fn().mockReturnValue({ newLevel: null }),
 			});
@@ -2474,7 +2475,7 @@ describe('useMainKeyboardHandler', () => {
 				);
 			});
 
-			expect(mockSetSessions).not.toHaveBeenCalled();
+			expect(mockHandleOpenTerminalTab).toHaveBeenCalled();
 		});
 
 		it('should not navigate in group chat mode', () => {
