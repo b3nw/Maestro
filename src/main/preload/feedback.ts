@@ -45,6 +45,10 @@ export interface FeedbackApi {
 		feedbackText: string,
 		attachments?: FeedbackAttachmentPayload[]
 	) => Promise<FeedbackSubmitResponse>;
+	composePrompt: (
+		feedbackText: string,
+		attachments?: FeedbackAttachmentPayload[]
+	) => Promise<{ prompt: string }>;
 }
 
 /**
@@ -60,5 +64,11 @@ export function createFeedbackApi() {
 			attachments: FeedbackAttachmentPayload[] = []
 		): Promise<FeedbackSubmitResponse> =>
 			ipcRenderer.invoke('feedback:submit', { sessionId, feedbackText, attachments }),
+
+		composePrompt: (
+			feedbackText: string,
+			attachments: FeedbackAttachmentPayload[] = []
+		): Promise<{ prompt: string }> =>
+			ipcRenderer.invoke('feedback:compose-prompt', { feedbackText, attachments }),
 	};
 }

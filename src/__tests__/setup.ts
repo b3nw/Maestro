@@ -231,6 +231,7 @@ const mockMaestro = {
 	feedback: {
 		checkGhAuth: vi.fn().mockResolvedValue({ authenticated: true }),
 		submit: vi.fn().mockResolvedValue({ success: true }),
+		composePrompt: vi.fn().mockResolvedValue({ prompt: 'composed feedback prompt' }),
 	},
 	git: {
 		branch: vi.fn().mockResolvedValue({ stdout: 'main' }),

@@ -351,6 +351,10 @@ interface MaestroAPI {
 			feedbackText: string,
 			attachments?: Array<{ name: string; dataUrl: string }>
 		) => Promise<{ success: boolean; error?: string }>;
+		composePrompt: (
+			feedbackText: string,
+			attachments?: Array<{ name: string; dataUrl: string }>
+		) => Promise<{ prompt: string }>;
 	};
 	agentError: {
 		clearError: (sessionId: string) => Promise<{ success: boolean }>;

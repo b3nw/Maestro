@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { Theme, Session } from '../types';
-import { feedbackPrompt } from '../../prompts';
-import { buildSpawnConfigForAgent } from '../utils/sessionHelpers';
 
 interface FeedbackViewProps {
 	theme: Theme;
@@ -45,17 +43,6 @@ function isRunningSession(session: Session): boolean {
 function getSessionAgentSessionId(session: Session): string | null {
 	const activeTab = session.aiTabs?.find((tab) => tab.id === session.activeTabId) ?? session.aiTabs?.[0];
 	return activeTab?.agentSessionId || session.agentSessionId || null;
-}
-
-function renderFeedbackPrompt(feedbackText: string, attachmentCount: number): string {
-	return feedbackPrompt
-		.replace('{{FEEDBACK}}', feedbackText)
-		.replace(
-			'{{ATTACHMENT_CONTEXT}}',
-			attachmentCount > 0
-				? `${attachmentCount} screenshot attachment(s) are included with this message.`
-				: 'None'
-		);
 }
 
 function formatAttachmentSize(sizeBytes: number): string {
@@ -291,7 +278,6 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 				return;
 			}
 
-			const latestActiveProcessIds = await refreshActiveProcesses();
 			const latestTarget =
 				feedbackTargets.find((target) => target.session.id === selectedSessionId) ?? selectedTarget;
 			if (!latestTarget) {
@@ -300,59 +286,16 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 				return;
 			}
 
-			if (latestActiveProcessIds.has(selectedSessionId)) {
-				const result = await window.maestro.feedback.submit(
-					selectedSessionId,
-					feedbackText.trim(),
-					attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
-				);
+			const result = await window.maestro.feedback.submit(
+				selectedSessionId,
+				feedbackText.trim(),
+				attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
+			);
 
-				if (!result.success) {
-					setSubmitError(
-						result.error || 'The selected agent is no longer running. Please select another agent.'
-					);
-					setSubmitting(false);
-					return;
-				}
-			} else {
-				if (!latestTarget.agentSessionId) {
-					setSubmitError(
-						'The selected session has no live process and cannot be resumed for feedback.'
-					);
-					setSubmitting(false);
-					return;
-				}
-
-				const spawnConfig = await buildSpawnConfigForAgent({
-					sessionId: latestTarget.session.id,
-					toolType: latestTarget.session.toolType,
-					cwd: latestTarget.session.cwd,
-					prompt: renderFeedbackPrompt(feedbackText.trim(), attachments.length),
-					agentSessionId: latestTarget.agentSessionId,
-					sessionCustomPath: latestTarget.session.customPath,
-					sessionCustomArgs: latestTarget.session.customArgs,
-					sessionCustomEnvVars: latestTarget.session.customEnvVars,
-					sessionCustomModel: latestTarget.session.customModel,
-					sessionCustomContextWindow: latestTarget.session.customContextWindow,
-					sessionSshRemoteConfig: latestTarget.session.sessionSshRemoteConfig,
-				});
-
-				if (!spawnConfig) {
-					setSubmitError('Unable to resume the selected agent for feedback.');
-					setSubmitting(false);
-					return;
-				}
-
-				const spawnResult = await window.maestro.process.spawn({
-					...spawnConfig,
-					images: attachments.map(({ dataUrl }) => dataUrl),
-				});
-
-				if (!spawnResult.success) {
-					setSubmitError('Unable to resume the selected agent for feedback.');
-					setSubmitting(false);
-					return;
-				}
+			if (!result.success) {
+				setSubmitError(result.error || 'Failed to create GitHub issue from feedback.');
+				setSubmitting(false);
+				return;
 			}
 
 			onSubmitSuccess(selectedSessionId);
@@ -367,10 +310,8 @@ export function FeedbackView({ theme, sessions, onCancel, onSubmitSuccess }: Fee
 	}, [
 		attachments,
 		canSubmit,
-		feedbackTargets,
 		feedbackText,
 		onSubmitSuccess,
-		refreshActiveProcesses,
 		selectedSessionId,
 		selectedTarget,
 	]);

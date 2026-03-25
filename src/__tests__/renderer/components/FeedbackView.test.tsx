@@ -173,14 +173,12 @@ describe('FeedbackView', () => {
 		fireEvent.click(screen.getByRole('button', { name: /send feedback/i }));
 
 		await waitFor(() => {
-			expect(window.maestro.process.spawn).toHaveBeenCalledWith(
-				expect.objectContaining({
-					sessionId: 'session-1',
-					agentSessionId: '019d26d2-6a6b-7ba0-bc9d-b5f884837d76',
-					prompt: expect.stringContaining('Please file a bug for this issue.'),
-				})
+			expect(window.maestro.feedback.submit).toHaveBeenCalledWith(
+				'session-1',
+				'Please file a bug for this issue.',
+				[]
 			);
 		});
-		expect(window.maestro.feedback.submit).not.toHaveBeenCalled();
+		expect(window.maestro.process.spawn).not.toHaveBeenCalled();
 	});
 });

@@ -5,7 +5,8 @@ You are creating a GitHub issue from user feedback for RunMaestro.
 User-provided feedback:
 {{FEEDBACK}}
 
-Attached screenshots saved on disk for local inspection (if any):
+Attached screenshots prepared for direct inclusion in the GitHub issue body (if any).
+When this section is not `None`, it contains literal markdown image lines that must be copied unchanged:
 {{ATTACHMENT_CONTEXT}}
 
 Do not ask for clarification. Use the text as-is and proceed.
@@ -31,8 +32,9 @@ Do not ask for clarification. Use the text as-is and proceed.
    First check whether it already exists.
    Only create it if it is missing.
 
-5. If screenshots are attached, inspect those local image files before writing the issue.
-   Incorporate any relevant visual evidence into the issue body.
+5. If the attachment context is not `None`, you MUST add a `## Screenshots` section to the issue body
+   and paste the provided markdown image lines exactly as given.
+   Do not alter the alt text, URLs, or markdown formatting.
 
 6. Then run:
    Try to create the issue with the `Maestro-feedback` label.

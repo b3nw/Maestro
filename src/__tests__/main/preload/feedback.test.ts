@@ -40,4 +40,17 @@ describe('Feedback Preload API', () => {
 		});
 		expect(result.success).toBe(true);
 	});
+
+	it('invokes feedback:compose-prompt with attachments payload', async () => {
+		mockInvoke.mockResolvedValue({ prompt: 'rendered prompt' });
+		const attachments = [{ name: 'bug.png', dataUrl: 'data:image/png;base64,abc123' }];
+
+		const result = await api.composePrompt('Something broke', attachments);
+
+		expect(mockInvoke).toHaveBeenCalledWith('feedback:compose-prompt', {
+			feedbackText: 'Something broke',
+			attachments,
+		});
+		expect(result.prompt).toBe('rendered prompt');
+	});
 });
