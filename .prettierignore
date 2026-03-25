@@ -4,4 +4,5 @@ node_modules/
 coverage/
 *.min.js
 .gitignore
+.husky/_/
 src/renderer/assets/file-explorer-rich-icons/*.svg
