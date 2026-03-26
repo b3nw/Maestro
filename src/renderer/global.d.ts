@@ -391,6 +391,25 @@ interface MaestroAPI {
 			) => void
 		) => () => void;
 	};
+	feedback: {
+		checkGhAuth: () => Promise<{ authenticated: boolean; message?: string }>;
+		submit: (payload: {
+			sessionId: string;
+			category: 'bug_report' | 'feature_request' | 'improvement' | 'general_feedback';
+			summary: string;
+			expectedBehavior: string;
+			details: string;
+			reproductionSteps?: string;
+			additionalContext?: string;
+			agentProvider?: string;
+			sshRemoteEnabled?: boolean;
+			attachments?: Array<{ name: string; dataUrl: string }>;
+		}) => Promise<{ success: boolean; error?: string }>;
+		composePrompt: (
+			feedbackText: string,
+			attachments?: Array<{ name: string; dataUrl: string }>
+		) => Promise<{ prompt: string }>;
+	};
 	agentError: {
 		clearError: (sessionId: string) => Promise<{ success: boolean }>;
 		retryAfterError: (

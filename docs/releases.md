@@ -67,6 +67,7 @@ Patch release with bug fixes, UX improvements, and cherry-picks from the 0.16.0 
 
 ### Visual Polish
 
+- **Remote session stability:** Stabilized mobile remote session UI with improved composer, scoped drafts, and connection handling
 - **Light theme contrast:** Improved syntax highlighting contrast across all light themes
 - **Context warning sash:** Dark text colors in light mode for readability
 - **Session name dimming:** Use `textMain` color to prevent visual dimming

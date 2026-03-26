@@ -233,6 +233,8 @@ function MaestroConsoleInner() {
 		// About Modal
 		aboutModalOpen,
 		setAboutModalOpen,
+		feedbackModalOpen,
+		setFeedbackModalOpen,
 		// Update Check Modal
 		setUpdateCheckModalOpen,
 		// standingOvationData, firstRunCelebrationData — now self-sourced in AppOverlays (Tier 1A)
@@ -925,6 +927,7 @@ function MaestroConsoleInner() {
 		handleCloseDebugPackage,
 		handleCloseShortcutsHelp,
 		handleCloseAboutModal,
+		handleCloseFeedbackModal,
 		handleCloseUpdateCheckModal,
 		handleCloseProcessMonitor,
 		handleCloseLogViewer,
@@ -954,6 +957,7 @@ function MaestroConsoleInner() {
 		handleOpenFuzzySearch,
 		handleOpenCreatePR,
 		handleOpenAboutModal,
+		handleOpenFeedbackModal,
 		handleOpenBatchRunner,
 		handleOpenMarketplace,
 		handleEditAgent,
@@ -2645,6 +2649,7 @@ function MaestroConsoleInner() {
 		handleToggleWorktreeExpanded,
 		handleConfigureCue,
 		openWizardModal,
+		handleOpenFeedbackModal,
 		handleStartTour,
 
 		// Group Chat handlers
@@ -2827,10 +2832,13 @@ function MaestroConsoleInner() {
 					hasNoAgents={hasNoAgents}
 					keyboardMasteryStats={keyboardMasteryStats}
 					onCloseAboutModal={handleCloseAboutModal}
+					feedbackModalOpen={feedbackModalOpen}
+					onCloseFeedbackModal={handleCloseFeedbackModal}
 					autoRunStats={autoRunStats}
 					usageStats={usageStats}
 					handsOnTimeMs={totalActiveTimeMs}
 					onOpenLeaderboardRegistration={handleOpenLeaderboardRegistrationFromAbout}
+					onSwitchToSession={setActiveSessionId}
 					isLeaderboardRegistered={isLeaderboardRegistered}
 					onCloseUpdateCheckModal={handleCloseUpdateCheckModal}
 					onCloseProcessMonitor={handleCloseProcessMonitor}
@@ -2910,6 +2918,7 @@ function MaestroConsoleInner() {
 					setSettingsTab={setSettingsTab}
 					setShortcutsHelpOpen={setShortcutsHelpOpen}
 					setAboutModalOpen={setAboutModalOpen}
+					setFeedbackModalOpen={setFeedbackModalOpen}
 					setLogViewerOpen={setLogViewerOpen}
 					setProcessMonitorOpen={setProcessMonitorOpen}
 					setUsageDashboardOpen={encoreFeatures.usageStats ? setUsageDashboardOpen : undefined}

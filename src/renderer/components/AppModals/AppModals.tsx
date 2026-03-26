@@ -56,8 +56,11 @@ export interface AppModalsProps {
 	hasNoAgents: boolean;
 	keyboardMasteryStats: KeyboardMasteryStats;
 	onCloseAboutModal: () => void;
+	feedbackModalOpen: boolean;
+	onCloseFeedbackModal: () => void;
 	autoRunStats: AutoRunStats;
 	usageStats?: MaestroUsageStats | null;
+	onSwitchToSession: (sessionId: string) => void;
 	/** Global hands-on time in milliseconds (from settings) */
 	handsOnTimeMs: number;
 	onOpenLeaderboardRegistration: () => void;
@@ -180,6 +183,7 @@ export interface AppModalsProps {
 	setSettingsTab: (tab: SettingsTab) => void;
 	setShortcutsHelpOpen: (open: boolean) => void;
 	setAboutModalOpen: (open: boolean) => void;
+	setFeedbackModalOpen: (open: boolean) => void;
 	setLogViewerOpen: (open: boolean) => void;
 	setProcessMonitorOpen: (open: boolean) => void;
 	setUsageDashboardOpen?: (open: boolean) => void;
@@ -479,8 +483,11 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 		hasNoAgents,
 		keyboardMasteryStats,
 		onCloseAboutModal,
+		feedbackModalOpen,
+		onCloseFeedbackModal,
 		autoRunStats,
 		usageStats,
+		onSwitchToSession,
 		handsOnTimeMs,
 		onOpenLeaderboardRegistration,
 		isLeaderboardRegistered,
@@ -563,6 +570,7 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 		setSettingsTab,
 		setShortcutsHelpOpen,
 		setAboutModalOpen,
+		setFeedbackModalOpen,
 		setLogViewerOpen,
 		setProcessMonitorOpen,
 		setUsageDashboardOpen,
@@ -736,8 +744,11 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 				keyboardMasteryStats={keyboardMasteryStats}
 				aboutModalOpen={aboutModalOpen}
 				onCloseAboutModal={onCloseAboutModal}
+				feedbackModalOpen={feedbackModalOpen}
+				onCloseFeedbackModal={onCloseFeedbackModal}
 				autoRunStats={autoRunStats}
 				usageStats={usageStats}
+				onSwitchToSession={onSwitchToSession}
 				handsOnTimeMs={handsOnTimeMs}
 				onOpenLeaderboardRegistration={onOpenLeaderboardRegistration}
 				isLeaderboardRegistered={isLeaderboardRegistered}
@@ -874,6 +885,7 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 				setSettingsTab={setSettingsTab}
 				setShortcutsHelpOpen={setShortcutsHelpOpen}
 				setAboutModalOpen={setAboutModalOpen}
+				setFeedbackModalOpen={setFeedbackModalOpen}
 				setLogViewerOpen={setLogViewerOpen}
 				setProcessMonitorOpen={setProcessMonitorOpen}
 				setUsageDashboardOpen={setUsageDashboardOpen}

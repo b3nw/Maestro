@@ -51,6 +51,7 @@ interface QuickActionsModalProps {
 	setSettingsTab: (tab: SettingsTab) => void;
 	setShortcutsHelpOpen: (open: boolean) => void;
 	setAboutModalOpen: (open: boolean) => void;
+	setFeedbackModalOpen: (open: boolean) => void;
 	setLogViewerOpen: (open: boolean) => void;
 	setProcessMonitorOpen: (open: boolean) => void;
 	setUsageDashboardOpen?: (open: boolean) => void;
@@ -159,6 +160,7 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 		setSettingsTab,
 		setShortcutsHelpOpen,
 		setAboutModalOpen,
+		setFeedbackModalOpen,
 		setLogViewerOpen,
 		setProcessMonitorOpen,
 		setUsageDashboardOpen,
@@ -924,6 +926,15 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 			label: 'About Maestro',
 			action: () => {
 				setAboutModalOpen(true);
+				setQuickActionOpen(false);
+			},
+		},
+		{
+			id: 'feedback',
+			label: 'Send Feedback',
+			subtext: 'Report a bug or suggest a feature via GitHub',
+			action: () => {
+				setFeedbackModalOpen(true);
 				setQuickActionOpen(false);
 			},
 		},

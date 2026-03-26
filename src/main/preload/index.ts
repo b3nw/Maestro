@@ -44,6 +44,7 @@ import { createLeaderboardApi } from './leaderboard';
 import { createAttachmentsApi } from './attachments';
 import { createProcessApi } from './process';
 import { createGitApi } from './git';
+import { createFeedbackApi } from './feedback';
 import { createFsApi } from './fs';
 import { createAgentsApi } from './agents';
 import { createSymphonyApi } from './symphony';
@@ -66,6 +67,7 @@ contextBridge.exposeInMainWorld('maestro', {
 
 	// Process/Session API
 	process: createProcessApi(),
+	feedback: createFeedbackApi(),
 
 	// Agent Error Handling API
 	agentError: createAgentErrorApi(),
@@ -258,6 +260,8 @@ export {
 	createAttachmentsApi,
 	// Process
 	createProcessApi,
+	// Feedback
+	createFeedbackApi,
 	// Git
 	createGitApi,
 	// Filesystem
@@ -407,6 +411,12 @@ export type {
 	AttachmentListResponse,
 	AttachmentPathResponse,
 } from './attachments';
+export type {
+	// From feedback
+	FeedbackApi,
+	FeedbackAuthResponse,
+	FeedbackSubmitResponse,
+} from './feedback';
 export type {
 	// From process
 	ProcessApi,

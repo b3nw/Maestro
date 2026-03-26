@@ -45,6 +45,7 @@ export interface ModalHandlersReturn {
 	handleCloseShortcutsHelp: () => void;
 	handleCloseAboutModal: () => void;
 	handleCloseUpdateCheckModal: () => void;
+	handleCloseFeedbackModal: () => void;
 	handleCloseProcessMonitor: () => void;
 	handleCloseLogViewer: () => void;
 	handleCloseConfirmModal: () => void;
@@ -89,6 +90,7 @@ export interface ModalHandlersReturn {
 	handleOpenFuzzySearch: () => void;
 	handleOpenCreatePR: () => void;
 	handleOpenAboutModal: () => void;
+	handleOpenFeedbackModal: () => void;
 	handleOpenBatchRunner: () => void;
 	handleOpenMarketplace: () => void;
 
@@ -208,6 +210,10 @@ export function useModalHandlers(
 
 	const handleCloseAboutModal = useCallback(() => {
 		getModalActions().setAboutModalOpen(false);
+	}, []);
+
+	const handleCloseFeedbackModal = useCallback(() => {
+		getModalActions().setFeedbackModalOpen(false);
 	}, []);
 
 	const handleCloseUpdateCheckModal = useCallback(() => {
@@ -460,6 +466,10 @@ export function useModalHandlers(
 
 	const handleOpenAboutModal = useCallback(() => {
 		getModalActions().setAboutModalOpen(true);
+	}, []);
+
+	const handleOpenFeedbackModal = useCallback(() => {
+		getModalActions().setFeedbackModalOpen(true);
 	}, []);
 
 	const handleOpenBatchRunner = useCallback(() => {
@@ -871,6 +881,7 @@ export function useModalHandlers(
 		handleCloseDebugPackage,
 		handleCloseShortcutsHelp,
 		handleCloseAboutModal,
+		handleCloseFeedbackModal,
 		handleCloseUpdateCheckModal,
 		handleCloseProcessMonitor,
 		handleCloseLogViewer,
@@ -916,6 +927,7 @@ export function useModalHandlers(
 		handleOpenFuzzySearch,
 		handleOpenCreatePR,
 		handleOpenAboutModal,
+		handleOpenFeedbackModal,
 		handleOpenBatchRunner,
 		handleOpenMarketplace,
 

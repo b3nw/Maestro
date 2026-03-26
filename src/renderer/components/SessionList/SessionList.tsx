@@ -87,6 +87,7 @@ interface SessionListProps {
 
 	// Wizard props
 	openWizard?: () => void;
+	openFeedback?: () => void;
 
 	// Tour props
 	startTour?: () => void;
@@ -956,6 +957,7 @@ function SessionListInner(props: SessionListProps) {
 						const groupSessions = sortedGroupSessionsById.get(group.id) || [];
 						// Hide empty groups when filtering by unread agents
 						if (showUnreadAgentsOnly && groupSessions.length === 0) return null;
+						const groupCollapsedPills = groupSessions.filter((session) => !session.parentSessionId);
 						return (
 							<div key={group.id} className="mb-1">
 								<div
@@ -1056,31 +1058,29 @@ function SessionListInner(props: SessionListProps) {
 											})
 										)}
 									</div>
-								) : (
+								) : groupCollapsedPills.length > 0 ? (
 									/* Collapsed Group Palette - uses subdivided pills for worktrees */
 									<div
 										className="ml-8 mr-3 mt-1 mb-2 flex gap-1 h-1.5 cursor-pointer"
 										onClick={() => toggleGroup(group.id)}
 									>
-										{groupSessions
-											.filter((s) => !s.parentSessionId)
-											.map((s) => (
-												<CollapsedSessionPill
-													key={`group-collapsed-${group.id}-${s.id}`}
-													session={s}
-													keyPrefix={`group-collapsed-${group.id}`}
-													theme={theme}
-													activeBatchSessionIds={activeBatchSessionIds}
-													leftSidebarWidth={leftSidebarWidthState}
-													contextWarningYellowThreshold={contextWarningYellowThreshold}
-													contextWarningRedThreshold={contextWarningRedThreshold}
-													getFileCount={getFileCount}
-													getWorktreeChildren={getWorktreeChildren}
-													setActiveSessionId={setActiveSessionId}
-												/>
-											))}
+										{groupCollapsedPills.map((s) => (
+											<CollapsedSessionPill
+												key={`group-collapsed-${group.id}-${s.id}`}
+												session={s}
+												keyPrefix={`group-collapsed-${group.id}`}
+												theme={theme}
+												activeBatchSessionIds={activeBatchSessionIds}
+												leftSidebarWidth={leftSidebarWidthState}
+												contextWarningYellowThreshold={contextWarningYellowThreshold}
+												contextWarningRedThreshold={contextWarningRedThreshold}
+												getFileCount={getFileCount}
+												getWorktreeChildren={getWorktreeChildren}
+												setActiveSessionId={setActiveSessionId}
+											/>
+										))}
 									</div>
-								)}
+								) : null}
 							</div>
 						);
 					})}
@@ -1272,6 +1272,7 @@ function SessionListInner(props: SessionListProps) {
 				showUnreadAgentsOnly={showUnreadAgentsOnly}
 				addNewSession={addNewSession}
 				openWizard={openWizard}
+				openFeedback={props.openFeedback}
 				setLeftSidebarOpen={setLeftSidebarOpen}
 				toggleShowUnreadAgentsOnly={toggleShowUnreadAgentsOnly}
 			/>

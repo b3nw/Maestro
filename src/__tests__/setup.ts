@@ -224,8 +224,14 @@ const mockMaestro = {
 		write: vi.fn().mockResolvedValue(undefined),
 		kill: vi.fn().mockResolvedValue(undefined),
 		resize: vi.fn().mockResolvedValue(undefined),
+		getActiveProcesses: vi.fn().mockResolvedValue([]),
 		onOutput: vi.fn().mockReturnValue(() => {}),
 		onExit: vi.fn().mockReturnValue(() => {}),
+	},
+	feedback: {
+		checkGhAuth: vi.fn().mockResolvedValue({ authenticated: true }),
+		submit: vi.fn().mockResolvedValue({ success: true }),
+		composePrompt: vi.fn().mockResolvedValue({ prompt: 'composed feedback prompt' }),
 	},
 	git: {
 		branch: vi.fn().mockResolvedValue({ stdout: 'main' }),

@@ -69,6 +69,7 @@ vi.mock('lucide-react', () => ({
 	Music: () => <span data-testid="icon-music" />,
 	Command: () => <span data-testid="icon-command" />,
 	MessageSquare: () => <span data-testid="icon-message-square" />,
+	MessageSquarePlus: () => <span data-testid="icon-message-square-plus" />,
 	Zap: ({ title, style }: { title?: string; style?: Record<string, string> }) => (
 		<span data-testid="icon-zap" title={title} style={style} />
 	),
@@ -2010,6 +2011,29 @@ describe('SessionList', () => {
 			fireEvent.click(indicator!);
 
 			expect(setActiveSessionId).toHaveBeenCalledWith('s1');
+		});
+
+		it('does not render collapsed palette for a collapsed group with no top-level sessions', () => {
+			const group = createMockGroup({ id: 'g1', name: 'Collapsed', collapsed: true });
+			const sessions = [
+				createMockSession({
+					id: 's-child',
+					name: 'Nested Worktree Session',
+					groupId: 'g1',
+					parentSessionId: 's-parent',
+				}),
+			];
+			useSessionStore.setState({
+				sessions: sessions,
+				groups: [group],
+			});
+			useUIStore.setState({ leftSidebarOpen: true });
+			const props = createDefaultProps({
+				sortedSessions: sessions,
+			});
+			const { container } = render(<SessionList {...props} />);
+
+			expect(container.querySelector('.ml-8.mr-3.mt-1.mb-2.flex')).toBeNull();
 		});
 	});
 
