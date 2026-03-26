@@ -1937,7 +1937,7 @@ describe('useMainKeyboardHandler', () => {
 				expect(mockFocusActiveTerminal).toHaveBeenCalled();
 			});
 
-			it('Cmd+K clears terminal in terminal mode instead of opening command palette', () => {
+			it('Cmd+K opens command palette in terminal mode (not clear terminal)', () => {
 				const { result } = renderHook(() => useMainKeyboardHandler());
 
 				const mockClearActiveTerminal = vi.fn();
@@ -1961,8 +1961,34 @@ describe('useMainKeyboardHandler', () => {
 					);
 				});
 
+				expect(mockSetQuickActionOpen).toHaveBeenCalledWith(true, 'main');
+				expect(mockClearActiveTerminal).not.toHaveBeenCalled();
+			});
+
+			it('Cmd+Shift+K clears terminal in terminal mode', () => {
+				const { result } = renderHook(() => useMainKeyboardHandler());
+
+				const mockClearActiveTerminal = vi.fn();
+
+				result.current.keyboardHandlerRef.current = createTerminalTabContext({
+					isShortcut: () => false,
+					sessions: [{ id: 'session-1' }],
+					mainPanelRef: { current: { clearActiveTerminal: mockClearActiveTerminal } },
+					recordShortcutUsage: vi.fn().mockReturnValue({ newLevel: null }),
+				});
+
+				act(() => {
+					window.dispatchEvent(
+						new KeyboardEvent('keydown', {
+							key: 'k',
+							metaKey: true,
+							shiftKey: true,
+							bubbles: true,
+						})
+					);
+				});
+
 				expect(mockClearActiveTerminal).toHaveBeenCalled();
-				expect(mockSetQuickActionOpen).not.toHaveBeenCalled();
 			});
 
 			it('Cmd+Shift+R opens rename modal for terminal tab', () => {
