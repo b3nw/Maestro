@@ -28,6 +28,13 @@ export const SidebarActions = memo(function SidebarActions({
 	setLeftSidebarOpen,
 	toggleShowUnreadAgentsOnly,
 }: SidebarActionsProps) {
+	const toggleSidebarShortcutLabel = shortcuts.toggleSidebar?.keys?.length
+		? ` (${formatShortcutKeys(shortcuts.toggleSidebar.keys)})`
+		: '';
+	const filterUnreadAgentsShortcutLabel = shortcuts.filterUnreadAgents?.keys?.length
+		? ` (${formatShortcutKeys(shortcuts.filterUnreadAgents.keys)})`
+		: '';
+
 	return (
 		<div
 			className="p-2 border-t flex gap-2 items-center"
@@ -41,7 +48,7 @@ export const SidebarActions = memo(function SidebarActions({
 				title={
 					hasNoSessions && leftSidebarOpen
 						? 'Add an agent first to collapse sidebar'
-						: `${leftSidebarOpen ? 'Collapse' : 'Expand'} Sidebar (${formatShortcutKeys(shortcuts.toggleSidebar.keys)})`
+						: `${leftSidebarOpen ? 'Collapse' : 'Expand'} Sidebar${toggleSidebarShortcutLabel}`
 				}
 			>
 				{leftSidebarOpen ? (
@@ -104,8 +111,8 @@ export const SidebarActions = memo(function SidebarActions({
 					}}
 					title={
 						showUnreadAgentsOnly
-							? `Showing unread agents only (${formatShortcutKeys(shortcuts.filterUnreadAgents.keys)})`
-							: `Filter unread agents (${formatShortcutKeys(shortcuts.filterUnreadAgents.keys)})`
+							? `Showing unread agents only${filterUnreadAgentsShortcutLabel}`
+							: `Filter unread agents${filterUnreadAgentsShortcutLabel}`
 					}
 				>
 					<Bot className="w-4 h-4" />
