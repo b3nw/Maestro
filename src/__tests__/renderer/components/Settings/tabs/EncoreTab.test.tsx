@@ -1523,22 +1523,7 @@ describe('EncoreTab', () => {
 	// ── Usage & Stats Feature Section ─────────────────────────────────────
 
 	describe('Usage & Stats feature section', () => {
-		it('should render stats collection toggle when usageStats is enabled', async () => {
-			mockUseSettingsOverrides = {
-				encoreFeatures: { usageStats: true },
-			};
-
-			render(<EncoreTab theme={mockTheme} isOpen={true} />);
-
-			await act(async () => {
-				await vi.advanceTimersByTimeAsync(50);
-			});
-
-			expect(screen.getByText('Enable stats collection')).toBeInTheDocument();
-			expect(screen.getByLabelText('Toggle stats collection')).toBeInTheDocument();
-		});
-
-		it('should not render stats controls when usageStats is disabled', async () => {
+		it('should not render lookback dropdown when usageStats is disabled', async () => {
 			mockUseSettingsOverrides = {
 				encoreFeatures: { usageStats: false },
 			};
@@ -1549,14 +1534,12 @@ describe('EncoreTab', () => {
 				await vi.advanceTimersByTimeAsync(50);
 			});
 
-			expect(screen.queryByText('Enable stats collection')).not.toBeInTheDocument();
 			expect(screen.queryByText('Default lookback window')).not.toBeInTheDocument();
 		});
 
-		it('should call setStatsCollectionEnabled when toggle is clicked', async () => {
+		it('should enable stats collection when feature is toggled on', async () => {
 			mockUseSettingsOverrides = {
-				encoreFeatures: { usageStats: true },
-				statsCollectionEnabled: true,
+				encoreFeatures: { usageStats: false },
 			};
 
 			render(<EncoreTab theme={mockTheme} isOpen={true} />);
@@ -1565,7 +1548,26 @@ describe('EncoreTab', () => {
 				await vi.advanceTimersByTimeAsync(50);
 			});
 
-			fireEvent.click(screen.getByLabelText('Toggle stats collection'));
+			// Click the Usage & Stats feature toggle
+			const toggleButton = screen.getByText('Usage & Stats').closest('button')!;
+			fireEvent.click(toggleButton);
+			expect(mockSetStatsCollectionEnabled).toHaveBeenCalledWith(true);
+		});
+
+		it('should disable stats collection when feature is toggled off', async () => {
+			mockUseSettingsOverrides = {
+				encoreFeatures: { usageStats: true },
+			};
+
+			render(<EncoreTab theme={mockTheme} isOpen={true} />);
+
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(50);
+			});
+
+			// Click the Usage & Stats feature toggle
+			const toggleButton = screen.getByText('Usage & Stats').closest('button')!;
+			fireEvent.click(toggleButton);
 			expect(mockSetStatsCollectionEnabled).toHaveBeenCalledWith(false);
 		});
 

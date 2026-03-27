@@ -40,7 +40,6 @@ export function EncoreTab({ theme, isOpen }: EncoreTabProps) {
 		setDirectorNotesSettings,
 		symphonyRegistryUrls,
 		setSymphonyRegistryUrls,
-		statsCollectionEnabled,
 		setStatsCollectionEnabled,
 		defaultStatsTimeRange,
 		setDefaultStatsTimeRange,
@@ -166,12 +165,14 @@ export function EncoreTab({ theme, isOpen }: EncoreTabProps) {
 			>
 				<button
 					className="w-full flex items-center justify-between p-4 text-left"
-					onClick={() =>
+					onClick={() => {
+						const newValue = !encoreFeatures.usageStats;
 						setEncoreFeatures({
 							...encoreFeatures,
-							usageStats: !encoreFeatures.usageStats,
-						})
-					}
+							usageStats: newValue,
+						});
+						setStatsCollectionEnabled(newValue);
+					}}
 				>
 					<div className="flex items-center gap-3">
 						<Database
@@ -212,32 +213,6 @@ export function EncoreTab({ theme, isOpen }: EncoreTabProps) {
 						style={{ borderColor: theme.colors.border }}
 					>
 						<div className="flex items-center justify-between pt-3">
-							<p className="text-sm" style={{ color: theme.colors.textMain }}>
-								Enable stats collection
-							</p>
-							<button
-								onClick={() => setStatsCollectionEnabled(!statsCollectionEnabled)}
-								className={`relative w-10 h-5 rounded-full transition-colors ${statsCollectionEnabled ? '' : 'opacity-50'}`}
-								style={{
-									backgroundColor: statsCollectionEnabled
-										? theme.colors.accent
-										: theme.colors.border,
-								}}
-								aria-label="Toggle stats collection"
-							>
-								<div
-									className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-									style={{
-										transform: statsCollectionEnabled ? 'translateX(22px)' : 'translateX(2px)',
-									}}
-								/>
-							</button>
-						</div>
-						<p className="text-xs" style={{ color: theme.colors.textDim }}>
-							Track queries and Auto Run sessions for the dashboard.
-						</p>
-
-						<div className="flex items-center justify-between pt-1">
 							<p className="text-sm" style={{ color: theme.colors.textMain }}>
 								Default lookback window
 							</p>
