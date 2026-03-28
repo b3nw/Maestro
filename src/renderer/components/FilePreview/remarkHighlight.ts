@@ -8,14 +8,14 @@ export function remarkHighlight() {
 	return (tree: any) => {
 		visit(tree, 'text', (node: any, index: number | null | undefined, parent: any) => {
 			const text = node.value;
-			const regex = /==([^=]+)==/g;
+			const regex = /==([\s\S]+?)==/g;
 
 			if (!regex.test(text)) return;
 			if (index === null || index === undefined || !parent) return;
 
 			const parts: any[] = [];
 			let lastIndex = 0;
-			const matches = text.matchAll(/==([^=]+)==/g);
+			const matches = text.matchAll(/==([\s\S]+?)==/g);
 
 			for (const match of matches) {
 				const matchIndex = match.index!;

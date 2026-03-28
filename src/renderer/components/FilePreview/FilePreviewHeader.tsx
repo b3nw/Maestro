@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
 	FileCode,
 	Eye,
@@ -100,6 +100,14 @@ export const FilePreviewHeader = React.memo(function FilePreviewHeader({
 	const [showForwardPopup, setShowForwardPopup] = useState(false);
 	const backPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const forwardPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Clear pending popup timeouts on unmount
+	useEffect(() => {
+		return () => {
+			if (backPopupTimeoutRef.current) clearTimeout(backPopupTimeoutRef.current);
+			if (forwardPopupTimeoutRef.current) clearTimeout(forwardPopupTimeoutRef.current);
+		};
+	}, []);
 
 	const formatShortcut = (shortcutId: string): string => {
 		const shortcut = shortcuts[shortcutId];

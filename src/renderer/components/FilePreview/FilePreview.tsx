@@ -210,7 +210,6 @@ export const FilePreview = React.memo(
 			markdownContainerRef,
 			contentRef,
 			textareaRef,
-			containerRef,
 			isMarkdown,
 			isImage,
 			isCsv,
@@ -646,8 +645,13 @@ export const FilePreview = React.memo(
 
 		const copyPathToClipboard = async () => {
 			if (!file) return;
-			const ok = await safeClipboardWrite(file.path);
-			setCopyNotificationMessage(ok ? 'File Path Copied to Clipboard' : 'Failed to Copy Path');
+			try {
+				const ok = await safeClipboardWrite(file.path);
+				setCopyNotificationMessage(ok ? 'File Path Copied to Clipboard' : 'Failed to Copy Path');
+			} catch (err) {
+				captureException(err);
+				setCopyNotificationMessage('Failed to Copy Path');
+			}
 			setShowCopyNotification(true);
 			setTimeout(() => setShowCopyNotification(false), 2000);
 		};

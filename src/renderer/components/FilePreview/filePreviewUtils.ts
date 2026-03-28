@@ -163,14 +163,25 @@ export const formatDateTime = (isoString: string): string => {
 
 // ─── Markdown Helpers ─────────────────────────────────────────────────────────
 
-/** Count markdown task checkboxes (- [ ] and - [x]) */
+/** Count markdown task checkboxes (- [ ] and - [x]), skipping code fences */
 export const countMarkdownTasks = (content: string): { open: number; closed: number } => {
-	const openMatches = content.match(/^[\s]*[-*]\s*\[\s*\]/gm);
-	const closedMatches = content.match(/^[\s]*[-*]\s*\[[xX]\]/gm);
-	return {
-		open: openMatches?.length || 0,
-		closed: closedMatches?.length || 0,
-	};
+	const lines = content.split('\n');
+	let inCodeFence = false;
+	let open = 0;
+	let closed = 0;
+
+	for (const line of lines) {
+		if (/^(`{3,}|~{3,})/.test(line)) {
+			inCodeFence = !inCodeFence;
+			continue;
+		}
+		if (inCodeFence) continue;
+
+		if (/^[\s]*[-*]\s*\[\s*\]/.test(line)) open++;
+		if (/^[\s]*[-*]\s*\[[xX]\]/.test(line)) closed++;
+	}
+
+	return { open, closed };
 };
 
 /** Extract headings from markdown content for table of contents */

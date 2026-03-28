@@ -33,10 +33,12 @@ export const MarkdownImage = React.memo(function MarkdownImage({
 	const isRemoteUrl = src?.startsWith('http://') || src?.startsWith('https://');
 
 	// Compute the cache key based on resolved path
+	// Namespace cache keys by sshRemoteId so the same path on different remotes doesn't collide
 	const cacheKey = useMemo(() => {
 		if (!src) return null;
-		if (src.startsWith('data:')) return src;
-		if (isRemoteUrl) return src;
+		const prefix = sshRemoteId ? `ssh:${sshRemoteId}:` : '';
+		if (src.startsWith('data:')) return src; // data URLs are self-contained
+		if (isRemoteUrl) return `${prefix}${src}`;
 
 		let decodedSrc = src;
 		try {
@@ -46,10 +48,10 @@ export const MarkdownImage = React.memo(function MarkdownImage({
 		}
 
 		if (isFromFileTree && projectRoot) {
-			return `${projectRoot}/${decodedSrc}`;
+			return `${prefix}${projectRoot}/${decodedSrc}`;
 		}
-		return resolveImagePath(decodedSrc, markdownFilePath);
-	}, [src, markdownFilePath, isFromFileTree, projectRoot, isRemoteUrl]);
+		return `${prefix}${resolveImagePath(decodedSrc, markdownFilePath)}`;
+	}, [src, markdownFilePath, isFromFileTree, projectRoot, isRemoteUrl, sshRemoteId]);
 
 	useEffect(() => {
 		setError(null);
@@ -60,9 +62,9 @@ export const MarkdownImage = React.memo(function MarkdownImage({
 			return;
 		}
 
-		// Check cache first
+		// Check cache first (skip cached remote images when toggle is off)
 		const cached = imageCache.get(cacheKey);
-		if (cached) {
+		if (cached && !(isRemoteUrl && !showRemoteImages)) {
 			setDataUrl(cached.dataUrl);
 			setDimensions({ width: cached.width, height: cached.height });
 			setLoading(false);

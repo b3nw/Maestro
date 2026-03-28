@@ -185,6 +185,20 @@ describe('filePreviewUtils', () => {
 			expect(result.open).toBe(1);
 			expect(result.closed).toBe(1);
 		});
+
+		it('ignores tasks inside backtick code fences', () => {
+			const content = '- [ ] real\n```\n- [ ] fake\n- [x] also fake\n```\n- [x] also real';
+			const result = countMarkdownTasks(content);
+			expect(result.open).toBe(1);
+			expect(result.closed).toBe(1);
+		});
+
+		it('ignores tasks inside tilde code fences', () => {
+			const content = '~~~\n- [ ] inside fence\n~~~\n- [ ] outside';
+			const result = countMarkdownTasks(content);
+			expect(result.open).toBe(1);
+			expect(result.closed).toBe(0);
+		});
 	});
 
 	describe('extractHeadings', () => {

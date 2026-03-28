@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback, RefObject } from 'react';
 
+/** Maximum search query length to prevent expensive regex operations */
+const MAX_SEARCH_QUERY_LENGTH = 200;
+
 export interface UseFilePreviewSearchParams {
 	codeContainerRef: RefObject<HTMLDivElement | null>;
 	markdownContainerRef: RefObject<HTMLDivElement | null>;
 	contentRef: RefObject<HTMLDivElement | null>;
 	textareaRef: RefObject<HTMLTextAreaElement | null>;
-	containerRef: RefObject<HTMLDivElement | null>;
 	isMarkdown: boolean;
 	isImage: boolean;
 	isCsv: boolean;
@@ -53,8 +55,10 @@ export function useFilePreviewSearch({
 	// Wrapper to update state and notify parent
 	const setSearchQuery = useCallback(
 		(query: string) => {
-			setInternalSearchQuery(query);
-			onSearchQueryChange?.(query);
+			const capped =
+				query.length > MAX_SEARCH_QUERY_LENGTH ? query.slice(0, MAX_SEARCH_QUERY_LENGTH) : query;
+			setInternalSearchQuery(capped);
+			onSearchQueryChange?.(capped);
 		},
 		[onSearchQueryChange]
 	);
