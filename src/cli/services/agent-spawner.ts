@@ -224,7 +224,7 @@ async function spawnClaudeAgent(
 		let sessionIdEmitted = false;
 
 		// Process a single parsed JSON message from Claude Code's stream-json output
-		 
+
 		const processMessage = (msg: any) => {
 			// Capture result text (only once)
 			if (msg.type === 'result' && msg.result && !resultEmitted) {
@@ -293,10 +293,14 @@ async function spawnClaudeAgent(
 		child.on('close', (code) => {
 			// Flush any remaining data in the JSON buffer (last line may lack trailing \n)
 			if (jsonBuffer.trim()) {
+				let parsed;
 				try {
-					processMessage(JSON.parse(jsonBuffer));
+					parsed = JSON.parse(jsonBuffer);
 				} catch {
 					// Ignore non-JSON remnants
+				}
+				if (parsed) {
+					processMessage(parsed);
 				}
 			}
 

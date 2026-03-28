@@ -1100,6 +1100,7 @@ Some text with [x] in it that's not a checkbox
 			expect(result.success).toBe(true);
 			expect(result.response).toBe('Done');
 			expect(result.agentSessionId).toBe('sess-1');
+			expect(result.usageStats?.totalCostUsd).toBe(0.05);
 		});
 
 		it('should use assistant message text when result field is empty', async () => {
