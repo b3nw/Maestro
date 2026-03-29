@@ -137,11 +137,11 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	const [submitError, setSubmitError] = useState('');
 	const [matchingIssues, setMatchingIssues] = useState<ExistingIssue[]>([]);
 	const [searchingIssues, setSearchingIssues] = useState(false);
-	const [searchComplete, setSearchComplete] = useState(false);
 	const [subscribingTo, setSubscribingTo] = useState<number | null>(null);
 	const [createdIssueUrl, setCreatedIssueUrl] = useState<string | null>(null);
 	const [copiedUrl, setCopiedUrl] = useState(false);
 	const lastSearchQueryRef = useRef<string | null>(null);
+	const searchAbortRef = useRef(0); // Monotonic counter to discard stale searches
 
 	// --- Refs ---
 	const managerRef = useRef<FeedbackConversationManager>(new FeedbackConversationManager());
@@ -204,34 +204,37 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 		};
 	}, []);
 
-	// --- Search for existing issues ---
+	// --- Background issue search — fires after every agent response ---
 	const runIssueSearch = useCallback(async (query: string) => {
-		if (!query) return;
+		if (!query || query === lastSearchQueryRef.current) return;
 		lastSearchQueryRef.current = query;
+
+		const searchId = ++searchAbortRef.current;
 		setSearchingIssues(true);
-		setSearchComplete(false);
-		setMatchingIssues([]);
 
 		try {
 			const result = await window.maestro.feedback.searchIssues(query);
+			// Only accept results from the latest search (discard stale)
+			if (searchId !== searchAbortRef.current) return;
 			setMatchingIssues(result.issues);
 		} catch {
+			if (searchId !== searchAbortRef.current) return;
 			setMatchingIssues([]);
 		} finally {
-			setSearchingIssues(false);
-			setSearchComplete(true);
+			if (searchId === searchAbortRef.current) {
+				setSearchingIssues(false);
+			}
 		}
 	}, []);
 
-	// --- Auto-search when confidence crosses 80% ---
+	// Trigger search after every agent response that has a summary
 	useEffect(() => {
-		if (!isReady || !lastResponse) return;
-
+		if (!lastResponse) return;
 		const query = lastResponse.summary || lastResponse.structured.expectedBehavior;
-		if (!query || query === lastSearchQueryRef.current) return;
-
-		void runIssueSearch(query);
-	}, [isReady, lastResponse, runIssueSearch]);
+		if (query) {
+			void runIssueSearch(query);
+		}
+	}, [lastResponse, runIssueSearch]);
 
 	// Available agent tiles
 	const availableTiles = useMemo(
@@ -346,7 +349,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 		setStep('matching');
 
 		// If search already completed with results, just show them
-		if (searchComplete && matchingIssues.length > 0) {
+		if (!searchingIssues && matchingIssues.length > 0) {
 			return;
 		}
 
@@ -366,24 +369,16 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 			// No query available — create directly
 			await createNewIssue();
 		}
-	}, [
-		lastResponse,
-		isReady,
-		searchComplete,
-		matchingIssues,
-		searchingIssues,
-		runIssueSearch,
-		createNewIssue,
-	]);
+	}, [lastResponse, isReady, matchingIssues, searchingIssues, runIssueSearch, createNewIssue]);
 
 	// --- Auto-proceed from matching step when search completes with no results ---
 	useEffect(() => {
 		if (step !== 'matching' || searchingIssues) return;
-		if (searchComplete && matchingIssues.length === 0) {
+		if (matchingIssues.length === 0) {
 			// Search finished with no matches — create issue directly
 			void createNewIssue();
 		}
-	}, [step, searchingIssues, searchComplete, matchingIssues, createNewIssue]);
+	}, [step, searchingIssues, matchingIssues, createNewIssue]);
 
 	// --- Subscribe to an existing issue ---
 	const subscribeToIssue = useCallback(
@@ -808,7 +803,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 							Checking for similar issues...
 						</span>
 					)}
-					{searchComplete && matchingIssues.length > 0 && !searchingIssues && (
+					{!searchingIssues && matchingIssues.length > 0 && (
 						<span className="text-[10px]" style={{ color: theme.colors.warning }}>
 							{matchingIssues.length} similar issue{matchingIssues.length !== 1 ? 's' : ''} found
 						</span>
@@ -885,6 +880,86 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 						</div>
 					</div>
 				)}
+
+				{/* Inline similar issues card — appears during chat when matches are found */}
+				{step === 'chat' && !searchingIssues && matchingIssues.length > 0 && (
+					<div
+						className="rounded-lg border px-3 py-3"
+						style={{
+							backgroundColor: `${theme.colors.warning}08`,
+							borderColor: `${theme.colors.warning}40`,
+						}}
+					>
+						<p className="text-xs font-semibold mb-2" style={{ color: theme.colors.textMain }}>
+							Similar existing issues found — does any of these match?
+						</p>
+						<div className="flex flex-col gap-1.5">
+							{matchingIssues.slice(0, 5).map((issue) => (
+								<div
+									key={issue.number}
+									className="flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors hover:bg-white/5"
+									style={{ border: `1px solid ${theme.colors.border}` }}
+								>
+									<span
+										className="text-[10px] px-1 py-0.5 rounded-full shrink-0"
+										style={{
+											backgroundColor:
+												issue.state === 'OPEN'
+													? `${theme.colors.success}20`
+													: `${theme.colors.textDim}20`,
+											color: issue.state === 'OPEN' ? theme.colors.success : theme.colors.textDim,
+										}}
+									>
+										{issue.state === 'OPEN' ? 'Open' : 'Closed'}
+									</span>
+									<span
+										className="text-xs flex-1 truncate"
+										style={{ color: theme.colors.textMain }}
+										title={issue.title}
+									>
+										#{issue.number} {issue.title}
+									</span>
+									<button
+										type="button"
+										onClick={() => window.maestro.shell.openExternal(issue.url)}
+										className="p-1 rounded transition-colors hover:bg-white/10 shrink-0"
+										style={{ color: theme.colors.textDim }}
+										title="View on GitHub"
+									>
+										<ExternalLink className="w-3 h-3" />
+									</button>
+									<button
+										type="button"
+										onClick={() => subscribeToIssue(issue)}
+										disabled={subscribingTo !== null}
+										className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors hover:opacity-90 disabled:opacity-40 shrink-0"
+										style={{
+											backgroundColor: theme.colors.accent,
+											color: theme.colors.accentForeground,
+										}}
+										title="Subscribe and add your feedback as a comment"
+									>
+										{subscribingTo === issue.number ? (
+											<Loader2 className="w-3 h-3 animate-spin" />
+										) : (
+											<ThumbsUp className="w-3 h-3" />
+										)}
+										+1
+									</button>
+								</div>
+							))}
+						</div>
+						<button
+							type="button"
+							onClick={() => setMatchingIssues([])}
+							className="mt-2 text-[10px] transition-colors hover:underline"
+							style={{ color: theme.colors.textDim }}
+						>
+							None of these match — I have a new issue
+						</button>
+					</div>
+				)}
+
 				<div ref={messagesEndRef} />
 			</div>
 

@@ -12,6 +12,7 @@ import { getOpenInLabel } from '../utils/platformUtils';
 import type { WizardStep } from './Wizard/WizardContext';
 import { useListNavigation } from '../hooks';
 import { useUIStore } from '../stores/uiStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { useFileExplorerStore } from '../stores/fileExplorerStore';
 import { buildMaestroUrl } from '../utils/buildMaestroUrl';
 
@@ -226,6 +227,8 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 	const storeSetSessionFilterOpen = useUIStore((s) => s.setSessionFilterOpen);
 	const storeSetOutputSearchOpen = useUIStore((s) => s.setOutputSearchOpen);
 	const storeSetFileTreeFilterOpen = useFileExplorerStore((s) => s.setFileTreeFilterOpen);
+	const audioFeedbackEnabled = useSettingsStore((s) => s.audioFeedbackEnabled);
+	const setAudioFeedbackEnabled = useSettingsStore((s) => s.setAudioFeedbackEnabled);
 	const storeSetHistorySearchFilterOpen = useUIStore((s) => s.setHistorySearchFilterOpen);
 
 	const [search, setSearch] = useState('');
@@ -545,6 +548,17 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 					},
 				]
 			: []),
+		{
+			id: 'toggleCustomNotification',
+			label: audioFeedbackEnabled
+				? 'Turn Off Custom Notifications'
+				: 'Turn On Custom Notifications',
+			subtext: `Custom notifications: ${audioFeedbackEnabled ? 'enabled' : 'disabled'}`,
+			action: () => {
+				setAudioFeedbackEnabled(!audioFeedbackEnabled);
+				setQuickActionOpen(false);
+			},
+		},
 		// Tab close operations
 		...(isAiMode && activeSession?.aiTabs && activeSession.aiTabs.length > 0 && onCloseAllTabs
 			? [
