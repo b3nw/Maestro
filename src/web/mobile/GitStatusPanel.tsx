@@ -25,13 +25,20 @@ export interface GitStatusPanelProps {
  */
 function statusIcon(status: string): string {
 	switch (status.trim().charAt(0)) {
-		case 'M': return 'M';
-		case 'A': return 'A';
-		case 'D': return 'D';
-		case 'R': return 'R';
-		case 'C': return 'C';
-		case '?': return '?';
-		default: return status.trim().charAt(0) || '?';
+		case 'M':
+			return 'M';
+		case 'A':
+			return 'A';
+		case 'D':
+			return 'D';
+		case 'R':
+			return 'R';
+		case 'C':
+			return 'C';
+		case '?':
+			return '?';
+		default:
+			return status.trim().charAt(0) || '?';
 	}
 }
 
@@ -41,12 +48,18 @@ function statusIcon(status: string): string {
 function statusColor(status: string, colors: ReturnType<typeof useThemeColors>): string {
 	const code = status.trim().charAt(0);
 	switch (code) {
-		case 'M': return colors.warning;
-		case 'A': return colors.success;
-		case 'D': return colors.error;
-		case 'R': return colors.accent;
-		case '?': return colors.textDim;
-		default: return colors.textMain;
+		case 'M':
+			return colors.warning;
+		case 'A':
+			return colors.success;
+		case 'D':
+			return colors.error;
+		case 'R':
+			return colors.accent;
+		case '?':
+			return colors.textDim;
+		default:
+			return colors.textMain;
 	}
 }
 
@@ -202,7 +215,7 @@ export function GitStatusPanel({ sessionId, gitStatus, onViewDiff }: GitStatusPa
 				onViewDiff(filePath);
 			}
 		},
-		[onViewDiff],
+		[onViewDiff]
 	);
 
 	// Categorize files

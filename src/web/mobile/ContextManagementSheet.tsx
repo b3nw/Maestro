@@ -20,9 +20,24 @@ interface OperationDef {
 }
 
 const OPERATIONS: OperationDef[] = [
-	{ id: 'merge', icon: '\u{1F500}', label: 'Merge', description: 'Combine context from two agents' },
-	{ id: 'transfer', icon: '\u{1F4E4}', label: 'Transfer', description: 'Send context to another agent' },
-	{ id: 'summarize', icon: '\u{1F4DD}', label: 'Summarize', description: 'Compress current agent\'s context' },
+	{
+		id: 'merge',
+		icon: '\u{1F500}',
+		label: 'Merge',
+		description: 'Combine context from two agents',
+	},
+	{
+		id: 'transfer',
+		icon: '\u{1F4E4}',
+		label: 'Transfer',
+		description: 'Send context to another agent',
+	},
+	{
+		id: 'summarize',
+		icon: '\u{1F4DD}',
+		label: 'Summarize',
+		description: "Compress current agent's context",
+	},
 ];
 
 type ExecutionState = 'idle' | 'executing' | 'success' | 'failure';
@@ -31,7 +46,11 @@ export interface ContextManagementSheetProps {
 	sessions: Session[];
 	currentSessionId: string;
 	onClose: () => void;
-	sendRequest: <T = unknown>(type: string, payload?: Record<string, unknown>, timeoutMs?: number) => Promise<T>;
+	sendRequest: <T = unknown>(
+		type: string,
+		payload?: Record<string, unknown>,
+		timeoutMs?: number
+	) => Promise<T>;
 }
 
 export function ContextManagementSheet({
@@ -88,7 +107,7 @@ export function ContextManagementSheet({
 				handleClose();
 			}
 		},
-		[handleClose, executionState],
+		[handleClose, executionState]
 	);
 
 	const handleSelectOperation = useCallback((op: ContextOperation) => {
@@ -134,19 +153,31 @@ export function ContextManagementSheet({
 			const timeout = selectedOp === 'summarize' ? 60000 : 30000;
 
 			if (selectedOp === 'merge') {
-				result = await sendRequest<{ success: boolean }>('merge_context', {
-					sourceSessionId: sourceId,
-					targetSessionId: targetId,
-				}, timeout);
+				result = await sendRequest<{ success: boolean }>(
+					'merge_context',
+					{
+						sourceSessionId: sourceId,
+						targetSessionId: targetId,
+					},
+					timeout
+				);
 			} else if (selectedOp === 'transfer') {
-				result = await sendRequest<{ success: boolean }>('transfer_context', {
-					sourceSessionId: sourceId,
-					targetSessionId: targetId,
-				}, timeout);
+				result = await sendRequest<{ success: boolean }>(
+					'transfer_context',
+					{
+						sourceSessionId: sourceId,
+						targetSessionId: targetId,
+					},
+					timeout
+				);
 			} else {
-				result = await sendRequest<{ success: boolean }>('summarize_context', {
-					sessionId: currentSessionId,
-				}, timeout);
+				result = await sendRequest<{ success: boolean }>(
+					'summarize_context',
+					{
+						sessionId: currentSessionId,
+					},
+					timeout
+				);
 			}
 
 			clearInterval(progressInterval);
@@ -154,7 +185,9 @@ export function ContextManagementSheet({
 
 			if (result.success) {
 				setExecutionState('success');
-				setResultMessage(`${selectedOp.charAt(0).toUpperCase() + selectedOp.slice(1)} completed successfully`);
+				setResultMessage(
+					`${selectedOp.charAt(0).toUpperCase() + selectedOp.slice(1)} completed successfully`
+				);
 				triggerHaptic(HAPTIC_PATTERNS.success);
 				autoCloseTimerRef.current = setTimeout(() => handleClose(), 2000);
 			} else {
@@ -177,10 +210,14 @@ export function ContextManagementSheet({
 
 	const getStatusColor = (state: string) => {
 		switch (state) {
-			case 'idle': return colors.success;
-			case 'busy': return colors.warning;
-			case 'error': return colors.error;
-			default: return colors.warning;
+			case 'idle':
+				return colors.success;
+			case 'busy':
+				return colors.warning;
+			case 'error':
+				return colors.error;
+			default:
+				return colors.warning;
 		}
 	};
 
@@ -613,9 +650,10 @@ export function ContextManagementSheet({
 							>
 								This will compress the context of the current agent
 								<strong style={{ color: colors.textMain }}>
-									{' '}{getSessionLabel(sessions.find((s) => s.id === currentSessionId) || sessions[0])}
-								</strong>
-								{' '}to reduce token usage while preserving key information.
+									{' '}
+									{getSessionLabel(sessions.find((s) => s.id === currentSessionId) || sessions[0])}
+								</strong>{' '}
+								to reduce token usage while preserving key information.
 							</div>
 						</div>
 					)}
@@ -664,9 +702,8 @@ export function ContextManagementSheet({
 								marginBottom: '20px',
 								padding: '12px 16px',
 								borderRadius: '10px',
-								backgroundColor: executionState === 'success'
-									? `${colors.success}15`
-									: `${colors.error}15`,
+								backgroundColor:
+									executionState === 'success' ? `${colors.success}15` : `${colors.error}15`,
 								border: `1px solid ${executionState === 'success' ? colors.success : colors.error}`,
 							}}
 						>

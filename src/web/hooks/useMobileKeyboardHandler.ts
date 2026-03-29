@@ -72,7 +72,15 @@ export interface UseMobileKeyboardHandlerDeps {
  * @param deps - Dependencies including session state and handlers
  */
 export function useMobileKeyboardHandler(deps: UseMobileKeyboardHandlerDeps): void {
-	const { activeSessionId, activeSession, handleModeToggle, handleSelectTab, onOpenCommandPalette, onCloseCommandPalette, isCommandPaletteOpen } = deps;
+	const {
+		activeSessionId,
+		activeSession,
+		handleModeToggle,
+		handleSelectTab,
+		onOpenCommandPalette,
+		onCloseCommandPalette,
+		isCommandPaletteOpen,
+	} = deps;
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -144,7 +152,15 @@ export function useMobileKeyboardHandler(deps: UseMobileKeyboardHandlerDeps): vo
 
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, [activeSessionId, activeSession, handleModeToggle, handleSelectTab, onOpenCommandPalette, onCloseCommandPalette, isCommandPaletteOpen]);
+	}, [
+		activeSessionId,
+		activeSession,
+		handleModeToggle,
+		handleSelectTab,
+		onOpenCommandPalette,
+		onCloseCommandPalette,
+		isCommandPaletteOpen,
+	]);
 }
 
 export default useMobileKeyboardHandler;

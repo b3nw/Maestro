@@ -88,17 +88,23 @@ export function GitDiffViewer({ diff, filePath, onBack }: GitDiffViewerProps) {
 
 	function lineBackground(type: DiffLine['type']): string {
 		switch (type) {
-			case 'add': return `${colors.success}26`;
-			case 'remove': return `${colors.error}26`;
-			case 'hunk': return `${colors.accent}1a`;
-			default: return 'transparent';
+			case 'add':
+				return `${colors.success}26`;
+			case 'remove':
+				return `${colors.error}26`;
+			case 'hunk':
+				return `${colors.accent}1a`;
+			default:
+				return 'transparent';
 		}
 	}
 
 	function lineColor(type: DiffLine['type']): string {
 		switch (type) {
-			case 'hunk': return colors.accent;
-			default: return colors.textMain;
+			case 'hunk':
+				return colors.accent;
+			default:
+				return colors.textMain;
 		}
 	}
 
@@ -250,9 +256,7 @@ export function GitDiffViewer({ diff, filePath, onBack }: GitDiffViewerProps) {
 								</span>
 
 								{/* Line content */}
-								<span style={{ padding: '0 8px', flex: 1 }}>
-									{line.content}
-								</span>
+								<span style={{ padding: '0 8px', flex: 1 }}>{line.content}</span>
 							</div>
 						))}
 					</pre>

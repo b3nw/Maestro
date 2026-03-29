@@ -57,7 +57,7 @@ export interface UseGitStatusReturn {
 export function useGitStatus(
 	sendRequest: UseWebSocketReturn['sendRequest'],
 	isConnected: boolean,
-	sessionId?: string,
+	sessionId?: string
 ): UseGitStatusReturn {
 	const [status, setStatus] = useState<GitStatusResult | null>(null);
 	const [diff, setDiff] = useState<GitDiffResult | null>(null);
@@ -73,10 +73,9 @@ export function useGitStatus(
 
 			setIsLoading(true);
 			try {
-				const response = await sendRequest<{ status?: GitStatusResult }>(
-					'get_git_status',
-					{ sessionId: sid },
-				);
+				const response = await sendRequest<{ status?: GitStatusResult }>('get_git_status', {
+					sessionId: sid,
+				});
 				if (response.status) {
 					setStatus(response.status);
 				}
@@ -86,7 +85,7 @@ export function useGitStatus(
 				setIsLoading(false);
 			}
 		},
-		[sendRequest, isConnected],
+		[sendRequest, isConnected]
 	);
 
 	/**
@@ -98,10 +97,10 @@ export function useGitStatus(
 
 			setIsLoading(true);
 			try {
-				const response = await sendRequest<{ diff?: GitDiffResult }>(
-					'get_git_diff',
-					{ sessionId: sid, filePath },
-				);
+				const response = await sendRequest<{ diff?: GitDiffResult }>('get_git_diff', {
+					sessionId: sid,
+					filePath,
+				});
 				if (response.diff) {
 					setDiff(response.diff);
 				}
@@ -111,7 +110,7 @@ export function useGitStatus(
 				setIsLoading(false);
 			}
 		},
-		[sendRequest, isConnected],
+		[sendRequest, isConnected]
 	);
 
 	/**
@@ -124,14 +123,8 @@ export function useGitStatus(
 			setIsLoading(true);
 			try {
 				const [statusResponse, diffResponse] = await Promise.all([
-					sendRequest<{ status?: GitStatusResult }>(
-						'get_git_status',
-						{ sessionId: sid },
-					),
-					sendRequest<{ diff?: GitDiffResult }>(
-						'get_git_diff',
-						{ sessionId: sid },
-					),
+					sendRequest<{ status?: GitStatusResult }>('get_git_status', { sessionId: sid }),
+					sendRequest<{ diff?: GitDiffResult }>('get_git_diff', { sessionId: sid }),
 				]);
 				if (statusResponse.status) {
 					setStatus(statusResponse.status);
@@ -145,7 +138,7 @@ export function useGitStatus(
 				setIsLoading(false);
 			}
 		},
-		[sendRequest, isConnected],
+		[sendRequest, isConnected]
 	);
 
 	// Auto-load status when sessionId changes

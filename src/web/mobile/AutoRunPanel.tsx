@@ -22,9 +22,8 @@ interface DocumentCardProps {
 
 function DocumentCard({ document, onTap }: DocumentCardProps) {
 	const colors = useThemeColors();
-	const progress = document.taskCount > 0
-		? Math.round((document.completedCount / document.taskCount) * 100)
-		: 0;
+	const progress =
+		document.taskCount > 0 ? Math.round((document.completedCount / document.taskCount) * 100) : 0;
 
 	const handleTap = useCallback(() => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
@@ -154,12 +153,11 @@ export function AutoRunPanel({
 	const colors = useThemeColors();
 	const [isStopping, setIsStopping] = useState(false);
 
-	const {
-		documents,
-		isLoadingDocs,
-		loadDocuments,
-		stopAutoRun,
-	} = useAutoRun(sendRequest, send, autoRunState);
+	const { documents, isLoadingDocs, loadDocuments, stopAutoRun } = useAutoRun(
+		sendRequest,
+		send,
+		autoRunState
+	);
 
 	// Load documents on mount and when sessionId changes
 	useEffect(() => {
@@ -197,9 +195,12 @@ export function AutoRunPanel({
 		onOpenSetup?.();
 	}, [onOpenSetup]);
 
-	const handleDocumentTap = useCallback((filename: string) => {
-		onOpenDocument?.(filename);
-	}, [onOpenDocument]);
+	const handleDocumentTap = useCallback(
+		(filename: string) => {
+			onOpenDocument?.(filename);
+		},
+		[onOpenDocument]
+	);
 
 	// Close on escape key
 	useEffect(() => {
@@ -334,7 +335,8 @@ export function AutoRunPanel({
 			{isRunning && (
 				<div
 					style={{
-						backgroundColor: (isStopping || autoRunState?.isStopping) ? colors.warning : colors.accent,
+						backgroundColor:
+							isStopping || autoRunState?.isStopping ? colors.warning : colors.accent,
 						padding: '12px 16px',
 						display: 'flex',
 						alignItems: 'center',
@@ -347,7 +349,7 @@ export function AutoRunPanel({
 						style={{
 							fontSize: '14px',
 							fontWeight: 700,
-							color: (isStopping || autoRunState?.isStopping) ? colors.warning : colors.accent,
+							color: isStopping || autoRunState?.isStopping ? colors.warning : colors.accent,
 							backgroundColor: 'white',
 							padding: '6px 12px',
 							borderRadius: '16px',
@@ -369,9 +371,13 @@ export function AutoRunPanel({
 								fontWeight: 500,
 							}}
 						>
-							<span>Task {currentTaskIndex + 1}/{totalTasks}</span>
+							<span>
+								Task {currentTaskIndex + 1}/{totalTasks}
+							</span>
 							{totalDocs != null && currentDocIndex != null && totalDocs > 1 && (
-								<span>Doc {currentDocIndex + 1}/{totalDocs}</span>
+								<span>
+									Doc {currentDocIndex + 1}/{totalDocs}
+								</span>
 							)}
 						</div>
 
@@ -442,20 +448,23 @@ export function AutoRunPanel({
 						style={{
 							padding: '12px 20px',
 							borderRadius: '10px',
-							backgroundColor: (isStopping || autoRunState?.isStopping) ? `${colors.error}60` : colors.error,
+							backgroundColor:
+								isStopping || autoRunState?.isStopping ? `${colors.error}60` : colors.error,
 							border: 'none',
 							color: 'white',
 							fontSize: '14px',
 							fontWeight: 600,
-							cursor: (isStopping || autoRunState?.isStopping) ? 'not-allowed' : 'pointer',
+							cursor: isStopping || autoRunState?.isStopping ? 'not-allowed' : 'pointer',
 							touchAction: 'manipulation',
 							WebkitTapHighlightColor: 'transparent',
 							minHeight: '44px',
 							flexShrink: 0,
 						}}
-						aria-label={isStopping || autoRunState?.isStopping ? 'Stopping Auto Run' : 'Stop Auto Run'}
+						aria-label={
+							isStopping || autoRunState?.isStopping ? 'Stopping Auto Run' : 'Stop Auto Run'
+						}
 					>
-						{(isStopping || autoRunState?.isStopping) ? 'Stopping...' : 'Stop'}
+						{isStopping || autoRunState?.isStopping ? 'Stopping...' : 'Stop'}
 					</button>
 				)}
 			</div>
@@ -499,7 +508,18 @@ export function AutoRunPanel({
 							No Auto Run documents found
 						</p>
 						<p style={{ fontSize: '13px', color: colors.textDim }}>
-							Create documents in the <code style={{ fontSize: '12px', backgroundColor: `${colors.textDim}15`, padding: '2px 4px', borderRadius: '3px' }}>.maestro/auto-run/</code> directory to get started
+							Create documents in the{' '}
+							<code
+								style={{
+									fontSize: '12px',
+									backgroundColor: `${colors.textDim}15`,
+									padding: '2px 4px',
+									borderRadius: '3px',
+								}}
+							>
+								.maestro/auto-run/
+							</code>{' '}
+							directory to get started
 						</p>
 					</div>
 				) : (
@@ -511,11 +531,7 @@ export function AutoRunPanel({
 						}}
 					>
 						{documents.map((doc) => (
-							<DocumentCard
-								key={doc.filename}
-								document={doc}
-								onTap={handleDocumentTap}
-							/>
+							<DocumentCard key={doc.filename} document={doc} onTap={handleDocumentTap} />
 						))}
 					</div>
 				)}

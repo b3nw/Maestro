@@ -81,7 +81,11 @@ export function RightDrawer({
 	}, []);
 
 	// Swipe right to close
-	const { handlers: swipeHandlers, offsetX, isSwiping } = useSwipeGestures({
+	const {
+		handlers: swipeHandlers,
+		offsetX,
+		isSwiping,
+	} = useSwipeGestures({
 		onSwipeRight: () => handleClose(),
 		trackOffset: true,
 		maxOffset: 200,
@@ -118,9 +122,7 @@ export function RightDrawer({
 
 	// Calculate drawer transform based on open state and swipe offset
 	const swipeOffset = isSwiping && offsetX > 0 ? offsetX : 0;
-	const drawerTransform = isOpen
-		? `translateX(${swipeOffset}px)`
-		: 'translateX(100%)';
+	const drawerTransform = isOpen ? `translateX(${swipeOffset}px)` : 'translateX(100%)';
 
 	return (
 		<>
@@ -218,16 +220,10 @@ export function RightDrawer({
 					}}
 				>
 					{currentTab === 'files' && (
-						<FilesTabContent
-							sessionId={sessionId}
-							onFileSelect={onFileSelect}
-						/>
+						<FilesTabContent sessionId={sessionId} onFileSelect={onFileSelect} />
 					)}
 					{currentTab === 'history' && (
-						<HistoryTabContent
-							sessionId={sessionId}
-							projectPath={projectPath}
-						/>
+						<HistoryTabContent sessionId={sessionId} projectPath={projectPath} />
 					)}
 					{currentTab === 'autorun' && (
 						<AutoRunTabContent
@@ -240,11 +236,7 @@ export function RightDrawer({
 						/>
 					)}
 					{currentTab === 'git' && (
-						<GitStatusPanel
-							sessionId={sessionId}
-							gitStatus={gitStatus}
-							onViewDiff={onViewDiff}
-						/>
+						<GitStatusPanel sessionId={sessionId} gitStatus={gitStatus} onViewDiff={onViewDiff} />
 					)}
 				</div>
 			</div>
@@ -256,10 +248,7 @@ export function RightDrawer({
  * Files tab content - placeholder for file explorer
  * (No FileExplorerPanel exists in mobile yet)
  */
-function FilesTabContent(_props: {
-	sessionId: string;
-	onFileSelect?: (path: string) => void;
-}) {
+function FilesTabContent(_props: { sessionId: string; onFileSelect?: (path: string) => void }) {
 	const colors = useThemeColors();
 
 	return (
@@ -340,7 +329,14 @@ function HistoryTabContent({
 
 	if (isLoading) {
 		return (
-			<div style={{ padding: '40px 20px', textAlign: 'center', color: colors.textDim, fontSize: '14px' }}>
+			<div
+				style={{
+					padding: '40px 20px',
+					textAlign: 'center',
+					color: colors.textDim,
+					fontSize: '14px',
+				}}
+			>
 				Loading history...
 			</div>
 		);
@@ -350,7 +346,9 @@ function HistoryTabContent({
 		return (
 			<div style={{ padding: '40px 20px', textAlign: 'center' }}>
 				<p style={{ fontSize: '14px', color: colors.error, marginBottom: '8px' }}>{error}</p>
-				<p style={{ fontSize: '13px', color: colors.textDim }}>Make sure the desktop app is running</p>
+				<p style={{ fontSize: '13px', color: colors.textDim }}>
+					Make sure the desktop app is running
+				</p>
 			</div>
 		);
 	}
@@ -383,7 +381,8 @@ function HistoryTabContent({
 								textTransform: 'uppercase',
 								padding: '2px 6px',
 								borderRadius: '10px',
-								backgroundColor: entry.type === 'AUTO' ? `${colors.warning}20` : `${colors.accent}20`,
+								backgroundColor:
+									entry.type === 'AUTO' ? `${colors.warning}20` : `${colors.accent}20`,
 								color: entry.type === 'AUTO' ? colors.warning : colors.accent,
 								border: `1px solid ${entry.type === 'AUTO' ? `${colors.warning}40` : `${colors.accent}40`}`,
 							}}
@@ -391,7 +390,10 @@ function HistoryTabContent({
 							{entry.type}
 						</span>
 						<span style={{ fontSize: '11px', color: colors.textDim, marginLeft: 'auto' }}>
-							{new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+							{new Date(entry.timestamp).toLocaleTimeString([], {
+								hour: '2-digit',
+								minute: '2-digit',
+							})}
 						</span>
 					</div>
 					<p

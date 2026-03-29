@@ -41,7 +41,10 @@ export function AutoRunDocumentViewer({
 	const [isEditing, setIsEditing] = useState(false);
 	const [isDirty, setIsDirty] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+	const [saveMessage, setSaveMessage] = useState<{
+		text: string;
+		type: 'success' | 'error';
+	} | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const saveMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -52,10 +55,10 @@ export function AutoRunDocumentViewer({
 		async function loadContent() {
 			setIsLoading(true);
 			try {
-				const response = await sendRequest<{ content?: string }>(
-					'get_auto_run_document',
-					{ sessionId, filename },
-				);
+				const response = await sendRequest<{ content?: string }>('get_auto_run_document', {
+					sessionId,
+					filename,
+				});
 				if (!cancelled) {
 					const loaded = response.content ?? '';
 					setContent(loaded);
@@ -74,7 +77,9 @@ export function AutoRunDocumentViewer({
 		}
 
 		loadContent();
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [sessionId, filename, sendRequest]);
 
 	// Clear save message timer on unmount
@@ -124,20 +129,24 @@ export function AutoRunDocumentViewer({
 		}
 	}, [isEditing, isDirty, editContent, content]);
 
-	const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		const newContent = e.target.value;
-		setEditContent(newContent);
-		setIsDirty(newContent !== content);
-	}, [content]);
+	const handleContentChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			const newContent = e.target.value;
+			setEditContent(newContent);
+			setIsDirty(newContent !== content);
+		},
+		[content]
+	);
 
 	const handleSave = useCallback(async () => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
 		setIsSaving(true);
 		try {
-			const response = await sendRequest<{ success?: boolean }>(
-				'save_auto_run_document',
-				{ sessionId, filename, content: editContent },
-			);
+			const response = await sendRequest<{ success?: boolean }>('save_auto_run_document', {
+				sessionId,
+				filename,
+				content: editContent,
+			});
 			if (response.success) {
 				setContent(editContent);
 				setIsDirty(false);
@@ -353,7 +362,8 @@ export function AutoRunDocumentViewer({
 				<div
 					style={{
 						padding: '8px 16px',
-						backgroundColor: saveMessage.type === 'success' ? `${colors.success}20` : `${colors.error}20`,
+						backgroundColor:
+							saveMessage.type === 'success' ? `${colors.success}20` : `${colors.error}20`,
 						color: saveMessage.type === 'success' ? colors.success : colors.error,
 						fontSize: '13px',
 						fontWeight: 500,

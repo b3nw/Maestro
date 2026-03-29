@@ -23,9 +23,7 @@ export interface SettingsPanelProps {
 /**
  * Ordered list of theme IDs to display (excluding 'custom')
  */
-const THEME_LIST: { id: ThemeId; theme: Theme }[] = (
-	Object.keys(THEMES) as ThemeId[]
-)
+const THEME_LIST: { id: ThemeId; theme: Theme }[] = (Object.keys(THEMES) as ThemeId[])
 	.filter((id) => id !== 'custom')
 	.map((id) => ({ id, theme: THEMES[id] }));
 
@@ -119,7 +117,13 @@ function ToggleSwitch({
 /**
  * Section header component
  */
-function SectionHeader({ title, colors }: { title: string; colors: ReturnType<typeof useThemeColors> }) {
+function SectionHeader({
+	title,
+	colors,
+}: {
+	title: string;
+	colors: ReturnType<typeof useThemeColors>;
+}) {
 	return (
 		<span
 			style={{
@@ -181,7 +185,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setSetting(key, !currentValue);
 			if (success) showSaved(key);
 		},
-		[setSetting, showSaved],
+		[setSetting, showSaved]
 	);
 
 	const handleThemeSelect = useCallback(
@@ -190,7 +194,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setTheme(themeId);
 			if (success) showSaved('theme');
 		},
-		[setTheme, showSaved],
+		[setTheme, showSaved]
 	);
 
 	const handleFontSizeChange = useCallback(
@@ -202,7 +206,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setFontSize(next);
 			if (success) showSaved('fontSize');
 		},
-		[settings?.fontSize, setFontSize, showSaved],
+		[settings?.fontSize, setFontSize, showSaved]
 	);
 
 	const handleColorBlindChange = useCallback(
@@ -211,7 +215,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setSetting('colorBlindMode', value);
 			if (success) showSaved('colorBlindMode');
 		},
-		[setSetting, showSaved],
+		[setSetting, showSaved]
 	);
 
 	const handleShowThinkingChange = useCallback(
@@ -220,7 +224,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setSetting('defaultShowThinking', value);
 			if (success) showSaved('defaultShowThinking');
 		},
-		[setSetting, showSaved],
+		[setSetting, showSaved]
 	);
 
 	const handleConductorProfileChange = useCallback(
@@ -228,7 +232,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 			const success = await setSetting('conductorProfile', value);
 			if (success) showSaved('conductorProfile');
 		},
-		[setSetting, showSaved],
+		[setSetting, showSaved]
 	);
 
 	if (!settings) {
@@ -567,12 +571,22 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 						}}
 					>
 						{/* Toggle rows */}
-						{([
-							{ key: 'enterToSendAI', label: 'Enter to send (AI mode)', field: 'enterToSendAI' },
-							{ key: 'enterToSendTerminal', label: 'Enter to send (Terminal mode)', field: 'enterToSendTerminal' },
-							{ key: 'autoScroll', label: 'Auto-scroll', field: 'autoScroll' },
-							{ key: 'defaultSaveToHistory', label: 'Save to history by default', field: 'defaultSaveToHistory' },
-						] as const).map((item) => (
+						{(
+							[
+								{ key: 'enterToSendAI', label: 'Enter to send (AI mode)', field: 'enterToSendAI' },
+								{
+									key: 'enterToSendTerminal',
+									label: 'Enter to send (Terminal mode)',
+									field: 'enterToSendTerminal',
+								},
+								{ key: 'autoScroll', label: 'Auto-scroll', field: 'autoScroll' },
+								{
+									key: 'defaultSaveToHistory',
+									label: 'Save to history by default',
+									field: 'defaultSaveToHistory',
+								},
+							] as const
+						).map((item) => (
 							<div
 								key={item.key}
 								style={{
@@ -595,10 +609,7 @@ export function SettingsPanel({ onClose, settingsHook }: SettingsPanelProps) {
 								<ToggleSwitch
 									checked={settings[item.field as keyof WebSettings] as boolean}
 									onChange={() =>
-										handleToggle(
-											item.key,
-											settings[item.field as keyof WebSettings] as boolean,
-										)
+										handleToggle(item.key, settings[item.field as keyof WebSettings] as boolean)
 									}
 									accentColor={colors.accent}
 									dimColor={colors.textDim}

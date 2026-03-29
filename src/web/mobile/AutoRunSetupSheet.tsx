@@ -33,8 +33,8 @@ export function AutoRunSetupSheet({
 	onClose,
 }: AutoRunSetupSheetProps) {
 	const colors = useThemeColors();
-	const [selectedFiles, setSelectedFiles] = useState<Set<string>>(() =>
-		new Set(documents.map((d) => d.filename)),
+	const [selectedFiles, setSelectedFiles] = useState<Set<string>>(
+		() => new Set(documents.map((d) => d.filename))
 	);
 	const [prompt, setPrompt] = useState('');
 	const [loopEnabled, setLoopEnabled] = useState(false);
@@ -64,11 +64,14 @@ export function AutoRunSetupSheet({
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, [handleClose]);
 
-	const handleBackdropTap = useCallback((e: React.MouseEvent) => {
-		if (e.target === e.currentTarget) {
-			handleClose();
-		}
-	}, [handleClose]);
+	const handleBackdropTap = useCallback(
+		(e: React.MouseEvent) => {
+			if (e.target === e.currentTarget) {
+				handleClose();
+			}
+		},
+		[handleClose]
+	);
 
 	const handleToggleFile = useCallback((filename: string) => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
@@ -449,9 +452,7 @@ export function AutoRunSetupSheet({
 							aria-checked={loopEnabled}
 							aria-label="Loop on completion"
 						>
-							<span style={{ fontSize: '14px', fontWeight: 500 }}>
-								Loop on completion
-							</span>
+							<span style={{ fontSize: '14px', fontWeight: 500 }}>Loop on completion</span>
 							{/* Toggle switch */}
 							<div
 								style={{

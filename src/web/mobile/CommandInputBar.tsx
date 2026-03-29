@@ -914,7 +914,6 @@ export function CommandInputBar({
           }
         `}
 			</style>
-
 		</div>
 	);
 }

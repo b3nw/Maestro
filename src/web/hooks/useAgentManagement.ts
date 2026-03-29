@@ -23,7 +23,7 @@ export interface UseAgentManagementReturn {
 		name: string,
 		toolType: string,
 		cwd: string,
-		groupId?: string,
+		groupId?: string
 	) => Promise<{ sessionId: string } | null>;
 	/** Delete an agent by session ID. */
 	deleteAgent: (sessionId: string) => Promise<boolean>;
@@ -53,7 +53,7 @@ export interface UseAgentManagementReturn {
  */
 export function useAgentManagement(
 	sendRequest: UseWebSocketReturn['sendRequest'],
-	isConnected: boolean,
+	isConnected: boolean
 ): UseAgentManagementReturn {
 	const [groups, setGroups] = useState<GroupData[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -114,7 +114,7 @@ export function useAgentManagement(
 			name: string,
 			toolType: string,
 			cwd: string,
-			groupId?: string,
+			groupId?: string
 		): Promise<{ sessionId: string } | null> => {
 			try {
 				const response = await sendRequest<{
@@ -129,7 +129,7 @@ export function useAgentManagement(
 				return null;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -138,16 +138,13 @@ export function useAgentManagement(
 	const deleteAgent = useCallback(
 		async (sessionId: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'delete_session',
-					{ sessionId },
-				);
+				const response = await sendRequest<{ success?: boolean }>('delete_session', { sessionId });
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -156,16 +153,16 @@ export function useAgentManagement(
 	const renameAgent = useCallback(
 		async (sessionId: string, newName: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'rename_session',
-					{ sessionId, newName },
-				);
+				const response = await sendRequest<{ success?: boolean }>('rename_session', {
+					sessionId,
+					newName,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -186,7 +183,7 @@ export function useAgentManagement(
 				return null;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -195,16 +192,16 @@ export function useAgentManagement(
 	const renameGroup = useCallback(
 		async (groupId: string, name: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'rename_group',
-					{ groupId, name },
-				);
+				const response = await sendRequest<{ success?: boolean }>('rename_group', {
+					groupId,
+					name,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -213,16 +210,13 @@ export function useAgentManagement(
 	const deleteGroup = useCallback(
 		async (groupId: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'delete_group',
-					{ groupId },
-				);
+				const response = await sendRequest<{ success?: boolean }>('delete_group', { groupId });
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	/**
@@ -231,16 +225,16 @@ export function useAgentManagement(
 	const moveToGroup = useCallback(
 		async (sessionId: string, groupId: string | null): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'move_session_to_group',
-					{ sessionId, groupId },
-				);
+				const response = await sendRequest<{ success?: boolean }>('move_session_to_group', {
+					sessionId,
+					groupId,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	return {

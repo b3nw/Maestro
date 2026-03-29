@@ -69,50 +69,53 @@ const MAX_ACTIVITY_ENTRIES = 100;
 export function useCue(
 	sendRequest: UseWebSocketReturn['sendRequest'],
 	_send: UseWebSocketReturn['send'],
-	isConnected: boolean,
+	isConnected: boolean
 ): UseCueReturn {
 	const [subscriptions, setSubscriptions] = useState<CueSubscriptionInfo[]>([]);
 	const [activity, setActivity] = useState<CueActivityEntry[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 
-	const loadSubscriptions = useCallback(async (sessionId?: string) => {
-		setIsLoading(true);
-		try {
-			const response = await sendRequest<{ subscriptions?: CueSubscriptionInfo[] }>(
-				'get_cue_subscriptions',
-				sessionId ? { sessionId } : undefined,
-			);
-			setSubscriptions(response.subscriptions ?? []);
-		} catch {
-			setSubscriptions([]);
-		} finally {
-			setIsLoading(false);
-		}
-	}, [sendRequest]);
+	const loadSubscriptions = useCallback(
+		async (sessionId?: string) => {
+			setIsLoading(true);
+			try {
+				const response = await sendRequest<{ subscriptions?: CueSubscriptionInfo[] }>(
+					'get_cue_subscriptions',
+					sessionId ? { sessionId } : undefined
+				);
+				setSubscriptions(response.subscriptions ?? []);
+			} catch {
+				setSubscriptions([]);
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[sendRequest]
+	);
 
 	const toggleSubscription = useCallback(
 		async (subscriptionId: string, enabled: boolean): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'toggle_cue_subscription',
-					{ subscriptionId, enabled },
-				);
+				const response = await sendRequest<{ success?: boolean }>('toggle_cue_subscription', {
+					subscriptionId,
+					enabled,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const loadActivity = useCallback(
 		async (sessionId?: string, limit?: number) => {
 			setIsLoading(true);
 			try {
-				const response = await sendRequest<{ entries?: CueActivityEntry[] }>(
-					'get_cue_activity',
-					{ ...(sessionId ? { sessionId } : {}), ...(limit ? { limit } : {}) },
-				);
+				const response = await sendRequest<{ entries?: CueActivityEntry[] }>('get_cue_activity', {
+					...(sessionId ? { sessionId } : {}),
+					...(limit ? { limit } : {}),
+				});
 				setActivity(response.entries ?? []);
 			} catch {
 				setActivity([]);
@@ -120,7 +123,7 @@ export function useCue(
 				setIsLoading(false);
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const handleCueActivityEvent = useCallback((entry: CueActivityEntry) => {

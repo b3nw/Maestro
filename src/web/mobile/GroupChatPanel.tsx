@@ -56,12 +56,7 @@ function getParticipantColor(id: string): string {
 /**
  * GroupChatPanel component
  */
-export function GroupChatPanel({
-	chatState,
-	onSendMessage,
-	onStop,
-	onBack,
-}: GroupChatPanelProps) {
+export function GroupChatPanel({ chatState, onSendMessage, onStop, onBack }: GroupChatPanelProps) {
 	const colors = useThemeColors();
 	const [inputValue, setInputValue] = useState('');
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -87,7 +82,7 @@ export function GroupChatPanel({
 				handleSend();
 			}
 		},
-		[handleSend],
+		[handleSend]
 	);
 
 	const currentTurnParticipant = chatState.currentTurn
@@ -205,12 +200,8 @@ export function GroupChatPanel({
 								gap: 6,
 								padding: '4px 10px',
 								borderRadius: 16,
-								backgroundColor: isCurrentTurn
-									? `${colors.accent}20`
-									: `${colors.textDim}10`,
-								border: isCurrentTurn
-									? `1.5px solid ${colors.accent}`
-									: '1.5px solid transparent',
+								backgroundColor: isCurrentTurn ? `${colors.accent}20` : `${colors.textDim}10`,
+								border: isCurrentTurn ? `1.5px solid ${colors.accent}` : '1.5px solid transparent',
 								flexShrink: 0,
 								transition: 'all 0.2s ease',
 								animation: isCurrentTurn ? 'pulse 2s infinite' : undefined,
@@ -283,11 +274,7 @@ export function GroupChatPanel({
 				)}
 
 				{chatState.messages.map((message) => (
-					<MessageBubble
-						key={message.id}
-						message={message}
-						colors={colors}
-					/>
+					<MessageBubble key={message.id} message={message} colors={colors} />
 				))}
 
 				{/* Thinking indicator */}
@@ -376,17 +363,9 @@ export function GroupChatPanel({
 						borderRadius: 8,
 						border: 'none',
 						backgroundColor:
-							chatState.isActive && inputValue.trim()
-								? colors.accent
-								: `${colors.textDim}20`,
-						color:
-							chatState.isActive && inputValue.trim()
-								? '#fff'
-								: colors.textDim,
-						cursor:
-							chatState.isActive && inputValue.trim()
-								? 'pointer'
-								: 'default',
+							chatState.isActive && inputValue.trim() ? colors.accent : `${colors.textDim}20`,
+						color: chatState.isActive && inputValue.trim() ? '#fff' : colors.textDim,
+						cursor: chatState.isActive && inputValue.trim() ? 'pointer' : 'default',
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
@@ -463,9 +442,7 @@ function MessageBubble({
 				<span style={{ fontSize: 11, color: colors.textDim, fontWeight: 500 }}>
 					{message.participantName}
 				</span>
-				<span style={{ fontSize: 10, color: colors.textDim }}>
-					{formatTime(message.timestamp)}
-				</span>
+				<span style={{ fontSize: 10, color: colors.textDim }}>{formatTime(message.timestamp)}</span>
 			</div>
 
 			{/* Message content */}
@@ -473,9 +450,7 @@ function MessageBubble({
 				style={{
 					padding: '8px 12px',
 					borderRadius: 12,
-					backgroundColor: isUser
-						? `${colors.accent}18`
-						: `${colors.textDim}10`,
+					backgroundColor: isUser ? `${colors.accent}18` : `${colors.textDim}10`,
 					borderTopRightRadius: isUser ? 4 : 12,
 					borderTopLeftRadius: isUser ? 12 : 4,
 				}}

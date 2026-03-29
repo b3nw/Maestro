@@ -61,7 +61,7 @@ export interface UseAutoRunReturn {
 export function useAutoRun(
 	sendRequest: UseWebSocketReturn['sendRequest'],
 	send: UseWebSocketReturn['send'],
-	autoRunState: AutoRunState | null = null,
+	autoRunState: AutoRunState | null = null
 ): UseAutoRunReturn {
 	const [documents, setDocuments] = useState<AutoRunDocument[]>([]);
 	const [isLoadingDocs, setIsLoadingDocs] = useState(false);
@@ -71,10 +71,9 @@ export function useAutoRun(
 		async (sessionId: string) => {
 			setIsLoadingDocs(true);
 			try {
-				const response = await sendRequest<{ documents?: AutoRunDocument[] }>(
-					'get_auto_run_docs',
-					{ sessionId },
-				);
+				const response = await sendRequest<{ documents?: AutoRunDocument[] }>('get_auto_run_docs', {
+					sessionId,
+				});
 				setDocuments(response.documents ?? []);
 			} catch {
 				setDocuments([]);
@@ -82,16 +81,16 @@ export function useAutoRun(
 				setIsLoadingDocs(false);
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const loadDocumentContent = useCallback(
 		async (sessionId: string, filename: string) => {
 			try {
-				const response = await sendRequest<{ content?: string }>(
-					'get_auto_run_document',
-					{ sessionId, filename },
-				);
+				const response = await sendRequest<{ content?: string }>('get_auto_run_document', {
+					sessionId,
+					filename,
+				});
 				setSelectedDoc({
 					filename,
 					content: response.content ?? '',
@@ -100,22 +99,23 @@ export function useAutoRun(
 				setSelectedDoc({ filename, content: '' });
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const saveDocumentContent = useCallback(
 		async (sessionId: string, filename: string, content: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'save_auto_run_document',
-					{ sessionId, filename, content },
-				);
+				const response = await sendRequest<{ success?: boolean }>('save_auto_run_document', {
+					sessionId,
+					filename,
+					content,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const launchAutoRun = useCallback(
@@ -130,22 +130,19 @@ export function useAutoRun(
 				launch: true,
 			});
 		},
-		[send],
+		[send]
 	);
 
 	const stopAutoRun = useCallback(
 		async (sessionId: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'stop_auto_run',
-					{ sessionId },
-				);
+				const response = await sendRequest<{ success?: boolean }>('stop_auto_run', { sessionId });
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	return {

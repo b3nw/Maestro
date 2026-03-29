@@ -21,7 +21,11 @@ interface AchievementData {
 
 export interface AchievementsPanelProps {
 	onClose: () => void;
-	sendRequest: <T = unknown>(type: string, payload?: Record<string, unknown>, timeoutMs?: number) => Promise<T>;
+	sendRequest: <T = unknown>(
+		type: string,
+		payload?: Record<string, unknown>,
+		timeoutMs?: number
+	) => Promise<T>;
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -52,7 +56,11 @@ export function AchievementsPanel({ onClose, sendRequest }: AchievementsPanelPro
 		setIsLoading(true);
 		setError(null);
 		try {
-			const result = await sendRequest<{ achievements: AchievementData[] }>('get_achievements', {}, 15000);
+			const result = await sendRequest<{ achievements: AchievementData[] }>(
+				'get_achievements',
+				{},
+				15000
+			);
 			setAchievements(result.achievements);
 		} catch {
 			setError('Failed to load achievements');
@@ -65,7 +73,10 @@ export function AchievementsPanel({ onClose, sendRequest }: AchievementsPanelPro
 		fetchAchievements();
 	}, [fetchAchievements]);
 
-	const unlockedCount = useMemo(() => achievements.filter((a) => a.unlocked).length, [achievements]);
+	const unlockedCount = useMemo(
+		() => achievements.filter((a) => a.unlocked).length,
+		[achievements]
+	);
 
 	const sortedAchievements = useMemo(() => {
 		return [...achievements].sort((a, b) => {
@@ -243,11 +254,7 @@ export function AchievementsPanel({ onClose, sendRequest }: AchievementsPanelPro
 							}}
 						>
 							{sortedAchievements.map((achievement) => (
-								<AchievementCard
-									key={achievement.id}
-									achievement={achievement}
-									colors={colors}
-								/>
+								<AchievementCard key={achievement.id} achievement={achievement} colors={colors} />
 							))}
 						</div>
 					</>
@@ -264,7 +271,8 @@ function AchievementCard({
 	achievement: AchievementData;
 	colors: ReturnType<typeof useThemeColors>;
 }) {
-	const hasProgress = achievement.progress != null && achievement.maxProgress != null && achievement.maxProgress > 0;
+	const hasProgress =
+		achievement.progress != null && achievement.maxProgress != null && achievement.maxProgress > 0;
 	const progressPercent = hasProgress
 		? ((achievement.progress ?? 0) / (achievement.maxProgress ?? 1)) * 100
 		: 0;

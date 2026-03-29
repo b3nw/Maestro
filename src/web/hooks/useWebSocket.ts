@@ -313,7 +313,12 @@ export interface AutoRunDocsChangedMessage extends ServerMessage {
  */
 export interface NotificationEventMessage extends ServerMessage {
 	type: 'notification_event';
-	eventType: 'agent_complete' | 'agent_error' | 'autorun_complete' | 'autorun_task_complete' | 'context_warning';
+	eventType:
+		| 'agent_complete'
+		| 'agent_error'
+		| 'autorun_complete'
+		| 'autorun_task_complete'
+		| 'context_warning';
 	sessionId: string;
 	sessionName: string;
 	message: string;
@@ -486,7 +491,10 @@ export interface WebSocketEventHandlers {
 	/** Called when AutoRun state changes (batch processing on desktop) */
 	onAutoRunStateChange?: (sessionId: string, state: AutoRunState | null) => void;
 	/** Called when AutoRun document list changes */
-	onAutoRunDocsChanged?: (sessionId: string, documents: AutoRunDocsChangedMessage['documents']) => void;
+	onAutoRunDocsChanged?: (
+		sessionId: string,
+		documents: AutoRunDocsChangedMessage['documents']
+	) => void;
 	/** Called when a notification event is received */
 	onNotificationEvent?: (event: NotificationEventMessage) => void;
 	/** Called when settings are changed (from web or desktop) */
@@ -554,7 +562,11 @@ export interface UseWebSocketReturn {
 	/** Send a raw message to the server */
 	send: (message: object) => boolean;
 	/** Send a request and wait for a correlated response */
-	sendRequest: <T = any>(type: string, payload?: Record<string, unknown>, timeoutMs?: number) => Promise<T>;
+	sendRequest: <T = any>(
+		type: string,
+		payload?: Record<string, unknown>,
+		timeoutMs?: number
+	) => Promise<T>;
 }
 
 /**
@@ -641,7 +653,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 	const pendingRequestsRef = useRef<
 		Map<
 			string,
-			{ resolve: (data: any) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> }
+			{
+				resolve: (data: any) => void;
+				reject: (err: Error) => void;
+				timer: ReturnType<typeof setTimeout>;
+			}
 		>
 	>(new Map());
 
@@ -893,7 +909,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 					case 'group_chat_state_change': {
 						const gcStateMsg = message as GroupChatStateChangeBroadcast;
 						const { chatId: gcChatId, type: _gcType, timestamp: _gcTs, ...gcState } = gcStateMsg;
-						handlersRef.current?.onGroupChatStateChange?.(gcChatId, gcState as Partial<GroupChatState>);
+						handlersRef.current?.onGroupChatStateChange?.(
+							gcChatId,
+							gcState as Partial<GroupChatState>
+						);
 						break;
 					}
 
@@ -1094,7 +1113,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 	 * The server must echo back the requestId in its response.
 	 */
 	const sendRequest = useCallback(
-		<T = any>(type: string, payload?: Record<string, unknown>, timeoutMs: number = 10000): Promise<T> => {
+		<T = any>(
+			type: string,
+			payload?: Record<string, unknown>,
+			timeoutMs: number = 10000
+		): Promise<T> => {
 			return new Promise<T>((resolve, reject) => {
 				const requestId =
 					typeof crypto !== 'undefined' && crypto.randomUUID

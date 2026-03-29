@@ -27,15 +27,7 @@ export interface CommandPaletteAction {
 }
 
 /** Category display order */
-const CATEGORY_ORDER = [
-	'Navigation',
-	'Agent',
-	'Auto Run',
-	'Group Chat',
-	'Cue',
-	'Settings',
-	'View',
-];
+const CATEGORY_ORDER = ['Navigation', 'Agent', 'Auto Run', 'Group Chat', 'Cue', 'Settings', 'View'];
 
 /** localStorage key for recent actions */
 const RECENT_ACTIONS_KEY = 'maestro-command-palette-recent';
@@ -69,10 +61,7 @@ function saveRecentAction(actionId: string): void {
 	try {
 		const recent = loadRecentActions().filter((id) => id !== actionId);
 		recent.unshift(actionId);
-		localStorage.setItem(
-			RECENT_ACTIONS_KEY,
-			JSON.stringify(recent.slice(0, MAX_RECENT_ACTIONS))
-		);
+		localStorage.setItem(RECENT_ACTIONS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT_ACTIONS)));
 	} catch {
 		// Ignore storage errors
 	}
@@ -83,11 +72,7 @@ function saveRecentAction(actionId: string): void {
  *
  * A full-screen command palette providing quick access to all app actions.
  */
-export function QuickActionsMenu({
-	isOpen,
-	onClose,
-	actions,
-}: QuickActionsMenuProps) {
+export function QuickActionsMenu({ isOpen, onClose, actions }: QuickActionsMenuProps) {
 	const colors = useThemeColors();
 	const menuRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -106,15 +91,15 @@ export function QuickActionsMenu({
 		if (!searchQuery.trim()) return availableActions;
 		const query = searchQuery.toLowerCase();
 		return availableActions.filter(
-			(a) =>
-				a.label.toLowerCase().includes(query) ||
-				a.category.toLowerCase().includes(query)
+			(a) => a.label.toLowerCase().includes(query) || a.category.toLowerCase().includes(query)
 		);
 	}, [availableActions, searchQuery]);
 
 	// Build the display list: recent actions first (when no search), then by category
 	const displayList = useMemo(() => {
-		const items: Array<{ type: 'header'; label: string } | { type: 'action'; action: CommandPaletteAction }> = [];
+		const items: Array<
+			{ type: 'header'; label: string } | { type: 'action'; action: CommandPaletteAction }
+		> = [];
 
 		if (!searchQuery.trim()) {
 			// Show recent actions at top
@@ -165,7 +150,10 @@ export function QuickActionsMenu({
 
 	// Get only action items (for keyboard navigation indexing)
 	const actionItems = useMemo(
-		() => displayList.filter((item): item is { type: 'action'; action: CommandPaletteAction } => item.type === 'action'),
+		() =>
+			displayList.filter(
+				(item): item is { type: 'action'; action: CommandPaletteAction } => item.type === 'action'
+			),
 		[displayList]
 	);
 
@@ -216,15 +204,11 @@ export function QuickActionsMenu({
 					break;
 				case 'ArrowDown':
 					event.preventDefault();
-					setSelectedIndex((prev) =>
-						prev < actionItems.length - 1 ? prev + 1 : 0
-					);
+					setSelectedIndex((prev) => (prev < actionItems.length - 1 ? prev + 1 : 0));
 					break;
 				case 'ArrowUp':
 					event.preventDefault();
-					setSelectedIndex((prev) =>
-						prev > 0 ? prev - 1 : actionItems.length - 1
-					);
+					setSelectedIndex((prev) => (prev > 0 ? prev - 1 : actionItems.length - 1));
 					break;
 				case 'Enter':
 					event.preventDefault();
@@ -353,7 +337,16 @@ export function QuickActionsMenu({
 									alignItems: 'center',
 								}}
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
 									<line x1="18" y1="6" x2="6" y2="18" />
 									<line x1="6" y1="6" x2="18" y2="18" />
 								</svg>
@@ -461,9 +454,7 @@ export function QuickActionsMenu({
 								>
 									{item.action.icon}
 								</span>
-								<span style={{ flex: 1, minWidth: 0 }}>
-									{item.action.label}
-								</span>
+								<span style={{ flex: 1, minWidth: 0 }}>{item.action.label}</span>
 								{item.action.shortcut && (
 									<span
 										style={{
@@ -496,13 +487,43 @@ export function QuickActionsMenu({
 					}}
 				>
 					<span style={{ fontSize: '11px', color: colors.textDim }}>
-						<kbd style={{ fontFamily: 'monospace', padding: '1px 4px', backgroundColor: `${colors.textDim}15`, borderRadius: '3px' }}>↑↓</kbd> navigate
+						<kbd
+							style={{
+								fontFamily: 'monospace',
+								padding: '1px 4px',
+								backgroundColor: `${colors.textDim}15`,
+								borderRadius: '3px',
+							}}
+						>
+							↑↓
+						</kbd>{' '}
+						navigate
 					</span>
 					<span style={{ fontSize: '11px', color: colors.textDim }}>
-						<kbd style={{ fontFamily: 'monospace', padding: '1px 4px', backgroundColor: `${colors.textDim}15`, borderRadius: '3px' }}>⏎</kbd> select
+						<kbd
+							style={{
+								fontFamily: 'monospace',
+								padding: '1px 4px',
+								backgroundColor: `${colors.textDim}15`,
+								borderRadius: '3px',
+							}}
+						>
+							⏎
+						</kbd>{' '}
+						select
 					</span>
 					<span style={{ fontSize: '11px', color: colors.textDim }}>
-						<kbd style={{ fontFamily: 'monospace', padding: '1px 4px', backgroundColor: `${colors.textDim}15`, borderRadius: '3px' }}>esc</kbd> close
+						<kbd
+							style={{
+								fontFamily: 'monospace',
+								padding: '1px 4px',
+								backgroundColor: `${colors.textDim}15`,
+								borderRadius: '3px',
+							}}
+						>
+							esc
+						</kbd>{' '}
+						close
 					</span>
 				</div>
 			</div>

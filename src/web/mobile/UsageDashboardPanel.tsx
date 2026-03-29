@@ -33,7 +33,11 @@ type TimeRange = 'day' | 'week' | 'month' | 'all';
 
 export interface UsageDashboardPanelProps {
 	onClose: () => void;
-	sendRequest: <T = unknown>(type: string, payload?: Record<string, unknown>, timeoutMs?: number) => Promise<T>;
+	sendRequest: <T = unknown>(
+		type: string,
+		payload?: Record<string, unknown>,
+		timeoutMs?: number
+	) => Promise<T>;
 }
 
 function formatTokenCount(count: number): string {
@@ -66,18 +70,25 @@ export function UsageDashboardPanel({ onClose, sendRequest }: UsageDashboardPane
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const fetchData = useCallback(async (range: TimeRange) => {
-		setIsLoading(true);
-		setError(null);
-		try {
-			const result = await sendRequest<{ data: UsageDashboardData }>('get_usage_dashboard', { timeRange: range }, 15000);
-			setData(result.data);
-		} catch {
-			setError('Failed to load usage data');
-		} finally {
-			setIsLoading(false);
-		}
-	}, [sendRequest]);
+	const fetchData = useCallback(
+		async (range: TimeRange) => {
+			setIsLoading(true);
+			setError(null);
+			try {
+				const result = await sendRequest<{ data: UsageDashboardData }>(
+					'get_usage_dashboard',
+					{ timeRange: range },
+					15000
+				);
+				setData(result.data);
+			} catch {
+				setError('Failed to load usage data');
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[sendRequest]
+	);
 
 	useEffect(() => {
 		fetchData(timeRange);
@@ -222,7 +233,8 @@ export function UsageDashboardPanel({ onClose, sendRequest }: UsageDashboardPane
 					>
 						{error}
 					</div>
-				) : !data || (data.totalTokensIn === 0 && data.totalTokensOut === 0 && data.totalCost === 0) ? (
+				) : !data ||
+				  (data.totalTokensIn === 0 && data.totalTokensOut === 0 && data.totalCost === 0) ? (
 					<div
 						style={{
 							textAlign: 'center',
@@ -256,11 +268,7 @@ export function UsageDashboardPanel({ onClose, sendRequest }: UsageDashboardPane
 								value={formatTokenCount(data.totalTokensOut)}
 								colors={colors}
 							/>
-							<SummaryCard
-								label="Cost"
-								value={formatCostUsd(data.totalCost)}
-								colors={colors}
-							/>
+							<SummaryCard label="Cost" value={formatCostUsd(data.totalCost)} colors={colors} />
 						</div>
 
 						{/* Daily Usage Chart */}
@@ -402,7 +410,8 @@ export function UsageDashboardPanel({ onClose, sendRequest }: UsageDashboardPane
 														color: colors.textDim,
 													}}
 												>
-													{formatTokenCount(session.tokensIn)} in / {formatTokenCount(session.tokensOut)} out
+													{formatTokenCount(session.tokensIn)} in /{' '}
+													{formatTokenCount(session.tokensOut)} out
 												</span>
 											</div>
 											{/* Proportional bar */}
@@ -417,9 +426,10 @@ export function UsageDashboardPanel({ onClose, sendRequest }: UsageDashboardPane
 											>
 												<div
 													style={{
-														width: maxSessionCost > 0
-															? `${(session.cost / maxSessionCost) * 100}%`
-															: '0%',
+														width:
+															maxSessionCost > 0
+																? `${(session.cost / maxSessionCost) * 100}%`
+																: '0%',
 														height: '100%',
 														borderRadius: '2px',
 														backgroundColor: colors.accent,

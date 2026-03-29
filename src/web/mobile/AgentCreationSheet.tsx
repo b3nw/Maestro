@@ -25,7 +25,7 @@ export interface AgentCreationSheetProps {
 		name: string,
 		toolType: string,
 		cwd: string,
-		groupId?: string,
+		groupId?: string
 	) => Promise<{ sessionId: string } | null>;
 	onCreated: (sessionId: string) => void;
 	onClose: () => void;
@@ -75,7 +75,7 @@ export function AgentCreationSheet({
 				handleClose();
 			}
 		},
-		[handleClose],
+		[handleClose]
 	);
 
 	const handleSelectType = useCallback((typeId: string) => {
@@ -102,12 +102,7 @@ export function AgentCreationSheet({
 		triggerHaptic(HAPTIC_PATTERNS.send);
 
 		try {
-			const result = await createAgent(
-				agentName,
-				selectedType,
-				cwd.trim(),
-				groupId || undefined,
-			);
+			const result = await createAgent(agentName, selectedType, cwd.trim(), groupId || undefined);
 			if (result) {
 				triggerHaptic(HAPTIC_PATTERNS.success);
 				onCreated(result.sessionId);
@@ -120,7 +115,17 @@ export function AgentCreationSheet({
 			triggerHaptic(HAPTIC_PATTERNS.error);
 			setIsSubmitting(false);
 		}
-	}, [isSubmitting, name, getDefaultName, cwd, selectedType, groupId, createAgent, onCreated, handleClose]);
+	}, [
+		isSubmitting,
+		name,
+		getDefaultName,
+		cwd,
+		selectedType,
+		groupId,
+		createAgent,
+		onCreated,
+		handleClose,
+	]);
 
 	return (
 		<div
@@ -465,12 +470,8 @@ export function AgentCreationSheet({
 										}}
 										aria-pressed={isSelected}
 									>
-										{group.emoji && (
-											<span style={{ fontSize: '16px' }}>{group.emoji}</span>
-										)}
-										<span style={{ fontSize: '14px', fontWeight: 500 }}>
-											{group.name}
-										</span>
+										{group.emoji && <span style={{ fontSize: '16px' }}>{group.emoji}</span>}
+										<span style={{ fontSize: '14px', fontWeight: 500 }}>{group.name}</span>
 									</button>
 								);
 							})}
@@ -492,10 +493,7 @@ export function AgentCreationSheet({
 							width: '100%',
 							padding: '14px 20px',
 							borderRadius: '12px',
-							backgroundColor:
-								isSubmitting || !cwd.trim()
-									? `${colors.accent}40`
-									: colors.accent,
+							backgroundColor: isSubmitting || !cwd.trim() ? `${colors.accent}40` : colors.accent,
 							border: 'none',
 							color: 'white',
 							fontSize: '16px',

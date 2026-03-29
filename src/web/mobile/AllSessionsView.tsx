@@ -133,7 +133,7 @@ function MobileSessionCard({
 				onLongPress(session, x, y);
 			}, LONG_PRESS_DURATION);
 		},
-		[session, onLongPress],
+		[session, onLongPress]
 	);
 
 	const handleTouchEnd = useCallback(() => {
@@ -160,7 +160,7 @@ function MobileSessionCard({
 			triggerHaptic(HAPTIC_PATTERNS.success);
 			onLongPress(session, e.clientX, e.clientY);
 		},
-		[session, onLongPress],
+		[session, onLongPress]
 	);
 
 	const handleClick = useCallback(() => {
@@ -184,7 +184,7 @@ function MobileSessionCard({
 				onRenameCancel();
 			}
 		},
-		[onRenameConfirm, onRenameCancel],
+		[onRenameConfirm, onRenameCancel]
 	);
 
 	return (
@@ -652,7 +652,7 @@ function MoveToGroupSheet({
 			onMove(session.id, groupId);
 			handleClose();
 		},
-		[session.id, onMove, handleClose],
+		[session.id, onMove, handleClose]
 	);
 
 	return (
@@ -688,7 +688,14 @@ function MoveToGroupSheet({
 				}}
 			>
 				{/* Drag handle */}
-				<div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
+				<div
+					style={{
+						display: 'flex',
+						justifyContent: 'center',
+						padding: '10px 0 4px',
+						flexShrink: 0,
+					}}
+				>
 					<div
 						style={{
 							width: '36px',
@@ -1237,24 +1244,21 @@ export function AllSessionsView({
 	}, []);
 
 	// Context menu action handler
-	const handleContextMenuAction = useCallback(
-		(action: ContextMenuAction, session: Session) => {
-			setContextMenu(null);
-			switch (action) {
-				case 'rename':
-					setRenamingSessionId(session.id);
-					setRenameValue(session.name);
-					break;
-				case 'move':
-					setMoveSession(session);
-					break;
-				case 'delete':
-					setDeleteSession(session);
-					break;
-			}
-		},
-		[],
-	);
+	const handleContextMenuAction = useCallback((action: ContextMenuAction, session: Session) => {
+		setContextMenu(null);
+		switch (action) {
+			case 'rename':
+				setRenamingSessionId(session.id);
+				setRenameValue(session.name);
+				break;
+			case 'move':
+				setMoveSession(session);
+				break;
+			case 'delete':
+				setDeleteSession(session);
+				break;
+		}
+	}, []);
 
 	// Rename confirm handler
 	const handleRenameConfirm = useCallback(async () => {
@@ -1284,7 +1288,7 @@ export function AllSessionsView({
 			if (!onMoveToGroup) return;
 			await onMoveToGroup(sessionId, groupId);
 		},
-		[onMoveToGroup],
+		[onMoveToGroup]
 	);
 
 	// Close on escape key

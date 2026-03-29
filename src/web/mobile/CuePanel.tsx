@@ -217,7 +217,8 @@ export function CuePanel({
 							padding: '10px 16px',
 							background: 'none',
 							border: 'none',
-							borderBottom: activeTab === tab ? `2px solid ${colors.accent}` : '2px solid transparent',
+							borderBottom:
+								activeTab === tab ? `2px solid ${colors.accent}` : '2px solid transparent',
 							color: activeTab === tab ? colors.accent : colors.textDim,
 							fontSize: '14px',
 							fontWeight: 500,
@@ -227,7 +228,9 @@ export function CuePanel({
 							WebkitTapHighlightColor: 'transparent',
 						}}
 					>
-						{tab === 'subscriptions' ? `Subscriptions (${subscriptions.length})` : `Activity (${activity.length})`}
+						{tab === 'subscriptions'
+							? `Subscriptions (${subscriptions.length})`
+							: `Activity (${activity.length})`}
 					</button>
 				))}
 			</div>
@@ -372,9 +375,7 @@ export function CuePanel({
 															role="switch"
 															aria-checked={sub.enabled}
 															aria-label={`${sub.enabled ? 'Disable' : 'Enable'} ${sub.name}`}
-															onClick={() =>
-																onToggleSubscription(sub.id, !sub.enabled)
-															}
+															onClick={() => onToggleSubscription(sub.id, !sub.enabled)}
 															style={{
 																background: 'none',
 																border: 'none',
@@ -406,9 +407,7 @@ export function CuePanel({
 																		borderRadius: '11px',
 																		backgroundColor: 'white',
 																		transition: 'transform 0.2s ease',
-																		transform: sub.enabled
-																			? 'translateX(18px)'
-																			: 'translateX(0)',
+																		transform: sub.enabled ? 'translateX(18px)' : 'translateX(0)',
 																		boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
 																	}}
 																/>
@@ -525,9 +524,7 @@ export function CuePanel({
 												}}
 											>
 												<span>{formatRelativeTime(entry.timestamp)}</span>
-												{entry.duration != null && (
-													<span>{formatDuration(entry.duration)}</span>
-												)}
+												{entry.duration != null && <span>{formatDuration(entry.duration)}</span>}
 											</div>
 										</div>
 

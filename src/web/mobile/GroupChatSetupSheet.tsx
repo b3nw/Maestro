@@ -16,11 +16,7 @@ export interface GroupChatSetupSheetProps {
 	onClose: () => void;
 }
 
-export function GroupChatSetupSheet({
-	sessions,
-	onStart,
-	onClose,
-}: GroupChatSetupSheetProps) {
+export function GroupChatSetupSheet({ sessions, onStart, onClose }: GroupChatSetupSheetProps) {
 	const colors = useThemeColors();
 	const [topic, setTopic] = useState('');
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -55,7 +51,7 @@ export function GroupChatSetupSheet({
 				handleClose();
 			}
 		},
-		[handleClose],
+		[handleClose]
 	);
 
 	const toggleParticipant = useCallback((sessionId: string) => {

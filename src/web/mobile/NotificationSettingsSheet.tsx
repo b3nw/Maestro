@@ -32,15 +32,31 @@ interface ToggleItem {
 const EVENT_TOGGLES: ToggleItem[] = [
 	{ key: 'agentComplete', label: 'Agent Complete', description: 'When an agent finishes thinking' },
 	{ key: 'agentError', label: 'Agent Error', description: 'When an agent encounters an error' },
-	{ key: 'autoRunComplete', label: 'Auto Run Complete', description: 'When Auto Run finishes all documents' },
-	{ key: 'autoRunTaskComplete', label: 'Auto Run Task Complete', description: 'When each individual task completes' },
-	{ key: 'contextWarning', label: 'Context Warning', description: 'When context window is running low' },
+	{
+		key: 'autoRunComplete',
+		label: 'Auto Run Complete',
+		description: 'When Auto Run finishes all documents',
+	},
+	{
+		key: 'autoRunTaskComplete',
+		label: 'Auto Run Task Complete',
+		description: 'When each individual task completes',
+	},
+	{
+		key: 'contextWarning',
+		label: 'Context Warning',
+		description: 'When context window is running low',
+	},
 ];
 
 /**
  * Permission status badge colors
  */
-function getPermissionBadge(permission: NotificationPermission): { label: string; color: string; bgColor: string } {
+function getPermissionBadge(permission: NotificationPermission): {
+	label: string;
+	color: string;
+	bgColor: string;
+} {
 	switch (permission) {
 		case 'granted':
 			return { label: 'Enabled', color: '#22c55e', bgColor: 'rgba(34, 197, 94, 0.15)' };
@@ -89,16 +105,22 @@ export function NotificationSettingsSheet({
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, [handleClose]);
 
-	const handleBackdropTap = useCallback((e: React.MouseEvent) => {
-		if (e.target === e.currentTarget) {
-			handleClose();
-		}
-	}, [handleClose]);
+	const handleBackdropTap = useCallback(
+		(e: React.MouseEvent) => {
+			if (e.target === e.currentTarget) {
+				handleClose();
+			}
+		},
+		[handleClose]
+	);
 
-	const handleToggle = useCallback((key: keyof NotificationPreferences) => {
-		triggerHaptic(HAPTIC_PATTERNS.tap);
-		onPreferencesChange({ [key]: !preferences[key] });
-	}, [preferences, onPreferencesChange]);
+	const handleToggle = useCallback(
+		(key: keyof NotificationPreferences) => {
+			triggerHaptic(HAPTIC_PATTERNS.tap);
+			onPreferencesChange({ [key]: !preferences[key] });
+		},
+		[preferences, onPreferencesChange]
+	);
 
 	const handleRequestPermission = useCallback(async () => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
@@ -359,9 +381,7 @@ export function NotificationSettingsSheet({
 									aria-label={toggle.label}
 								>
 									<div style={{ textAlign: 'left' }}>
-										<div style={{ fontSize: '14px', fontWeight: 500 }}>
-											{toggle.label}
-										</div>
+										<div style={{ fontSize: '14px', fontWeight: 500 }}>{toggle.label}</div>
 										<div style={{ fontSize: '12px', color: colors.textDim, marginTop: '2px' }}>
 											{toggle.description}
 										</div>
@@ -372,7 +392,9 @@ export function NotificationSettingsSheet({
 											width: '44px',
 											height: '26px',
 											borderRadius: '13px',
-											backgroundColor: preferences[toggle.key] ? colors.accent : `${colors.textDim}30`,
+											backgroundColor: preferences[toggle.key]
+												? colors.accent
+												: `${colors.textDim}30`,
 											padding: '2px',
 											transition: 'background-color 0.2s ease',
 											flexShrink: 0,

@@ -65,7 +65,7 @@ const SETTING_KEY_TO_FIELD: Record<string, keyof WebSettings> = {
  */
 export function useSettings(
 	sendRequest: UseWebSocketReturn['sendRequest'],
-	isConnected: boolean,
+	isConnected: boolean
 ): UseSettingsReturn {
 	const [settings, setSettings] = useState<WebSettings | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
@@ -120,10 +120,7 @@ export function useSettings(
 			}
 
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'set_setting',
-					{ key, value },
-				);
+				const response = await sendRequest<{ success?: boolean }>('set_setting', { key, value });
 				return response.success ?? false;
 			} catch {
 				// Rollback on failure
@@ -131,63 +128,60 @@ export function useSettings(
 				return false;
 			}
 		},
-		[sendRequest, settings],
+		[sendRequest, settings]
 	);
 
 	// Typed convenience setters
 	const setTheme = useCallback(
 		(themeId: string) => setSetting('activeThemeId', themeId),
-		[setSetting],
+		[setSetting]
 	);
 
-	const setFontSize = useCallback(
-		(size: number) => setSetting('fontSize', size),
-		[setSetting],
-	);
+	const setFontSize = useCallback((size: number) => setSetting('fontSize', size), [setSetting]);
 
 	const setEnterToSendAI = useCallback(
 		(value: boolean) => setSetting('enterToSendAI', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setEnterToSendTerminal = useCallback(
 		(value: boolean) => setSetting('enterToSendTerminal', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setAutoScroll = useCallback(
 		(value: boolean) => setSetting('autoScroll', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setDefaultSaveToHistory = useCallback(
 		(value: boolean) => setSetting('defaultSaveToHistory', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setDefaultShowThinking = useCallback(
 		(value: string) => setSetting('defaultShowThinking', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setNotificationsEnabled = useCallback(
 		(value: boolean) => setSetting('notificationsEnabled', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setAudioFeedbackEnabled = useCallback(
 		(value: boolean) => setSetting('audioFeedbackEnabled', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setColorBlindMode = useCallback(
 		(value: string) => setSetting('colorBlindMode', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	const setConductorProfile = useCallback(
 		(value: string) => setSetting('conductorProfile', value),
-		[setSetting],
+		[setSetting]
 	);
 
 	return {

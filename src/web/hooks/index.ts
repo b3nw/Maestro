@@ -185,17 +185,11 @@ export type {
 	UseMobileAutoReconnectReturn,
 } from './useMobileAutoReconnect';
 
-export {
-	useAgentManagement,
-	default as useAgentManagementDefault,
-} from './useAgentManagement';
+export { useAgentManagement, default as useAgentManagementDefault } from './useAgentManagement';
 
 export type { UseAgentManagementReturn } from './useAgentManagement';
 
-export {
-	useGitStatus,
-	default as useGitStatusDefault,
-} from './useGitStatus';
+export { useGitStatus, default as useGitStatusDefault } from './useGitStatus';
 
 export type {
 	GitStatusFile,
@@ -204,10 +198,7 @@ export type {
 	UseGitStatusReturn,
 } from './useGitStatus';
 
-export {
-	useGroupChat,
-	default as useGroupChatDefault,
-} from './useGroupChat';
+export { useGroupChat, default as useGroupChatDefault } from './useGroupChat';
 
 export type { UseGroupChatReturn } from './useGroupChat';
 

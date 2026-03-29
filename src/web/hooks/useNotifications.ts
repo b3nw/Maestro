@@ -44,7 +44,10 @@ export interface NotificationPreferences {
 /**
  * Map from event type to preference key
  */
-const EVENT_TYPE_TO_PREF: Record<NotificationEvent['eventType'], keyof Omit<NotificationPreferences, 'soundEnabled'>> = {
+const EVENT_TYPE_TO_PREF: Record<
+	NotificationEvent['eventType'],
+	keyof Omit<NotificationPreferences, 'soundEnabled'>
+> = {
 	agent_complete: 'agentComplete',
 	agent_error: 'agentError',
 	autorun_complete: 'autoRunComplete',

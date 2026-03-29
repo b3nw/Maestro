@@ -46,7 +46,7 @@ export interface UseGroupChatReturn {
 export function useGroupChat(
 	sendRequest: UseWebSocketReturn['sendRequest'],
 	_send: UseWebSocketReturn['send'],
-	isConnected: boolean,
+	isConnected: boolean
 ): UseGroupChatReturn {
 	const [chats, setChats] = useState<GroupChatState[]>([]);
 	const [activeChat, setActiveChat] = useState<GroupChatState | null>(null);
@@ -55,9 +55,7 @@ export function useGroupChat(
 	const loadChats = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const response = await sendRequest<{ chats?: GroupChatState[] }>(
-				'get_group_chats',
-			);
+			const response = await sendRequest<{ chats?: GroupChatState[] }>('get_group_chats');
 			setChats(response.chats ?? []);
 		} catch {
 			setChats([]);
@@ -71,7 +69,7 @@ export function useGroupChat(
 			try {
 				const response = await sendRequest<{ success?: boolean; chatId?: string }>(
 					'start_group_chat',
-					{ topic, participantIds },
+					{ topic, participantIds }
 				);
 				if (response.success && response.chatId) {
 					// Reload chats to get the new one
@@ -83,7 +81,7 @@ export function useGroupChat(
 				return null;
 			}
 		},
-		[sendRequest, loadChats],
+		[sendRequest, loadChats]
 	);
 
 	const loadChatState = useCallback(
@@ -91,50 +89,45 @@ export function useGroupChat(
 			try {
 				const response = await sendRequest<{ state?: GroupChatState | null }>(
 					'get_group_chat_state',
-					{ chatId },
+					{ chatId }
 				);
 				if (response.state) {
 					setActiveChat(response.state);
 					// Also update in the chats list
-					setChats((prev) =>
-						prev.map((c) => (c.id === chatId ? response.state! : c)),
-					);
+					setChats((prev) => prev.map((c) => (c.id === chatId ? response.state! : c)));
 				}
 			} catch {
 				// Keep current state on error
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const sendMessage = useCallback(
 		async (chatId: string, message: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'send_group_chat_message',
-					{ chatId, message },
-				);
+				const response = await sendRequest<{ success?: boolean }>('send_group_chat_message', {
+					chatId,
+					message,
+				});
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const stopChat = useCallback(
 		async (chatId: string): Promise<boolean> => {
 			try {
-				const response = await sendRequest<{ success?: boolean }>(
-					'stop_group_chat',
-					{ chatId },
-				);
+				const response = await sendRequest<{ success?: boolean }>('stop_group_chat', { chatId });
 				return response.success ?? false;
 			} catch {
 				return false;
 			}
 		},
-		[sendRequest],
+		[sendRequest]
 	);
 
 	const setActiveChatId = useCallback(
@@ -146,31 +139,28 @@ export function useGroupChat(
 				setActiveChat(chat ?? null);
 			}
 		},
-		[chats],
+		[chats]
 	);
 
-	const handleGroupChatMessage = useCallback(
-		(chatId: string, message: GroupChatMessage) => {
-			// Update activeChat if it matches
-			setActiveChat((prev) => {
-				if (prev && prev.id === chatId) {
-					return { ...prev, messages: [...prev.messages, message] };
+	const handleGroupChatMessage = useCallback((chatId: string, message: GroupChatMessage) => {
+		// Update activeChat if it matches
+		setActiveChat((prev) => {
+			if (prev && prev.id === chatId) {
+				return { ...prev, messages: [...prev.messages, message] };
+			}
+			return prev;
+		});
+
+		// Update in chats list
+		setChats((prev) =>
+			prev.map((c) => {
+				if (c.id === chatId) {
+					return { ...c, messages: [...c.messages, message] };
 				}
-				return prev;
-			});
-
-			// Update in chats list
-			setChats((prev) =>
-				prev.map((c) => {
-					if (c.id === chatId) {
-						return { ...c, messages: [...c.messages, message] };
-					}
-					return c;
-				}),
-			);
-		},
-		[],
-	);
+				return c;
+			})
+		);
+	}, []);
 
 	const handleGroupChatStateChange = useCallback(
 		(chatId: string, state: Partial<GroupChatState>) => {
@@ -189,10 +179,10 @@ export function useGroupChat(
 						return { ...c, ...state };
 					}
 					return c;
-				}),
+				})
 			);
 		},
-		[],
+		[]
 	);
 
 	// Auto-load chats on mount when connected
