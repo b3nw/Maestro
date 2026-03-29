@@ -97,6 +97,8 @@ interface FeedbackChatViewProps {
 	sessions: Session[];
 	onCancel: () => void;
 	onSubmitSuccess: (sessionId: string) => void;
+	/** Called when the view's desired modal width changes */
+	onWidthChange?: (width: number) => void;
 }
 
 // ============================================================================
@@ -114,7 +116,7 @@ interface ExistingIssue {
 	commentCount: number;
 }
 
-export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
+export function FeedbackChatView({ theme, onCancel, onWidthChange }: FeedbackChatViewProps) {
 	// --- State ---
 	const [step, setStep] = useState<
 		'gh-check' | 'provider-select' | 'chat' | 'matching' | 'submitting' | 'done'
@@ -148,6 +150,12 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	// --- Report desired width based on current step ---
+	useEffect(() => {
+		const isNarrow = step === 'gh-check' || step === 'provider-select';
+		onWidthChange?.(isNarrow ? 420 : 780);
+	}, [step, onWidthChange]);
 
 	// --- GH Auth Check ---
 	useEffect(() => {
@@ -191,6 +199,14 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 			mounted = false;
 		};
 	}, []);
+
+	// --- Auto-resize textarea as content changes ---
+	useEffect(() => {
+		if (inputRef.current) {
+			inputRef.current.style.height = 'auto';
+			inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 176)}px`;
+		}
+	}, [inputValue]);
 
 	// --- Scroll to bottom on new messages ---
 	useEffect(() => {
@@ -471,7 +487,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	// --- GH Check Failed ---
 	if (!ghAuth.checking && !ghAuth.ok) {
 		return (
-			<div className="flex flex-col items-center gap-4 py-8 text-center">
+			<div className="flex flex-col items-center gap-4 py-8 px-6 text-center">
 				<AlertCircle className="w-10 h-10" style={{ color: theme.colors.warning }} />
 				<div>
 					<p className="text-sm font-semibold mb-1" style={{ color: theme.colors.textMain }}>
@@ -497,7 +513,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	// --- Loading GH Check ---
 	if (ghAuth.checking) {
 		return (
-			<div className="flex flex-col items-center gap-3 py-8">
+			<div className="flex flex-col items-center gap-3 py-8 px-6">
 				<Loader2 className="w-6 h-6 animate-spin" style={{ color: theme.colors.accent }} />
 				<p className="text-xs" style={{ color: theme.colors.textDim }}>
 					Checking GitHub CLI...
@@ -509,7 +525,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	// --- Provider Selection ---
 	if (step === 'provider-select') {
 		return (
-			<div className="flex flex-col gap-5">
+			<div className="flex flex-col gap-5 p-6">
 				<p className="text-sm" style={{ color: theme.colors.textDim }}>
 					Choose an agent to help collect your feedback. The agent will have a short conversation
 					with you to understand your issue and create a well-structured GitHub issue.
@@ -571,7 +587,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 		const issueNumber = createdIssueUrl?.match(/\/issues\/(\d+)/)?.[1];
 
 		return (
-			<div className="flex flex-col items-center gap-4 py-8 text-center">
+			<div className="flex flex-col items-center gap-4 py-8 px-6 text-center">
 				<div
 					className="w-12 h-12 rounded-full flex items-center justify-center"
 					style={{ backgroundColor: `${theme.colors.success}20` }}
@@ -645,7 +661,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 	// --- Matching existing issues ---
 	if (step === 'matching') {
 		return (
-			<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-4 p-6">
 				{searchingIssues ? (
 					<div className="flex flex-col items-center gap-3 py-8">
 						<Loader2 className="w-6 h-6 animate-spin" style={{ color: theme.colors.accent }} />
@@ -785,7 +801,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 
 			{/* ── TOP: Fixed confidence bar ── */}
 			<div
-				className="shrink-0 px-1 pb-2 pt-1"
+				className="shrink-0 px-4 pb-2 pt-3"
 				style={{ borderBottom: `1px solid ${theme.colors.border}` }}
 			>
 				<div className="flex items-center gap-2 mb-1.5">
@@ -815,7 +831,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 							onClick={searchAndSubmit}
 							disabled={isLoading || step === 'submitting'}
 							className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold transition-colors hover:opacity-90 disabled:opacity-40 shrink-0"
-							style={{ backgroundColor: theme.colors.success, color: '#fff' }}
+							style={{ backgroundColor: theme.colors.success, color: '#000' }}
 						>
 							{step === 'submitting' ? (
 								<Loader2 className="w-3 h-3 animate-spin" />
@@ -841,7 +857,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 			</div>
 
 			{/* ── MIDDLE: Scrollable messages ── */}
-			<div className="flex-1 overflow-y-auto min-h-0 px-1 py-3 space-y-3">
+			<div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-3">
 				{messages.map((msg, i) => (
 					<div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 						{msg.role === 'user' ? (
@@ -964,9 +980,12 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 			</div>
 
 			{/* ── BOTTOM: Fixed controls ── */}
-			<div className="shrink-0 pt-2 border-t" style={{ borderColor: theme.colors.border }}>
+			<div
+				className="shrink-0 pt-2 pb-3 px-4 border-t"
+				style={{ borderColor: theme.colors.border }}
+			>
 				{/* Screenshots row */}
-				<div className="px-1 pb-2">
+				<div className="pb-2">
 					{/* Attachment thumbnails */}
 					{attachments.length > 0 && (
 						<div className="flex gap-2 flex-wrap mb-2">
@@ -1043,7 +1062,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 				</div>
 
 				{/* Support package + error */}
-				<div className="px-1 pb-2 flex items-center gap-3">
+				<div className="pb-2 flex items-center gap-3">
 					<label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
 						<input
 							type="checkbox"
@@ -1069,7 +1088,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 				</div>
 
 				{/* Text input + send + submit */}
-				<div className="px-1 pb-1">
+				<div>
 					<div
 						className="flex items-end gap-2 rounded-lg border px-3 py-2"
 						style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border }}
@@ -1084,8 +1103,8 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 							}
 							disabled={step === 'submitting'}
 							rows={1}
-							className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
-							style={{ color: theme.colors.textMain, maxHeight: 120 }}
+							className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed overflow-y-auto"
+							style={{ color: theme.colors.textMain }}
 						/>
 						{/* Send message button — always available */}
 						<button
@@ -1109,7 +1128,7 @@ export function FeedbackChatView({ theme, onCancel }: FeedbackChatViewProps) {
 								onClick={searchAndSubmit}
 								disabled={isLoading || step === 'submitting'}
 								className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold transition-colors hover:opacity-90 disabled:opacity-40 shrink-0"
-								style={{ backgroundColor: theme.colors.success, color: '#fff' }}
+								style={{ backgroundColor: theme.colors.success, color: '#000' }}
 								title="Submit feedback as GitHub issue"
 							>
 								{step === 'submitting' ? (

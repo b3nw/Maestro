@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Session, Theme } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { Modal } from './ui/Modal';
@@ -11,19 +12,23 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ theme, sessions, onClose, onSwitchToSession }: FeedbackModalProps) {
+	const [width, setWidth] = useState(420);
+
 	return (
 		<Modal
 			theme={theme}
 			title="Send Feedback"
 			priority={MODAL_PRIORITIES.FEEDBACK}
 			onClose={onClose}
-			width={780}
+			width={width}
 			maxHeight="85vh"
+			contentClassName="flex-1 flex flex-col overflow-hidden p-0"
 		>
 			<FeedbackChatView
 				theme={theme}
 				sessions={sessions}
 				onCancel={onClose}
+				onWidthChange={setWidth}
 				onSubmitSuccess={(sessionId) => {
 					onSwitchToSession(sessionId);
 					onClose();

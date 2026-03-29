@@ -269,7 +269,8 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 				trackShortcut('toggleRightPanel');
 			} else if (ctx.isShortcut(e, 'newInstance')) {
 				e.preventDefault();
-				ctx.addNewSession();
+				// Cmd+N goes directly to manual agent creation, bypassing the choice modal
+				useModalStore.getState().openModal('newInstance', { duplicatingSessionId: null });
 				trackShortcut('newInstance');
 			} else if (ctx.isShortcut(e, 'newGroupChat')) {
 				e.preventDefault();
