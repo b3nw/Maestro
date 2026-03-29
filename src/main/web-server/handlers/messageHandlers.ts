@@ -20,11 +20,32 @@
  * - refresh_file_tree: Refresh the file tree for a session
  * - refresh_auto_run_docs: Refresh auto-run documents for a session
  * - configure_auto_run: Configure and optionally launch an auto-run session
+ * - get_auto_run_docs: List auto-run documents for a session
+ * - get_auto_run_state: Get current auto-run state for a session
+ * - get_auto_run_document: Read content of a specific auto-run document
+ * - save_auto_run_document: Write content to a specific auto-run document
+ * - stop_auto_run: Stop an active auto-run for a session
+ * - get_settings: Fetch current web settings
+ * - set_setting: Modify a single setting (allowlisted keys only)
  */
 
 import path from 'path';
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
+import type {
+	AutoRunDocument,
+	AutoRunState,
+	WebSettings,
+	SettingValue,
+	GroupData,
+	GitStatusResult,
+	GitDiffResult,
+	GroupChatState,
+	CueSubscriptionInfo,
+	CueActivityEntry,
+	UsageDashboardData,
+	AchievementData,
+} from '../types';
 
 // Logger context for all message handler logs
 const LOG_CONTEXT = 'WebServer';
@@ -118,6 +139,40 @@ export interface MessageHandlerCallbacks {
 	}>;
 	getLiveSessionInfo: (sessionId: string) => LiveSessionInfo | undefined;
 	isSessionLive: (sessionId: string) => boolean;
+	getAutoRunDocs: (sessionId: string) => Promise<AutoRunDocument[]>;
+	getAutoRunDocContent: (sessionId: string, filename: string) => Promise<string>;
+	saveAutoRunDoc: (sessionId: string, filename: string, content: string) => Promise<boolean>;
+	stopAutoRun: (sessionId: string) => Promise<boolean>;
+	getSettings: () => WebSettings;
+	setSetting: (key: string, value: SettingValue) => Promise<boolean>;
+	getGroups: () => GroupData[];
+	createGroup: (name: string, emoji?: string) => Promise<{ id: string } | null>;
+	renameGroup: (groupId: string, name: string) => Promise<boolean>;
+	deleteGroup: (groupId: string) => Promise<boolean>;
+	moveSessionToGroup: (sessionId: string, groupId: string | null) => Promise<boolean>;
+	createSession: (
+		name: string,
+		toolType: string,
+		cwd: string,
+		groupId?: string
+	) => Promise<{ sessionId: string } | null>;
+	deleteSession: (sessionId: string) => Promise<boolean>;
+	renameSession: (sessionId: string, newName: string) => Promise<boolean>;
+	getGitStatus: (sessionId: string) => Promise<GitStatusResult>;
+	getGitDiff: (sessionId: string, filePath?: string) => Promise<GitDiffResult>;
+	getGroupChats: () => Promise<GroupChatState[]>;
+	startGroupChat: (topic: string, participantIds: string[]) => Promise<{ chatId: string } | null>;
+	getGroupChatState: (chatId: string) => Promise<GroupChatState | null>;
+	stopGroupChat: (chatId: string) => Promise<boolean>;
+	sendGroupChatMessage: (chatId: string, message: string) => Promise<boolean>;
+	mergeContext: (sourceSessionId: string, targetSessionId: string) => Promise<boolean>;
+	transferContext: (sourceSessionId: string, targetSessionId: string) => Promise<boolean>;
+	summarizeContext: (sessionId: string) => Promise<boolean>;
+	getCueSubscriptions: (sessionId?: string) => Promise<CueSubscriptionInfo[]>;
+	toggleCueSubscription: (subscriptionId: string, enabled: boolean) => Promise<boolean>;
+	getCueActivity: (sessionId?: string, limit?: number) => Promise<CueActivityEntry[]>;
+	getUsageDashboard: (timeRange: 'day' | 'week' | 'month' | 'all') => Promise<UsageDashboardData>;
+	getAchievements: () => Promise<AchievementData[]>;
 }
 
 /**
@@ -230,6 +285,126 @@ export class WebSocketMessageHandler {
 
 			case 'configure_auto_run':
 				this.handleConfigureAutoRun(client, message);
+				break;
+
+			case 'get_auto_run_docs':
+				this.handleGetAutoRunDocs(client, message);
+				break;
+
+			case 'get_auto_run_state':
+				this.handleGetAutoRunState(client, message);
+				break;
+
+			case 'get_auto_run_document':
+				this.handleGetAutoRunDocument(client, message);
+				break;
+
+			case 'save_auto_run_document':
+				this.handleSaveAutoRunDocument(client, message);
+				break;
+
+			case 'stop_auto_run':
+				this.handleStopAutoRun(client, message);
+				break;
+
+			case 'get_settings':
+				this.handleGetSettings(client, message);
+				break;
+
+			case 'set_setting':
+				this.handleSetSetting(client, message);
+				break;
+
+			case 'create_session':
+				this.handleCreateSession(client, message);
+				break;
+
+			case 'delete_session':
+				this.handleDeleteSession(client, message);
+				break;
+
+			case 'rename_session':
+				this.handleRenameSession(client, message);
+				break;
+
+			case 'get_groups':
+				this.handleGetGroups(client, message);
+				break;
+
+			case 'create_group':
+				this.handleCreateGroup(client, message);
+				break;
+
+			case 'rename_group':
+				this.handleRenameGroup(client, message);
+				break;
+
+			case 'delete_group':
+				this.handleDeleteGroup(client, message);
+				break;
+
+			case 'move_session_to_group':
+				this.handleMoveSessionToGroup(client, message);
+				break;
+
+			case 'get_git_status':
+				this.handleGetGitStatus(client, message);
+				break;
+
+			case 'get_git_diff':
+				this.handleGetGitDiff(client, message);
+				break;
+
+			case 'get_group_chats':
+				this.handleGetGroupChats(client, message);
+				break;
+
+			case 'start_group_chat':
+				this.handleStartGroupChat(client, message);
+				break;
+
+			case 'get_group_chat_state':
+				this.handleGetGroupChatState(client, message);
+				break;
+
+			case 'send_group_chat_message':
+				this.handleSendGroupChatMessage(client, message);
+				break;
+
+			case 'stop_group_chat':
+				this.handleStopGroupChat(client, message);
+				break;
+
+			case 'merge_context':
+				this.handleMergeContext(client, message);
+				break;
+
+			case 'transfer_context':
+				this.handleTransferContext(client, message);
+				break;
+
+			case 'summarize_context':
+				this.handleSummarizeContext(client, message);
+				break;
+
+			case 'get_cue_subscriptions':
+				this.handleGetCueSubscriptions(client, message);
+				break;
+
+			case 'toggle_cue_subscription':
+				this.handleToggleCueSubscription(client, message);
+				break;
+
+			case 'get_cue_activity':
+				this.handleGetCueActivity(client, message);
+				break;
+
+			case 'get_usage_dashboard':
+				this.handleGetUsageDashboard(client, message);
+				break;
+
+			case 'get_achievements':
+				this.handleGetAchievements(client, message);
 				break;
 
 			default:
@@ -938,6 +1113,1047 @@ export class WebSocketMessageHandler {
 			})
 			.catch((error) => {
 				sendErrorResult(`Failed to open file tab: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Validate that a filename does not contain path traversal sequences.
+	 * Returns true if the filename is safe, false otherwise.
+	 */
+	private isValidFilename(filename: string): boolean {
+		return (
+			typeof filename === 'string' &&
+			filename.length > 0 &&
+			!filename.includes('..') &&
+			!filename.includes('/') &&
+			!filename.includes('\\')
+		);
+	}
+
+	/**
+	 * Handle get_auto_run_docs message - list Auto Run documents for a session
+	 */
+	private handleGetAutoRunDocs(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		logger.info(`[Web] Received get_auto_run_docs message: session=${sessionId}`, LOG_CONTEXT);
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.getAutoRunDocs) {
+			this.sendError(client, 'Auto-run docs listing not configured');
+			return;
+		}
+
+		this.callbacks
+			.getAutoRunDocs(sessionId)
+			.then((documents) => {
+				this.send(client, {
+					type: 'auto_run_docs',
+					sessionId,
+					documents,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get auto-run docs: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_auto_run_state message - get current Auto Run state for a session
+	 */
+	private handleGetAutoRunState(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		logger.info(`[Web] Received get_auto_run_state message: session=${sessionId}`, LOG_CONTEXT);
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.getSessionDetail) {
+			this.sendError(client, 'Session detail not configured');
+			return;
+		}
+
+		const detail = this.callbacks.getSessionDetail(sessionId);
+		const state: AutoRunState | null =
+			((detail as any)?.autoRunState as AutoRunState | null) ?? null;
+
+		this.send(client, {
+			type: 'auto_run_state',
+			sessionId,
+			state,
+			requestId: message.requestId,
+		});
+	}
+
+	/**
+	 * Handle get_auto_run_document message - read content of a specific Auto Run document
+	 */
+	private handleGetAutoRunDocument(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const filename = message.filename as string;
+		logger.info(
+			`[Web] Received get_auto_run_document message: session=${sessionId}, filename=${filename}`,
+			LOG_CONTEXT
+		);
+
+		if (!sessionId || !filename) {
+			this.sendError(client, 'Missing sessionId or filename');
+			return;
+		}
+
+		if (!this.isValidFilename(filename)) {
+			this.sendError(
+				client,
+				'Invalid filename: must not contain path separators or traversal sequences'
+			);
+			return;
+		}
+
+		if (!this.callbacks.getAutoRunDocContent) {
+			this.sendError(client, 'Auto-run document reading not configured');
+			return;
+		}
+
+		this.callbacks
+			.getAutoRunDocContent(sessionId, filename)
+			.then((content) => {
+				this.send(client, {
+					type: 'auto_run_document_content',
+					sessionId,
+					filename,
+					content,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to read auto-run document: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle save_auto_run_document message - write content to a specific Auto Run document
+	 */
+	private handleSaveAutoRunDocument(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const filename = message.filename as string;
+		const content = message.content as string;
+		logger.info(
+			`[Web] Received save_auto_run_document message: session=${sessionId}, filename=${filename}`,
+			LOG_CONTEXT
+		);
+
+		if (!sessionId || !filename) {
+			this.sendError(client, 'Missing sessionId or filename');
+			return;
+		}
+
+		if (typeof content !== 'string') {
+			this.sendError(client, 'Missing or invalid content');
+			return;
+		}
+
+		if (!this.isValidFilename(filename)) {
+			this.sendError(
+				client,
+				'Invalid filename: must not contain path separators or traversal sequences'
+			);
+			return;
+		}
+
+		if (!this.callbacks.saveAutoRunDoc) {
+			this.sendError(client, 'Auto-run document saving not configured');
+			return;
+		}
+
+		this.callbacks
+			.saveAutoRunDoc(sessionId, filename, content)
+			.then((success) => {
+				this.send(client, {
+					type: 'save_auto_run_document_result',
+					success,
+					sessionId,
+					filename,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to save auto-run document: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle stop_auto_run message - stop an active Auto Run for a session
+	 */
+	private handleStopAutoRun(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		logger.info(`[Web] Received stop_auto_run message: session=${sessionId}`, LOG_CONTEXT);
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.stopAutoRun) {
+			this.sendError(client, 'Auto-run stopping not configured');
+			return;
+		}
+
+		this.callbacks
+			.stopAutoRun(sessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'stop_auto_run_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to stop auto-run: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Allowlist of setting keys modifiable from the web interface.
+	 */
+	private static readonly ALLOWED_SETTING_KEYS = new Set([
+		'activeThemeId',
+		'fontSize',
+		'enterToSendAI',
+		'enterToSendTerminal',
+		'defaultSaveToHistory',
+		'defaultShowThinking',
+		'autoScroll',
+		'notificationsEnabled',
+		'audioFeedbackEnabled',
+		'colorBlindMode',
+		'conductorProfile',
+	]);
+
+	/**
+	 * Handle get_settings message - return current settings
+	 */
+	private handleGetSettings(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getSettings) {
+			this.sendError(client, 'Settings not configured');
+			return;
+		}
+
+		const settings = this.callbacks.getSettings();
+		this.send(client, {
+			type: 'settings',
+			settings,
+			requestId: message.requestId,
+		});
+	}
+
+	/**
+	 * Handle set_setting message - modify a single setting
+	 */
+	private handleSetSetting(client: WebClient, message: WebClientMessage): void {
+		const key = message.key as string;
+		const value = message.value as SettingValue;
+
+		if (!key || typeof key !== 'string') {
+			this.sendError(client, 'Missing or invalid setting key');
+			return;
+		}
+
+		if (!WebSocketMessageHandler.ALLOWED_SETTING_KEYS.has(key)) {
+			this.sendError(client, `Setting key '${key}' is not modifiable from the web interface`);
+			return;
+		}
+
+		if (value === undefined) {
+			this.sendError(client, 'Missing setting value');
+			return;
+		}
+
+		if (!this.callbacks.setSetting) {
+			this.sendError(client, 'Setting modification not configured');
+			return;
+		}
+
+		this.callbacks
+			.setSetting(key, value)
+			.then((success) => {
+				this.send(client, {
+					type: 'set_setting_result',
+					success,
+					key,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to set setting: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Known agent types for validation
+	 */
+	private static readonly VALID_AGENT_TYPES = new Set([
+		'claude-code',
+		'codex',
+		'opencode',
+		'factory-droid',
+	]);
+
+	/**
+	 * Handle create_session message - create a new agent session
+	 */
+	private handleCreateSession(client: WebClient, message: WebClientMessage): void {
+		const name = message.name as string;
+		const toolType = message.toolType as string;
+		const cwd = message.cwd as string;
+		const groupId = message.groupId as string | undefined;
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid name');
+			return;
+		}
+
+		if (!toolType || !WebSocketMessageHandler.VALID_AGENT_TYPES.has(toolType)) {
+			this.sendError(
+				client,
+				`Invalid toolType. Must be one of: ${[...WebSocketMessageHandler.VALID_AGENT_TYPES].join(', ')}`
+			);
+			return;
+		}
+
+		if (!cwd || typeof cwd !== 'string') {
+			this.sendError(client, 'Missing or invalid cwd');
+			return;
+		}
+
+		if (!this.callbacks.createSession) {
+			this.sendError(client, 'Session creation not configured');
+			return;
+		}
+
+		this.callbacks
+			.createSession(name, toolType, cwd, groupId)
+			.then((result) => {
+				this.send(client, {
+					type: 'create_session_result',
+					success: !!result,
+					sessionId: result?.sessionId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to create session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle delete_session message - delete an agent session
+	 */
+	private handleDeleteSession(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.deleteSession) {
+			this.sendError(client, 'Session deletion not configured');
+			return;
+		}
+
+		this.callbacks
+			.deleteSession(sessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'delete_session_result',
+					success,
+					sessionId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to delete session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle rename_session message - rename an agent session
+	 */
+	private handleRenameSession(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const newName = message.newName as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!newName || typeof newName !== 'string' || newName.length === 0) {
+			this.sendError(client, 'Missing or empty newName');
+			return;
+		}
+
+		if (newName.length > 100) {
+			this.sendError(client, 'newName must be 100 characters or less');
+			return;
+		}
+
+		if (!this.callbacks.renameSession) {
+			this.sendError(client, 'Session renaming not configured');
+			return;
+		}
+
+		this.callbacks
+			.renameSession(sessionId, newName)
+			.then((success) => {
+				this.send(client, {
+					type: 'rename_session_result',
+					success,
+					sessionId,
+					newName,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to rename session: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_groups message - return list of groups
+	 */
+	private handleGetGroups(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getGroups) {
+			this.sendError(client, 'Groups not configured');
+			return;
+		}
+
+		const groups = this.callbacks.getGroups();
+		this.send(client, {
+			type: 'groups_list',
+			groups,
+			requestId: message.requestId,
+		});
+	}
+
+	/**
+	 * Handle create_group message - create a new group
+	 */
+	private handleCreateGroup(client: WebClient, message: WebClientMessage): void {
+		const name = message.name as string;
+		const emoji = message.emoji as string | undefined;
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid group name');
+			return;
+		}
+
+		if (!this.callbacks.createGroup) {
+			this.sendError(client, 'Group creation not configured');
+			return;
+		}
+
+		this.callbacks
+			.createGroup(name, emoji)
+			.then((result) => {
+				this.send(client, {
+					type: 'create_group_result',
+					success: !!result,
+					groupId: result?.id,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to create group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle rename_group message - rename a group
+	 */
+	private handleRenameGroup(client: WebClient, message: WebClientMessage): void {
+		const groupId = message.groupId as string;
+		const name = message.name as string;
+
+		if (!groupId) {
+			this.sendError(client, 'Missing groupId');
+			return;
+		}
+
+		if (!name || typeof name !== 'string') {
+			this.sendError(client, 'Missing or invalid group name');
+			return;
+		}
+
+		if (!this.callbacks.renameGroup) {
+			this.sendError(client, 'Group renaming not configured');
+			return;
+		}
+
+		this.callbacks
+			.renameGroup(groupId, name)
+			.then((success) => {
+				this.send(client, {
+					type: 'rename_group_result',
+					success,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to rename group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle delete_group message - delete a group
+	 */
+	private handleDeleteGroup(client: WebClient, message: WebClientMessage): void {
+		const groupId = message.groupId as string;
+
+		if (!groupId) {
+			this.sendError(client, 'Missing groupId');
+			return;
+		}
+
+		if (!this.callbacks.deleteGroup) {
+			this.sendError(client, 'Group deletion not configured');
+			return;
+		}
+
+		this.callbacks
+			.deleteGroup(groupId)
+			.then((success) => {
+				this.send(client, {
+					type: 'delete_group_result',
+					success,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to delete group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle move_session_to_group message - move a session to a group (or ungrouped)
+	 */
+	private handleMoveSessionToGroup(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const groupId = message.groupId as string | null;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		// groupId can be null (for ungrouped), but must be present in message
+		if (!('groupId' in message)) {
+			this.sendError(client, 'Missing groupId (use null for ungrouped)');
+			return;
+		}
+
+		if (!this.callbacks.moveSessionToGroup) {
+			this.sendError(client, 'Move to group not configured');
+			return;
+		}
+
+		this.callbacks
+			.moveSessionToGroup(sessionId, groupId)
+			.then((success) => {
+				this.send(client, {
+					type: 'move_session_to_group_result',
+					success,
+					sessionId,
+					groupId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to move session to group: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_git_status message - fetch git status for a session
+	 */
+	private handleGetGitStatus(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.getGitStatus) {
+			this.sendError(client, 'Git status not configured');
+			return;
+		}
+
+		this.callbacks
+			.getGitStatus(sessionId)
+			.then((status) => {
+				this.send(client, {
+					type: 'git_status',
+					sessionId,
+					status,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get git status: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_git_diff message - fetch git diff for a session
+	 */
+	private handleGetGitDiff(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+		const filePath = message.filePath as string | undefined;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.getGitDiff) {
+			this.sendError(client, 'Git diff not configured');
+			return;
+		}
+
+		this.callbacks
+			.getGitDiff(sessionId, filePath)
+			.then((diff) => {
+				this.send(client, {
+					type: 'git_diff',
+					sessionId,
+					diff,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get git diff: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_group_chats message - return list of all group chats
+	 */
+	private handleGetGroupChats(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getGroupChats) {
+			this.sendError(client, 'Group chats not configured');
+			return;
+		}
+
+		this.callbacks
+			.getGroupChats()
+			.then((chats) => {
+				this.send(client, {
+					type: 'group_chats_list',
+					chats,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get group chats: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle start_group_chat message - start a new group chat
+	 */
+	private handleStartGroupChat(client: WebClient, message: WebClientMessage): void {
+		const topic = message.topic as string;
+		const participantIds = message.participantIds as string[];
+
+		if (!topic || typeof topic !== 'string') {
+			this.sendError(client, 'Missing or invalid topic');
+			return;
+		}
+
+		if (!participantIds || !Array.isArray(participantIds) || participantIds.length < 2) {
+			this.sendError(client, 'At least 2 participants are required');
+			return;
+		}
+
+		if (!this.callbacks.startGroupChat) {
+			this.sendError(client, 'Group chat not configured');
+			return;
+		}
+
+		this.callbacks
+			.startGroupChat(topic, participantIds)
+			.then((result) => {
+				this.send(client, {
+					type: 'start_group_chat_result',
+					success: !!result,
+					chatId: result?.chatId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to start group chat: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_group_chat_state message - get state of a specific group chat
+	 */
+	private handleGetGroupChatState(client: WebClient, message: WebClientMessage): void {
+		const chatId = message.chatId as string;
+
+		if (!chatId) {
+			this.sendError(client, 'Missing chatId');
+			return;
+		}
+
+		if (!this.callbacks.getGroupChatState) {
+			this.sendError(client, 'Group chat not configured');
+			return;
+		}
+
+		this.callbacks
+			.getGroupChatState(chatId)
+			.then((state) => {
+				this.send(client, {
+					type: 'group_chat_state',
+					chatId,
+					state,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get group chat state: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle send_group_chat_message message - send a message to a group chat
+	 */
+	private handleSendGroupChatMessage(client: WebClient, message: WebClientMessage): void {
+		const chatId = message.chatId as string;
+		const chatMessage = message.message as string;
+
+		if (!chatId) {
+			this.sendError(client, 'Missing chatId');
+			return;
+		}
+
+		if (!chatMessage || typeof chatMessage !== 'string') {
+			this.sendError(client, 'Missing or invalid message');
+			return;
+		}
+
+		if (!this.callbacks.sendGroupChatMessage) {
+			this.sendError(client, 'Group chat not configured');
+			return;
+		}
+
+		this.callbacks
+			.sendGroupChatMessage(chatId, chatMessage)
+			.then((success) => {
+				this.send(client, {
+					type: 'send_group_chat_message_result',
+					success,
+					chatId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to send group chat message: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle stop_group_chat message - stop an active group chat
+	 */
+	private handleStopGroupChat(client: WebClient, message: WebClientMessage): void {
+		const chatId = message.chatId as string;
+
+		if (!chatId) {
+			this.sendError(client, 'Missing chatId');
+			return;
+		}
+
+		if (!this.callbacks.stopGroupChat) {
+			this.sendError(client, 'Group chat not configured');
+			return;
+		}
+
+		this.callbacks
+			.stopGroupChat(chatId)
+			.then((success) => {
+				this.send(client, {
+					type: 'stop_group_chat_result',
+					success,
+					chatId,
+					requestId: message.requestId,
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to stop group chat: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle merge_context message - merge context from source to target session
+	 */
+	private handleMergeContext(client: WebClient, message: WebClientMessage): void {
+		const sourceSessionId = message.sourceSessionId as string;
+		const targetSessionId = message.targetSessionId as string;
+
+		if (!sourceSessionId || !targetSessionId) {
+			this.sendError(client, 'Missing sourceSessionId or targetSessionId');
+			return;
+		}
+
+		if (sourceSessionId === targetSessionId) {
+			this.sendError(client, 'Source and target sessions must be different');
+			return;
+		}
+
+		if (!this.callbacks.mergeContext) {
+			this.sendError(client, 'Context merge not configured');
+			return;
+		}
+
+		this.callbacks
+			.mergeContext(sourceSessionId, targetSessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'merge_context_result',
+					success,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to merge context: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle transfer_context message - transfer context from source to target session
+	 */
+	private handleTransferContext(client: WebClient, message: WebClientMessage): void {
+		const sourceSessionId = message.sourceSessionId as string;
+		const targetSessionId = message.targetSessionId as string;
+
+		if (!sourceSessionId || !targetSessionId) {
+			this.sendError(client, 'Missing sourceSessionId or targetSessionId');
+			return;
+		}
+
+		if (sourceSessionId === targetSessionId) {
+			this.sendError(client, 'Source and target sessions must be different');
+			return;
+		}
+
+		if (!this.callbacks.transferContext) {
+			this.sendError(client, 'Context transfer not configured');
+			return;
+		}
+
+		this.callbacks
+			.transferContext(sourceSessionId, targetSessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'transfer_context_result',
+					success,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to transfer context: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle summarize_context message - summarize context for a session
+	 */
+	private handleSummarizeContext(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string;
+
+		if (!sessionId) {
+			this.sendError(client, 'Missing sessionId');
+			return;
+		}
+
+		if (!this.callbacks.summarizeContext) {
+			this.sendError(client, 'Context summarize not configured');
+			return;
+		}
+
+		this.callbacks
+			.summarizeContext(sessionId)
+			.then((success) => {
+				this.send(client, {
+					type: 'summarize_context_result',
+					success,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to summarize context: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_cue_subscriptions message - fetch Cue subscriptions
+	 */
+	private handleGetCueSubscriptions(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string | undefined;
+
+		if (!this.callbacks.getCueSubscriptions) {
+			this.sendError(client, 'Cue subscriptions not available');
+			return;
+		}
+
+		this.callbacks
+			.getCueSubscriptions(sessionId)
+			.then((subscriptions) => {
+				this.send(client, {
+					type: 'cue_subscriptions',
+					subscriptions,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get Cue subscriptions: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle toggle_cue_subscription message - enable/disable a subscription
+	 */
+	private handleToggleCueSubscription(client: WebClient, message: WebClientMessage): void {
+		const subscriptionId = message.subscriptionId as string;
+		const enabled = message.enabled as boolean;
+
+		if (!subscriptionId) {
+			this.sendError(client, 'Missing subscriptionId');
+			return;
+		}
+
+		if (typeof enabled !== 'boolean') {
+			this.sendError(client, 'Missing or invalid enabled flag');
+			return;
+		}
+
+		if (!this.callbacks.toggleCueSubscription) {
+			this.sendError(client, 'Cue toggle not available');
+			return;
+		}
+
+		this.callbacks
+			.toggleCueSubscription(subscriptionId, enabled)
+			.then((success) => {
+				this.send(client, {
+					type: 'toggle_cue_subscription_result',
+					success,
+					subscriptionId,
+					enabled,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to toggle Cue subscription: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_cue_activity message - fetch Cue activity log
+	 */
+	private handleGetCueActivity(client: WebClient, message: WebClientMessage): void {
+		const sessionId = message.sessionId as string | undefined;
+		const limit = (message.limit as number) ?? 50;
+
+		if (!this.callbacks.getCueActivity) {
+			this.sendError(client, 'Cue activity not available');
+			return;
+		}
+
+		this.callbacks
+			.getCueActivity(sessionId, limit)
+			.then((entries) => {
+				this.send(client, {
+					type: 'cue_activity',
+					entries,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get Cue activity: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_usage_dashboard message - fetch usage analytics data
+	 */
+	private handleGetUsageDashboard(client: WebClient, message: WebClientMessage): void {
+		const timeRange = (message.timeRange as string) || 'week';
+		const validRanges = new Set(['day', 'week', 'month', 'all']);
+
+		if (!validRanges.has(timeRange)) {
+			this.sendError(client, 'Invalid timeRange. Must be one of: day, week, month, all');
+			return;
+		}
+
+		if (!this.callbacks.getUsageDashboard) {
+			this.sendError(client, 'Usage dashboard not available');
+			return;
+		}
+
+		this.callbacks
+			.getUsageDashboard(timeRange as 'day' | 'week' | 'month' | 'all')
+			.then((data) => {
+				this.send(client, {
+					type: 'usage_dashboard',
+					data,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get usage dashboard: ${error.message}`);
+			});
+	}
+
+	/**
+	 * Handle get_achievements message - fetch achievement data
+	 */
+	private handleGetAchievements(client: WebClient, message: WebClientMessage): void {
+		if (!this.callbacks.getAchievements) {
+			this.sendError(client, 'Achievements not available');
+			return;
+		}
+
+		this.callbacks
+			.getAchievements()
+			.then((achievements) => {
+				this.send(client, {
+					type: 'achievements',
+					achievements,
+					requestId: message.requestId,
+					timestamp: Date.now(),
+				});
+			})
+			.catch((error) => {
+				this.sendError(client, `Failed to get achievements: ${error.message}`);
 			});
 	}
 

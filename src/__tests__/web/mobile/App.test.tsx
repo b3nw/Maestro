@@ -51,6 +51,7 @@ vi.mock('../../../web/main', () => ({
 // Mock useWebSocket hook
 const mockConnect = vi.fn();
 const mockSend = vi.fn(() => true);
+const mockSendRequest = vi.fn(() => Promise.resolve({}));
 const mockDisconnect = vi.fn();
 let mockWebSocketState = 'connected';
 let mockWebSocketError: string | null = null;
@@ -69,6 +70,7 @@ vi.mock('../../../web/hooks/useWebSocket', () => ({
 			state: mockWebSocketState,
 			connect: mockConnect,
 			send: mockSend,
+			sendRequest: mockSendRequest,
 			disconnect: mockDisconnect,
 			error: mockWebSocketError,
 			reconnectAttempts: mockReconnectAttempts,
@@ -151,6 +153,12 @@ vi.mock('../../../web/mobile/constants', () => ({
 		interrupt: [20],
 		success: [30],
 		error: [50],
+	},
+	GESTURE_THRESHOLDS: {
+		swipeDistance: 50,
+		swipeTime: 300,
+		pullToRefresh: 80,
+		longPress: 500,
 	},
 }));
 
@@ -504,6 +512,23 @@ vi.mock('../../../web/mobile/SlashCommandAutocomplete', () => ({
 	],
 }));
 
+vi.mock('../../../web/mobile/RightDrawer', () => ({
+	RightDrawer: ({
+		activeTab,
+		onClose,
+	}: {
+		sessionId: string;
+		activeTab?: string;
+		onClose: () => void;
+	}) => (
+		<div data-testid="right-drawer" data-active-tab={activeTab}>
+			<button data-testid="close-right-drawer" onClick={onClose}>
+				Close
+			</button>
+		</div>
+	),
+}));
+
 // Now import the component
 import MobileApp from '../../../web/mobile/App';
 import type { Session } from '../../../web/hooks/useSessions';
@@ -579,6 +604,7 @@ describe('MobileApp', () => {
 		(window as any).__MAESTRO_CONFIG__ = {};
 
 		// Reset mock function return values
+		mockSendRequest.mockResolvedValue({});
 		mockIsOffline.mockReturnValue(false);
 		mockIsDashboard.mockReturnValue(true);
 		mockIsSession.mockReturnValue(false);
@@ -1442,7 +1468,7 @@ describe('MobileApp', () => {
 	});
 
 	describe('history panel', () => {
-		it('opens history panel', async () => {
+		it('opens history panel via right drawer', async () => {
 			render(<MobileApp />);
 
 			await act(async () => {
@@ -1453,10 +1479,13 @@ describe('MobileApp', () => {
 
 			fireEvent.click(screen.getByTestId('open-history'));
 
-			expect(screen.getByTestId('mobile-history-panel')).toBeInTheDocument();
+			// History is now inside the RightDrawer with activeTab='history'
+			const drawer = screen.getByTestId('right-drawer');
+			expect(drawer).toBeInTheDocument();
+			expect(drawer).toHaveAttribute('data-active-tab', 'history');
 		});
 
-		it('closes history panel', async () => {
+		it('closes history panel via right drawer', async () => {
 			render(<MobileApp />);
 
 			await act(async () => {
@@ -1466,13 +1495,13 @@ describe('MobileApp', () => {
 			});
 
 			fireEvent.click(screen.getByTestId('open-history'));
-			expect(screen.getByTestId('mobile-history-panel')).toBeInTheDocument();
+			expect(screen.getByTestId('right-drawer')).toBeInTheDocument();
 
-			fireEvent.click(screen.getByTestId('close-history'));
-			expect(screen.queryByTestId('mobile-history-panel')).not.toBeInTheDocument();
+			fireEvent.click(screen.getByTestId('close-right-drawer'));
+			expect(screen.queryByTestId('right-drawer')).not.toBeInTheDocument();
 		});
 
-		it('handles onSearchChange callback to update search state', async () => {
+		it('opens history panel and can close it again', async () => {
 			render(<MobileApp />);
 
 			await act(async () => {
@@ -1483,21 +1512,20 @@ describe('MobileApp', () => {
 
 			// Open history panel
 			fireEvent.click(screen.getByTestId('open-history'));
-			expect(screen.getByTestId('mobile-history-panel')).toBeInTheDocument();
+			const drawer = screen.getByTestId('right-drawer');
+			expect(drawer).toBeInTheDocument();
+			expect(drawer).toHaveAttribute('data-active-tab', 'history');
 
-			// Trigger onSearchChange callback
-			fireEvent.click(screen.getByTestId('trigger-search-change'));
+			// Close drawer
+			fireEvent.click(screen.getByTestId('close-right-drawer'));
+			expect(screen.queryByTestId('right-drawer')).not.toBeInTheDocument();
 
-			// Close and reopen to verify state persistence
-			fireEvent.click(screen.getByTestId('close-history'));
+			// Reopen
 			fireEvent.click(screen.getByTestId('open-history'));
-
-			// Verify the search query and open state were persisted
-			expect(screen.getByTestId('history-initial-search-query')).toHaveTextContent('test query');
-			expect(screen.getByTestId('history-initial-search-open')).toHaveTextContent('true');
+			expect(screen.getByTestId('right-drawer')).toBeInTheDocument();
 		});
 
-		it('handles onFilterChange callback to update filter state', async () => {
+		it('opens history panel with history tab active', async () => {
 			render(<MobileApp />);
 
 			await act(async () => {
@@ -1508,17 +1536,15 @@ describe('MobileApp', () => {
 
 			// Open history panel
 			fireEvent.click(screen.getByTestId('open-history'));
-			expect(screen.getByTestId('mobile-history-panel')).toBeInTheDocument();
+			const drawer = screen.getByTestId('right-drawer');
+			expect(drawer).toBeInTheDocument();
+			expect(drawer).toHaveAttribute('data-active-tab', 'history');
 
-			// Trigger onFilterChange callback
-			fireEvent.click(screen.getByTestId('trigger-filter-change'));
-
-			// Close and reopen to verify state persistence
-			fireEvent.click(screen.getByTestId('close-history'));
+			// Close and reopen to verify drawer opens with history tab
+			fireEvent.click(screen.getByTestId('close-right-drawer'));
+			expect(screen.queryByTestId('right-drawer')).not.toBeInTheDocument();
 			fireEvent.click(screen.getByTestId('open-history'));
-
-			// Verify the filter was persisted
-			expect(screen.getByTestId('history-initial-filter')).toHaveTextContent('AUTO');
+			expect(screen.getByTestId('right-drawer')).toHaveAttribute('data-active-tab', 'history');
 		});
 	});
 

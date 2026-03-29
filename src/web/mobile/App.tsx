@@ -12,23 +12,24 @@ import {
 	type CustomCommand,
 	type AutoRunState,
 	type AITabData,
+	type GroupData,
+	type GroupChatMessage,
+	type GroupChatState,
 } from '../hooks/useWebSocket';
 // Command history is no longer used in the mobile UI
 import { useNotifications } from '../hooks/useNotifications';
 import { useUnreadBadge } from '../hooks/useUnreadBadge';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { useMobileSessionManagement } from '../hooks/useMobileSessionManagement';
-import { useOfflineStatus, useMaestroMode, useDesktopTheme } from '../main';
+import { useOfflineStatus, useDesktopTheme } from '../main';
 import { buildApiUrl } from '../utils/config';
-import { formatCost } from '../../shared/formatters';
-// SYNC: Uses estimateContextUsage() from shared/contextUsage.ts
-// See that file for the canonical formula and all locations that must stay in sync.
-import { estimateContextUsage } from '../../renderer/utils/contextUsage';
 import { triggerHaptic, HAPTIC_PATTERNS } from './constants';
 import { webLogger } from '../utils/logger';
 import { SessionPillBar } from './SessionPillBar';
 import { AllSessionsView } from './AllSessionsView';
-import { MobileHistoryPanel } from './MobileHistoryPanel';
+import { RightDrawer, type RightDrawerTab } from './RightDrawer';
+import { useGitStatus } from '../hooks/useGitStatus';
+import { GitDiffViewer } from './GitDiffViewer';
 import { CommandInputBar, type InputMode } from './CommandInputBar';
 import { DEFAULT_SLASH_COMMANDS, type SlashCommand } from './SlashCommandAutocomplete';
 // CommandHistoryDrawer and RecentCommandChips removed for simpler mobile UI
@@ -36,11 +37,29 @@ import { ResponseViewer, type ResponseItem } from './ResponseViewer';
 import { OfflineQueueBanner } from './OfflineQueueBanner';
 import { MessageHistory } from './MessageHistory';
 import { AutoRunIndicator } from './AutoRunIndicator';
+import { AutoRunPanel } from './AutoRunPanel';
+import { AutoRunDocumentViewer } from './AutoRunDocumentViewer';
+import { AutoRunSetupSheet } from './AutoRunSetupSheet';
+import { NotificationSettingsSheet } from './NotificationSettingsSheet';
+import { SettingsPanel } from './SettingsPanel';
+import { AgentCreationSheet } from './AgentCreationSheet';
+import { GroupChatPanel } from './GroupChatPanel';
+import { GroupChatSetupSheet } from './GroupChatSetupSheet';
+import { ContextManagementSheet } from './ContextManagementSheet';
+import { CuePanel } from './CuePanel';
+import { UsageDashboardPanel } from './UsageDashboardPanel';
+import { AchievementsPanel } from './AchievementsPanel';
+import { useGroupChat } from '../hooks/useGroupChat';
+import { useCue } from '../hooks/useCue';
+import { useAutoRun, type LaunchConfig } from '../hooks/useAutoRun';
+import { useSettings, type WebSettings } from '../hooks/useSettings';
+import { useAgentManagement } from '../hooks/useAgentManagement';
 import { TabBar } from './TabBar';
 import { TabSearchModal } from './TabSearchModal';
 import type { Session, LastResponsePreview } from '../hooks/useSessions';
 // View state utilities are now accessed through useMobileViewState hook
 // Keeping import for TypeScript types only if needed
+import { QuickActionsMenu, type CommandPaletteAction } from './QuickActionsMenu';
 import { useMobileKeyboardHandler } from '../hooks/useMobileKeyboardHandler';
 import { useMobileViewState } from '../hooks/useMobileViewState';
 import { useMobileAutoReconnect } from '../hooks/useMobileAutoReconnect';
@@ -69,16 +88,126 @@ function getActiveTabFromSession(session: Session | null | undefined): AITabData
 }
 
 /**
+ * Shared icon button style for the header
+ */
+function headerIconButton(
+	colors: ReturnType<typeof useThemeColors>,
+	isActive = false
+): React.CSSProperties {
+	return {
+		width: '32px',
+		height: '32px',
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderRadius: '6px',
+		backgroundColor: isActive ? `${colors.accent}20` : 'transparent',
+		border: isActive ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
+		color: isActive ? colors.accent : colors.textDim,
+		cursor: 'pointer',
+		touchAction: 'manipulation',
+		WebkitTapHighlightColor: 'transparent',
+		flexShrink: 0,
+		position: 'relative' as const,
+		padding: 0,
+	};
+}
+
+/**
+ * Overflow menu item component
+ */
+function OverflowMenuItem({
+	icon,
+	label,
+	onClick,
+	colors,
+}: {
+	icon: React.ReactNode;
+	label: string;
+	onClick: () => void;
+	colors: ReturnType<typeof useThemeColors>;
+}) {
+	return (
+		<button
+			onClick={onClick}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: '10px',
+				width: '100%',
+				padding: '10px 14px',
+				border: 'none',
+				backgroundColor: 'transparent',
+				color: colors.textMain,
+				fontSize: '14px',
+				cursor: 'pointer',
+				touchAction: 'manipulation',
+				WebkitTapHighlightColor: 'transparent',
+				textAlign: 'left',
+				borderRadius: '6px',
+			}}
+			onMouseEnter={(e) => {
+				(e.currentTarget as HTMLElement).style.backgroundColor = `${colors.textDim}15`;
+			}}
+			onMouseLeave={(e) => {
+				(e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+			}}
+		>
+			<span style={{ color: colors.textDim, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+				{icon}
+			</span>
+			<span>{label}</span>
+		</button>
+	);
+}
+
+/**
  * Header component for the mobile app
- * Compact single-line header showing: Maestro | Session Name | Claude ID | Status | Cost | Context
+ * Reorganized: Left (menu) | Center (session name + status) | Right (priority icons + overflow)
  */
 interface MobileHeaderProps {
 	activeSession?: Session | null;
+	autoRunState?: AutoRunState | null;
+	onMenuTap?: () => void;
+	onSearchTap?: () => void;
+	onAutoRunTap?: () => void;
+	onRightDrawerTap?: () => void;
+	onCueTap?: () => void;
+	hasRunningCue?: boolean;
+	onNotificationTap?: () => void;
+	onSettingsTap?: () => void;
+	notificationCount?: number;
+	// Overflow menu actions
+	onGroupChatTap?: () => void;
+	groupChatCount?: number;
+	onUsageDashboardTap?: () => void;
+	onAchievementsTap?: () => void;
+	onContextManagementTap?: () => void;
+	onNewAgentTap?: () => void;
 }
 
-function MobileHeader({ activeSession }: MobileHeaderProps) {
+function MobileHeader({
+	activeSession,
+	autoRunState,
+	onMenuTap,
+	onSearchTap,
+	onAutoRunTap,
+	onRightDrawerTap,
+	onCueTap,
+	hasRunningCue = false,
+	onNotificationTap,
+	onSettingsTap,
+	notificationCount = 0,
+	onGroupChatTap,
+	groupChatCount = 0,
+	onUsageDashboardTap,
+	onAchievementsTap,
+	onContextManagementTap,
+	onNewAgentTap,
+}: MobileHeaderProps) {
 	const colors = useThemeColors();
-	const { isSession, goToDashboard } = useMaestroMode();
+	const [showOverflow, setShowOverflow] = useState(false);
+	const overflowRef = useRef<HTMLDivElement>(null);
 
 	// Get active tab for per-tab data (agentSessionId, usageStats)
 	const activeTab = getActiveTabFromSession(activeSession);
@@ -86,13 +215,27 @@ function MobileHeader({ activeSession }: MobileHeaderProps) {
 	// Session status and usage - prefer tab-level data
 	const sessionState = activeTab?.state || activeSession?.state || 'idle';
 	const isThinking = sessionState === 'busy';
-	// Use tab's usageStats if available, otherwise fall back to session-level (deprecated)
-	const tabUsageStats = activeTab?.usageStats;
-	const cost = tabUsageStats?.totalCostUsd ?? activeSession?.usageStats?.totalCostUsd;
-	const contextUsage = estimateContextUsage(
-		tabUsageStats ?? activeSession?.usageStats ?? {},
-		activeSession?.toolType
-	);
+
+	// Responsive: detect wider screens for showing more icons
+	const [isWide, setIsWide] = useState(() => window.innerWidth > 768);
+	useEffect(() => {
+		const mq = window.matchMedia('(min-width: 769px)');
+		const handler = (e: MediaQueryListEvent) => setIsWide(e.matches);
+		mq.addEventListener('change', handler);
+		return () => mq.removeEventListener('change', handler);
+	}, []);
+
+	// Close overflow menu when clicking outside
+	useEffect(() => {
+		if (!showOverflow) return;
+		const handler = (e: MouseEvent) => {
+			if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+				setShowOverflow(false);
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	}, [showOverflow]);
 
 	// Get status dot color
 	const getStatusDotColor = () => {
@@ -102,65 +245,55 @@ function MobileHeader({ activeSession }: MobileHeaderProps) {
 		return colors.success; // idle
 	};
 
+	const handleOverflowAction = useCallback((action: (() => void) | undefined) => {
+		setShowOverflow(false);
+		action?.();
+	}, []);
+
 	return (
 		<header
 			style={{
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'space-between',
-				padding: '8px 12px',
-				paddingTop: 'max(8px, env(safe-area-inset-top))',
+				padding: '6px 10px',
+				paddingTop: 'max(6px, env(safe-area-inset-top))',
 				borderBottom: `1px solid ${colors.border}`,
 				backgroundColor: colors.bgSidebar,
 				minHeight: '44px',
-				gap: '8px',
+				gap: '6px',
 			}}
 		>
-			{/* Left: Maestro logo with wand icon */}
-			<div
-				onClick={isSession ? goToDashboard : undefined}
+			{/* Left: Menu / hamburger button */}
+			<button
+				onClick={onMenuTap}
 				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: '6px',
-					cursor: isSession ? 'pointer' : 'default',
-					flexShrink: 0,
+					...headerIconButton(colors),
+					border: 'none',
+					backgroundColor: 'transparent',
 				}}
-				title={isSession ? 'Go to dashboard' : undefined}
+				aria-label="Menu"
+				title="All Sessions"
 			>
-				{/* Wand icon */}
+				{/* Hamburger icon */}
 				<svg
-					width="18"
-					height="18"
+					width="16"
+					height="16"
 					viewBox="0 0 24 24"
 					fill="none"
-					stroke={colors.accent}
+					stroke="currentColor"
 					strokeWidth="2"
 					strokeLinecap="round"
 					strokeLinejoin="round"
 				>
-					<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" />
-					<path d="m14 7 3 3" />
-					<path d="M5 6v4" />
-					<path d="M19 14v4" />
-					<path d="M10 2v2" />
-					<path d="M7 8H3" />
-					<path d="M21 16h-4" />
-					<path d="M11 3H9" />
+					<line x1="3" y1="6" x2="21" y2="6" />
+					<line x1="3" y1="12" x2="21" y2="12" />
+					<line x1="3" y1="18" x2="21" y2="18" />
 				</svg>
-				<span
-					style={{
-						fontSize: '16px',
-						fontWeight: 600,
-						color: colors.textMain,
-					}}
-				>
-					Maestro
-				</span>
-			</div>
+			</button>
 
-			{/* Center: Session info (name + Claude session ID + status + usage) */}
-			{activeSession && (
+			{/* Center: Session name + status dot */}
+			{activeSession ? (
 				<div
 					style={{
 						flex: 1,
@@ -184,12 +317,11 @@ function MobileHeader({ activeSession }: MobileHeaderProps) {
 						}}
 						title={`Session ${sessionState}`}
 					/>
-
 					{/* Session name */}
 					<span
 						style={{
-							fontSize: '13px',
-							fontWeight: 500,
+							fontSize: '14px',
+							fontWeight: 600,
 							color: colors.textMain,
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
@@ -198,81 +330,416 @@ function MobileHeader({ activeSession }: MobileHeaderProps) {
 					>
 						{activeSession.name}
 					</span>
+				</div>
+			) : (
+				<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+					<span style={{ fontSize: '14px', fontWeight: 600, color: colors.textMain }}>Maestro</span>
+				</div>
+			)}
 
-					{/* Claude Session ID pill - use active tab's agentSessionId */}
-					{(activeTab?.agentSessionId || activeSession.agentSessionId) && (
-						<span
-							style={{
-								fontSize: '10px',
-								color: colors.textDim,
-								fontFamily: 'monospace',
-								backgroundColor: colors.bgMain,
-								padding: '2px 4px',
-								borderRadius: '3px',
-								flexShrink: 0,
-							}}
-							title={`Claude Session: ${activeTab?.agentSessionId || activeSession.agentSessionId}`}
-						>
-							{(activeTab?.agentSessionId || activeSession.agentSessionId)?.slice(0, 8)}
-						</span>
-					)}
+			{/* Right: Priority icon buttons + overflow */}
+			<div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+				{/* Search / Quick Actions (Cmd+K) */}
+				<button
+					onClick={onSearchTap}
+					style={headerIconButton(colors)}
+					aria-label="Search"
+					title="Quick Actions (Cmd+K)"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<circle cx="11" cy="11" r="8" />
+						<line x1="21" y1="21" x2="16.65" y2="16.65" />
+					</svg>
+				</button>
 
-					{/* Cost */}
-					{cost != null && cost > 0 && (
-						<span
-							style={{
-								fontSize: '10px',
-								color: colors.textDim,
-								backgroundColor: `${colors.textDim}15`,
-								padding: '2px 4px',
-								borderRadius: '3px',
-								flexShrink: 0,
-							}}
-							title={`Session cost: ${formatCost(cost)}`}
+				{/* Auto Run status (only with active session) */}
+				{activeSession && (
+					<button
+						onClick={onAutoRunTap}
+						style={headerIconButton(colors, !!autoRunState?.isRunning)}
+						aria-label="Auto Run"
+						title="Auto Run"
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill={autoRunState?.isRunning ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
 						>
-							{formatCost(cost)}
-						</span>
-					)}
-
-					{/* Context usage bar */}
-					{contextUsage != null && (
-						<div
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: '3px',
-								flexShrink: 0,
-							}}
-							title={`Context: ${contextUsage}%`}
-						>
-							<div
+							<polygon points="5,3 19,12 5,21" />
+						</svg>
+						{autoRunState?.isRunning && autoRunState.totalTasks > 0 && (
+							<span
 								style={{
-									width: '30px',
-									height: '4px',
-									backgroundColor: `${colors.textDim}20`,
-									borderRadius: '2px',
-									overflow: 'hidden',
+									position: 'absolute',
+									top: '-4px',
+									right: '-4px',
+									fontSize: '8px',
+									fontWeight: 700,
+									color: 'white',
+									backgroundColor: colors.accent,
+									borderRadius: '8px',
+									padding: '1px 3px',
+									minWidth: '14px',
+									textAlign: 'center',
+									lineHeight: '12px',
 								}}
 							>
-								<div
-									style={{
-										width: `${contextUsage}%`,
-										height: '100%',
-										backgroundColor:
-											contextUsage >= 90
-												? colors.error
-												: contextUsage >= 70
-													? colors.warning
-													: colors.success,
-										borderRadius: '2px',
-									}}
+								{Math.round((autoRunState.completedTasks / autoRunState.totalTasks) * 100)}%
+							</span>
+						)}
+					</button>
+				)}
+
+				{/* Right Drawer toggle */}
+				<button
+					onClick={onRightDrawerTap}
+					style={headerIconButton(colors)}
+					aria-label="Files & History"
+					title="Files / History / Git"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+						<polyline points="13 2 13 9 20 9" />
+					</svg>
+				</button>
+
+				{/* Cue status */}
+				<button
+					onClick={onCueTap}
+					style={headerIconButton(colors, hasRunningCue)}
+					aria-label="Maestro Cue"
+					title="Maestro Cue"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill={hasRunningCue ? 'currentColor' : 'none'}
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+					</svg>
+					{hasRunningCue && (
+						<span
+							style={{
+								position: 'absolute',
+								top: '-2px',
+								right: '-2px',
+								width: '7px',
+								height: '7px',
+								borderRadius: '50%',
+								backgroundColor: colors.success,
+								animation: 'pulse 1.5s ease-in-out infinite',
+							}}
+						/>
+					)}
+				</button>
+
+				{/* Notifications (badge with count) */}
+				<button
+					onClick={onNotificationTap}
+					style={headerIconButton(colors)}
+					aria-label="Notifications"
+					title="Notifications"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+						<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+					</svg>
+					{notificationCount > 0 && (
+						<span
+							style={{
+								position: 'absolute',
+								top: '-4px',
+								right: '-4px',
+								fontSize: '8px',
+								fontWeight: 700,
+								color: 'white',
+								backgroundColor: colors.error,
+								borderRadius: '8px',
+								padding: '1px 3px',
+								minWidth: '14px',
+								textAlign: 'center',
+								lineHeight: '12px',
+							}}
+						>
+							{notificationCount > 99 ? '99+' : notificationCount}
+						</span>
+					)}
+				</button>
+
+				{/* Settings — shown directly on wide screens */}
+				{isWide && (
+					<button
+						onClick={onSettingsTap}
+						style={headerIconButton(colors)}
+						aria-label="Settings"
+						title="Settings"
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
+							<circle cx="12" cy="12" r="3" />
+							<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+						</svg>
+					</button>
+				)}
+
+				{/* On wide screens, show Group Chat directly too */}
+				{isWide && (
+					<button
+						onClick={onGroupChatTap}
+						style={headerIconButton(colors, groupChatCount > 0)}
+						aria-label="Group Chat"
+						title="Group Chat"
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
+							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+						</svg>
+						{groupChatCount > 0 && (
+							<span
+								style={{
+									position: 'absolute',
+									top: '-4px',
+									right: '-4px',
+									fontSize: '8px',
+									fontWeight: 700,
+									color: 'white',
+									backgroundColor: colors.accent,
+									borderRadius: '8px',
+									padding: '1px 3px',
+									minWidth: '14px',
+									textAlign: 'center',
+									lineHeight: '12px',
+								}}
+							>
+								{groupChatCount}
+							</span>
+						)}
+					</button>
+				)}
+
+				{/* Overflow menu (⋯) — always present for less-frequent actions */}
+				<div ref={overflowRef} style={{ position: 'relative' }}>
+					<button
+						onClick={() => setShowOverflow((prev) => !prev)}
+						style={{
+							...headerIconButton(colors),
+							border: 'none',
+							backgroundColor: showOverflow ? `${colors.textDim}15` : 'transparent',
+						}}
+						aria-label="More actions"
+						title="More actions"
+					>
+						{/* Three dots icon */}
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+							<circle cx="12" cy="5" r="2" />
+							<circle cx="12" cy="12" r="2" />
+							<circle cx="12" cy="19" r="2" />
+						</svg>
+					</button>
+
+					{/* Overflow dropdown */}
+					{showOverflow && (
+						<div
+							style={{
+								position: 'absolute',
+								top: '100%',
+								right: 0,
+								marginTop: '4px',
+								minWidth: '200px',
+								backgroundColor: colors.bgSidebar,
+								border: `1px solid ${colors.border}`,
+								borderRadius: '10px',
+								boxShadow: `0 8px 24px rgba(0,0,0,0.25)`,
+								zIndex: 300,
+								padding: '4px',
+								overflow: 'hidden',
+							}}
+						>
+							{/* Settings — only in overflow on narrow screens */}
+							{!isWide && (
+								<OverflowMenuItem
+									icon={
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<circle cx="12" cy="12" r="3" />
+											<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+										</svg>
+									}
+									label="Settings"
+									onClick={() => handleOverflowAction(onSettingsTap)}
+									colors={colors}
 								/>
-							</div>
-							<span style={{ fontSize: '9px', color: colors.textDim }}>{contextUsage}%</span>
+							)}
+							{/* Group Chat — only in overflow on narrow screens */}
+							{!isWide && (
+								<OverflowMenuItem
+									icon={
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+										</svg>
+									}
+									label={`Group Chat${groupChatCount > 0 ? ` (${groupChatCount})` : ''}`}
+									onClick={() => handleOverflowAction(onGroupChatTap)}
+									colors={colors}
+								/>
+							)}
+							<OverflowMenuItem
+								icon={
+									<svg
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+										<path d="M22 12A10 10 0 0 0 12 2v10z" />
+									</svg>
+								}
+								label="Usage Dashboard"
+								onClick={() => handleOverflowAction(onUsageDashboardTap)}
+								colors={colors}
+							/>
+							<OverflowMenuItem
+								icon={
+									<svg
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<circle cx="12" cy="8" r="7" />
+										<polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+									</svg>
+								}
+								label="Achievements"
+								onClick={() => handleOverflowAction(onAchievementsTap)}
+								colors={colors}
+							/>
+							{activeSession && (
+								<OverflowMenuItem
+									icon={
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<circle cx="12" cy="12" r="10" />
+											<path d="M8 12h8" />
+											<path d="M12 8v8" />
+										</svg>
+									}
+									label="Context Management"
+									onClick={() => handleOverflowAction(onContextManagementTap)}
+									colors={colors}
+								/>
+							)}
+							<OverflowMenuItem
+								icon={
+									<svg
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<line x1="12" y1="5" x2="12" y2="19" />
+										<line x1="5" y1="12" x2="19" y2="12" />
+									</svg>
+								}
+								label="New Agent"
+								onClick={() => handleOverflowAction(onNewAgentTap)}
+								colors={colors}
+							/>
 						</div>
 					)}
 				</div>
-			)}
+			</div>
 
 			{/* Pulse animation for thinking state */}
 			<style>{`
@@ -282,6 +749,172 @@ function MobileHeader({ activeSession }: MobileHeaderProps) {
         }
       `}</style>
 		</header>
+	);
+}
+
+/**
+ * Small bottom sheet listing available group chats with a "New" button
+ */
+interface GroupChatListSheetProps {
+	chats: GroupChatState[];
+	onSelectChat: (chatId: string) => void;
+	onNewChat: () => void;
+	onClose: () => void;
+}
+
+function GroupChatListSheet({ chats, onSelectChat, onNewChat, onClose }: GroupChatListSheetProps) {
+	const colors = useThemeColors();
+	const [isVisible, setIsVisible] = useState(false);
+
+	useEffect(() => {
+		requestAnimationFrame(() => setIsVisible(true));
+	}, []);
+
+	const handleClose = useCallback(() => {
+		setIsVisible(false);
+		setTimeout(() => onClose(), 300);
+	}, [onClose]);
+
+	const handleBackdropTap = useCallback(
+		(e: React.MouseEvent) => {
+			if (e.target === e.currentTarget) handleClose();
+		},
+		[handleClose]
+	);
+
+	const activeChats = chats.filter((c) => c.isActive);
+	const endedChats = chats.filter((c) => !c.isActive);
+
+	return (
+		<div
+			onClick={handleBackdropTap}
+			style={{
+				position: 'fixed',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				backgroundColor: `rgba(0, 0, 0, ${isVisible ? 0.5 : 0})`,
+				zIndex: 220,
+				display: 'flex',
+				alignItems: 'flex-end',
+				transition: 'background-color 0.3s ease-out',
+			}}
+		>
+			<div
+				style={{
+					width: '100%',
+					maxHeight: '60vh',
+					backgroundColor: colors.bgMain,
+					borderTopLeftRadius: 16,
+					borderTopRightRadius: 16,
+					display: 'flex',
+					flexDirection: 'column',
+					transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
+					transition: 'transform 0.3s ease-out',
+					paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+				}}
+			>
+				{/* Drag handle */}
+				<div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+					<div
+						style={{
+							width: 36,
+							height: 4,
+							borderRadius: 2,
+							backgroundColor: `${colors.textDim}40`,
+						}}
+					/>
+				</div>
+
+				{/* Header */}
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'space-between',
+						padding: '8px 16px 12px',
+					}}
+				>
+					<h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: colors.textMain }}>
+						Group Chats
+					</h2>
+					<button
+						onClick={onNewChat}
+						style={{
+							padding: '6px 14px',
+							borderRadius: 8,
+							backgroundColor: colors.accent,
+							border: 'none',
+							color: 'white',
+							fontSize: 13,
+							fontWeight: 600,
+							cursor: 'pointer',
+							touchAction: 'manipulation',
+						}}
+						aria-label="New group chat"
+					>
+						+ New
+					</button>
+				</div>
+
+				{/* Chat list */}
+				<div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+					{chats.length === 0 && (
+						<div style={{ textAlign: 'center', padding: 20, color: colors.textDim, fontSize: 13 }}>
+							No group chats yet
+						</div>
+					)}
+					{activeChats.map((chat) => (
+						<button
+							key={chat.id}
+							onClick={() => onSelectChat(chat.id)}
+							style={{
+								width: '100%',
+								textAlign: 'left',
+								padding: '12px 14px',
+								borderRadius: 10,
+								border: `1px solid ${colors.accent}30`,
+								backgroundColor: `${colors.accent}08`,
+								color: colors.textMain,
+								cursor: 'pointer',
+								marginBottom: 6,
+								touchAction: 'manipulation',
+							}}
+						>
+							<div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{chat.topic}</div>
+							<div style={{ fontSize: 12, color: colors.textDim }}>
+								{chat.participants.length} participants · {chat.messages.length} messages · Active
+							</div>
+						</button>
+					))}
+					{endedChats.map((chat) => (
+						<button
+							key={chat.id}
+							onClick={() => onSelectChat(chat.id)}
+							style={{
+								width: '100%',
+								textAlign: 'left',
+								padding: '12px 14px',
+								borderRadius: 10,
+								border: `1px solid ${colors.border}`,
+								backgroundColor: colors.bgSidebar,
+								color: colors.textMain,
+								cursor: 'pointer',
+								marginBottom: 6,
+								opacity: 0.7,
+								touchAction: 'manipulation',
+							}}
+						>
+							<div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{chat.topic}</div>
+							<div style={{ fontSize: 12, color: colors.textDim }}>
+								{chat.participants.length} participants · {chat.messages.length} messages · Ended
+							</div>
+						</button>
+					))}
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -305,7 +938,8 @@ export default function MobileApp() {
 
 	// UI state (not part of session management)
 	const [showAllSessions, setShowAllSessions] = useState(savedState.showAllSessions);
-	const [showHistoryPanel, setShowHistoryPanel] = useState(savedState.showHistoryPanel);
+	const [showRightDrawer, setShowRightDrawer] = useState(false);
+	const [rightDrawerTab, setRightDrawerTab] = useState<RightDrawerTab>('files');
 	const [showTabSearch, setShowTabSearch] = useState(savedState.showTabSearch);
 	const [commandDrafts, setCommandDrafts] = useState<CommandDraftStore>({});
 	const [showResponseViewer, setShowResponseViewer] = useState(false);
@@ -318,15 +952,57 @@ export default function MobileApp() {
 	// AutoRun state per session (batch processing on desktop)
 	const [autoRunStates, setAutoRunStates] = useState<Record<string, AutoRunState | null>>({});
 
-	// History panel state (persisted)
-	const [historyFilter, setHistoryFilter] = useState<'all' | 'AUTO' | 'USER'>(
-		savedState.historyFilter
-	);
-	const [historySearchQuery, setHistorySearchQuery] = useState(savedState.historySearchQuery);
-	const [historySearchOpen, setHistorySearchOpen] = useState(savedState.historySearchOpen);
+	// AutoRun panel state
+	const [showAutoRunPanel, setShowAutoRunPanel] = useState(false);
+	const [autoRunViewingDoc, setAutoRunViewingDoc] = useState<string | null>(null);
+	const [showAutoRunSetup, setShowAutoRunSetup] = useState(false);
+
+	// Notification settings sheet state
+	const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+	const [notificationCount, setNotificationCount] = useState(0);
+
+	// Settings panel state
+	const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+	// Agent creation sheet state
+	const [showAgentCreation, setShowAgentCreation] = useState(false);
+
+	// Group chat state
+	const [showGroupChatSetup, setShowGroupChatSetup] = useState(false);
+	const [showGroupChatList, setShowGroupChatList] = useState(false);
+	const [activeGroupChatId, setActiveGroupChatId] = useState<string | null>(null);
+
+	// Command palette state
+	const [showCommandPalette, setShowCommandPalette] = useState(false);
+
+	// Context management sheet state
+	const [showContextManagement, setShowContextManagement] = useState(false);
+
+	// Cue panel state
+	const [showCuePanel, setShowCuePanel] = useState(false);
+
+	// Usage Dashboard panel state
+	const [showUsageDashboard, setShowUsageDashboard] = useState(false);
+
+	// Achievements panel state
+	const [showAchievements, setShowAchievements] = useState(false);
+
+	// Git diff viewer state
+	const [gitDiffFile, setGitDiffFile] = useState<string | null>(null);
+
+	// History panel state (persisted — used by right drawer's history tab)
+	const [historyFilter] = useState<'all' | 'AUTO' | 'USER'>(savedState.historyFilter);
+	const [historySearchQuery] = useState(savedState.historySearchQuery);
+	const [historySearchOpen] = useState(savedState.historySearchOpen);
 
 	// Notification permission hook - requests permission on first visit
-	const { permission: notificationPermission, showNotification } = useNotifications({
+	const {
+		permission: notificationPermission,
+		showNotification,
+		handleNotificationEvent,
+		preferences: notificationPreferences,
+		setPreferences: setNotificationPreferences,
+	} = useNotifications({
 		autoRequest: true,
 		requestDelay: 3000, // Wait 3 seconds before prompting
 		onGranted: () => {
@@ -353,10 +1029,24 @@ export default function MobileApp() {
 	// Reference to send function for offline queue (will be set after useWebSocket)
 	const sendRef = useRef<((sessionId: string, command: string) => boolean) | null>(null);
 
+	// Ref for settings changed handler (bridges useWebSocket → useSettings ordering)
+	const settingsChangedRef = useRef<((settings: WebSettings) => void) | null>(null);
+
+	// Ref for groups changed handler (bridges useWebSocket → useAgentManagement ordering)
+	const groupsChangedRef = useRef<((groups: GroupData[]) => void) | null>(null);
+
+	// Refs for group chat handlers (bridges useWebSocket → useGroupChat ordering)
+	const groupChatMessageRef = useRef<((chatId: string, message: GroupChatMessage) => void) | null>(
+		null
+	);
+	const groupChatStateChangeRef = useRef<
+		((chatId: string, state: Partial<GroupChatState>) => void) | null
+	>(null);
+
 	// Save view state when overlays change (using hook's persistence function)
 	useEffect(() => {
-		persistViewState({ showAllSessions, showHistoryPanel, showTabSearch });
-	}, [showAllSessions, showHistoryPanel, showTabSearch, persistViewState]);
+		persistViewState({ showAllSessions, showHistoryPanel: showRightDrawer, showTabSearch });
+	}, [showAllSessions, showRightDrawer, showTabSearch, persistViewState]);
 
 	// Save history panel state when it changes (using hook's persistence function)
 	useEffect(() => {
@@ -500,17 +1190,121 @@ export default function MobileApp() {
 		state: connectionState,
 		connect,
 		send,
+		sendRequest,
 		error,
 		reconnectAttempts,
 	} = useWebSocket({
 		autoReconnect: false, // Only retry manually via the retry button
-		handlers: sessionsHandlers,
+		handlers: {
+			...sessionsHandlers,
+			onNotificationEvent: (event) => {
+				handleNotificationEvent({
+					eventType: event.eventType,
+					sessionId: event.sessionId,
+					sessionName: event.sessionName,
+					message: event.message,
+					severity: event.severity,
+				});
+				setNotificationCount((prev) => prev + 1);
+			},
+			onSettingsChanged: (settings) => {
+				settingsChangedRef.current?.(settings as WebSettings);
+			},
+			onGroupsChanged: (groups) => {
+				groupsChangedRef.current?.(groups);
+			},
+			onGroupChatMessage: (chatId, message) => {
+				groupChatMessageRef.current?.(chatId, message);
+			},
+			onGroupChatStateChange: (chatId, state) => {
+				groupChatStateChangeRef.current?.(chatId, state);
+			},
+		},
 	});
 
 	// Update wsSendRef after WebSocket is initialized (for session management hook)
 	useEffect(() => {
 		wsSendRef.current = send;
 	}, [send]);
+
+	// Listen for notification click events to navigate to the relevant session
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.sessionId) {
+				setActiveSessionId(detail.sessionId);
+			}
+		};
+		window.addEventListener('maestro-notification-click', handler);
+		return () => window.removeEventListener('maestro-notification-click', handler);
+	}, [setActiveSessionId]);
+
+	// Auto Run hook for panel operations
+	const currentAutoRunState = activeSessionId ? (autoRunStates[activeSessionId] ?? null) : null;
+	const { documents: autoRunDocuments, launchAutoRun } = useAutoRun(
+		sendRequest,
+		send,
+		currentAutoRunState
+	);
+
+	// Auto Run panel handlers
+	const handleOpenAutoRunPanel = useCallback(() => {
+		setShowAutoRunPanel(true);
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	const handleCloseAutoRunPanel = useCallback(() => {
+		setShowAutoRunPanel(false);
+		setAutoRunViewingDoc(null);
+		setShowAutoRunSetup(false);
+	}, []);
+
+	const handleAutoRunOpenDocument = useCallback((filename: string) => {
+		setAutoRunViewingDoc(filename);
+	}, []);
+
+	const handleAutoRunBackFromDocument = useCallback(() => {
+		setAutoRunViewingDoc(null);
+	}, []);
+
+	const handleAutoRunOpenSetup = useCallback(() => {
+		setShowAutoRunSetup(true);
+	}, []);
+
+	const handleAutoRunCloseSetup = useCallback(() => {
+		setShowAutoRunSetup(false);
+	}, []);
+
+	// Notification settings handlers
+	const handleOpenNotificationSettings = useCallback(() => {
+		setShowNotificationSettings(true);
+		setNotificationCount(0); // Clear badge when opening
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	const handleCloseNotificationSettings = useCallback(() => {
+		setShowNotificationSettings(false);
+	}, []);
+
+	// Settings panel handlers
+	const handleOpenSettingsPanel = useCallback(() => {
+		setShowSettingsPanel(true);
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	const handleCloseSettingsPanel = useCallback(() => {
+		setShowSettingsPanel(false);
+	}, []);
+
+	const handleAutoRunLaunch = useCallback(
+		(config: LaunchConfig) => {
+			if (!activeSessionId) return;
+			launchAutoRun(activeSessionId, config);
+			setShowAutoRunSetup(false);
+			triggerHaptic(HAPTIC_PATTERNS.success);
+		},
+		[activeSessionId, launchAutoRun]
+	);
 
 	// Connect on mount - use empty dependency array to only connect once
 	// The connect function is stable via useRef pattern in useWebSocket
@@ -582,6 +1376,39 @@ export default function MobileApp() {
 	// Determine if we're actually connected
 	const isActuallyConnected =
 		!isOffline && (connectionState === 'connected' || connectionState === 'authenticated');
+
+	// Settings hook — uses WebSocket for fetching/updating settings
+	const settingsHook = useSettings(sendRequest, isActuallyConnected);
+
+	// Agent management hook — uses WebSocket for agent/group CRUD
+	const agentManagement = useAgentManagement(sendRequest, isActuallyConnected);
+
+	// Group chat hook — uses WebSocket for group chat management
+	const groupChat = useGroupChat(sendRequest, send, isActuallyConnected);
+
+	// Git status hook — uses WebSocket for git status/diff
+	const gitStatus = useGitStatus(sendRequest, isActuallyConnected, activeSessionId || undefined);
+
+	// Cue automation hook — uses WebSocket for Cue subscription/activity management
+	const cue = useCue(sendRequest, send, isActuallyConnected);
+
+	// Keep settings changed ref in sync
+	useEffect(() => {
+		settingsChangedRef.current = settingsHook.handleSettingsChanged;
+	}, [settingsHook.handleSettingsChanged]);
+
+	// Keep groups changed ref in sync
+	useEffect(() => {
+		groupsChangedRef.current = agentManagement.handleGroupsChanged;
+	}, [agentManagement.handleGroupsChanged]);
+
+	// Keep group chat refs in sync
+	useEffect(() => {
+		groupChatMessageRef.current = groupChat.handleGroupChatMessage;
+	}, [groupChat.handleGroupChatMessage]);
+	useEffect(() => {
+		groupChatStateChangeRef.current = groupChat.handleGroupChatStateChange;
+	}, [groupChat.handleGroupChatStateChange]);
 
 	// Offline queue hook - stores commands typed while offline and sends when reconnected
 	const {
@@ -783,16 +1610,112 @@ export default function MobileApp() {
 		setShowAllSessions(false);
 	}, []);
 
-	// Handle opening History panel (separate from command history drawer)
-	const handleOpenHistoryPanel = useCallback(() => {
-		setShowHistoryPanel(true);
+	// Handle opening agent creation sheet
+	const handleOpenAgentCreation = useCallback(() => {
+		setShowAgentCreation(true);
 		triggerHaptic(HAPTIC_PATTERNS.tap);
 	}, []);
 
-	// Handle closing History panel
-	const handleCloseHistoryPanel = useCallback(() => {
-		setShowHistoryPanel(false);
+	// Handle agent created — select the new agent
+	const handleAgentCreated = useCallback(
+		(sessionId: string) => {
+			handleSelectSession(sessionId);
+			setShowAllSessions(false);
+		},
+		[handleSelectSession]
+	);
+
+	// Group chat handlers
+	const activeGroupChats = useMemo(
+		() => groupChat.chats.filter((c) => c.isActive),
+		[groupChat.chats]
+	);
+
+	const handleGroupChatTap = useCallback(() => {
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+		if (activeGroupChats.length > 0) {
+			setShowGroupChatList(true);
+		} else {
+			setShowGroupChatSetup(true);
+		}
+	}, [activeGroupChats.length]);
+
+	const handleGroupChatStart = useCallback(
+		async (topic: string, participantIds: string[]) => {
+			const chatId = await groupChat.startChat(topic, participantIds);
+			if (chatId) {
+				setActiveGroupChatId(chatId);
+				await groupChat.loadChatState(chatId);
+			}
+		},
+		[groupChat]
+	);
+
+	const handleGroupChatOpen = useCallback(
+		(chatId: string) => {
+			setActiveGroupChatId(chatId);
+			setShowGroupChatList(false);
+			groupChat.loadChatState(chatId);
+		},
+		[groupChat]
+	);
+
+	const handleGroupChatBack = useCallback(() => {
+		setActiveGroupChatId(null);
 	}, []);
+
+	const handleGroupChatSendMessage = useCallback(
+		(message: string) => {
+			if (activeGroupChatId) {
+				groupChat.sendMessage(activeGroupChatId, message);
+			}
+		},
+		[activeGroupChatId, groupChat]
+	);
+
+	const handleGroupChatStop = useCallback(async () => {
+		if (activeGroupChatId) {
+			await groupChat.stopChat(activeGroupChatId);
+			await groupChat.loadChatState(activeGroupChatId);
+		}
+	}, [activeGroupChatId, groupChat]);
+
+	// Cue panel handlers
+	const hasRunningCue = useMemo(
+		() => cue.activity.some((entry) => entry.status === 'running'),
+		[cue.activity]
+	);
+
+	const handleCueTap = useCallback(() => {
+		setShowCuePanel(true);
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	const handleCloseCuePanel = useCallback(() => {
+		setShowCuePanel(false);
+	}, []);
+
+	const handleCueRefresh = useCallback(() => {
+		cue.loadSubscriptions();
+		cue.loadActivity();
+	}, [cue]);
+
+	// Handle opening the right drawer on a specific tab
+	const handleOpenRightDrawer = useCallback((tab: RightDrawerTab = 'files') => {
+		setRightDrawerTab(tab);
+		setShowRightDrawer(true);
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	// Handle closing the right drawer
+	const handleCloseRightDrawer = useCallback(() => {
+		setShowRightDrawer(false);
+	}, []);
+
+	// Handle opening History panel — redirects to right drawer History tab
+	const handleOpenHistoryPanel = useCallback(() => {
+		handleOpenRightDrawer('history');
+	}, [handleOpenRightDrawer]);
 
 	// Handle opening Tab Search modal
 	const handleOpenTabSearch = useCallback(() => {
@@ -964,13 +1887,626 @@ export default function MobileApp() {
 		setTimeout(() => setSelectedResponse(null), 300);
 	}, []);
 
-	// Keyboard shortcuts (Cmd+J mode toggle, Cmd+[/] tab navigation)
+	// Command palette: open/close handlers (defined before keyboard handler that uses them)
+	const handleOpenCommandPalette = useCallback(() => {
+		setShowCommandPalette(true);
+		triggerHaptic(HAPTIC_PATTERNS.tap);
+	}, []);
+
+	const handleCloseCommandPalette = useCallback(() => {
+		setShowCommandPalette(false);
+	}, []);
+
+	// Keyboard shortcuts (Cmd+J mode toggle, Cmd+[/] tab navigation, Cmd+K command palette)
 	useMobileKeyboardHandler({
 		activeSessionId,
 		activeSession,
 		handleModeToggle,
 		handleSelectTab,
+		onOpenCommandPalette: handleOpenCommandPalette,
+		onCloseCommandPalette: handleCloseCommandPalette,
+		isCommandPaletteOpen: showCommandPalette,
 	});
+
+	// Swipe-from-right-edge gesture to open right drawer
+	const rightEdgeSwipeRef = useRef<{ startX: number; startY: number } | null>(null);
+	const handleMainTouchStart = useCallback((e: React.TouchEvent) => {
+		const touch = e.touches[0];
+		const viewportWidth = window.innerWidth;
+		// Only track touches starting within 20px of the right edge
+		if (touch.clientX >= viewportWidth - 20) {
+			rightEdgeSwipeRef.current = { startX: touch.clientX, startY: touch.clientY };
+		}
+	}, []);
+	const handleMainTouchMove = useCallback(
+		(e: React.TouchEvent) => {
+			if (!rightEdgeSwipeRef.current) return;
+			const touch = e.touches[0];
+			const deltaX = rightEdgeSwipeRef.current.startX - touch.clientX;
+			const deltaY = Math.abs(touch.clientY - rightEdgeSwipeRef.current.startY);
+			// Swipe left from right edge — open drawer if moved > 60px and more horizontal than vertical
+			if (deltaX > 60 && deltaX > deltaY) {
+				rightEdgeSwipeRef.current = null;
+				handleOpenRightDrawer('files');
+			}
+		},
+		[handleOpenRightDrawer]
+	);
+	const handleMainTouchEnd = useCallback(() => {
+		rightEdgeSwipeRef.current = null;
+	}, []);
+
+	// Handle viewing a git diff from the right drawer
+	const handleViewGitDiff = useCallback(
+		(filePath: string) => {
+			if (!activeSessionId) return;
+			gitStatus.loadDiff(activeSessionId, filePath);
+			setGitDiffFile(filePath);
+		},
+		[activeSessionId, gitStatus]
+	);
+
+	const handleBackFromGitDiff = useCallback(() => {
+		setGitDiffFile(null);
+	}, []);
+
+	// Command palette: build actions list
+	const commandPaletteActions = useMemo((): CommandPaletteAction[] => {
+		const acts: CommandPaletteAction[] = [];
+
+		// --- Navigation ---
+		acts.push({
+			id: 'nav-all-sessions',
+			label: 'Switch to Session...',
+			category: 'Navigation',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+					<line x1="3" y1="9" x2="21" y2="9" />
+					<line x1="9" y1="21" x2="9" y2="9" />
+				</svg>
+			),
+			action: () => setShowAllSessions(true),
+		});
+		acts.push({
+			id: 'nav-files',
+			label: 'Open Files Panel',
+			category: 'Navigation',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+					<polyline points="13 2 13 9 20 9" />
+				</svg>
+			),
+			action: () => handleOpenRightDrawer('files'),
+		});
+		acts.push({
+			id: 'nav-history',
+			label: 'Open History Panel',
+			category: 'Navigation',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<polyline points="12 6 12 12 16 14" />
+				</svg>
+			),
+			action: () => handleOpenRightDrawer('history'),
+		});
+		acts.push({
+			id: 'nav-autorun-tab',
+			label: 'Open Auto Run Panel',
+			category: 'Navigation',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<polygon points="5 3 19 12 5 21 5 3" />
+				</svg>
+			),
+			action: () => handleOpenRightDrawer('autorun'),
+		});
+		acts.push({
+			id: 'nav-git',
+			label: 'Open Git Panel',
+			category: 'Navigation',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="18" cy="18" r="3" />
+					<circle cx="6" cy="6" r="3" />
+					<path d="M13 6h3a2 2 0 0 1 2 2v7" />
+					<line x1="6" y1="9" x2="6" y2="21" />
+				</svg>
+			),
+			action: () => handleOpenRightDrawer('git'),
+		});
+
+		// --- Agent ---
+		acts.push({
+			id: 'agent-new',
+			label: 'New Agent',
+			category: 'Agent',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<line x1="12" y1="5" x2="12" y2="19" />
+					<line x1="5" y1="12" x2="19" y2="12" />
+				</svg>
+			),
+			action: () => setShowAgentCreation(true),
+		});
+		acts.push({
+			id: 'agent-rename',
+			label: 'Rename Current Agent',
+			category: 'Agent',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+				</svg>
+			),
+			available: () => !!activeSessionId,
+			action: () => {
+				if (activeSessionId) {
+					const newName = window.prompt('Rename agent:', activeSession?.name || '');
+					if (newName && newName.trim()) {
+						agentManagement.renameAgent(activeSessionId, newName.trim());
+					}
+				}
+			},
+		});
+		acts.push({
+			id: 'agent-delete',
+			label: 'Delete Current Agent',
+			category: 'Agent',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<polyline points="3 6 5 6 21 6" />
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+				</svg>
+			),
+			available: () => !!activeSessionId,
+			action: () => {
+				if (activeSessionId && window.confirm('Delete this agent?')) {
+					agentManagement.deleteAgent(activeSessionId);
+				}
+			},
+		});
+
+		acts.push({
+			id: 'agent-context',
+			label: 'Context Management',
+			category: 'Agent',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<path d="M8 12h8" />
+					<path d="M12 8v8" />
+				</svg>
+			),
+			available: () => !!activeSessionId && sessions.length > 0,
+			action: () => setShowContextManagement(true),
+		});
+
+		// --- Auto Run ---
+		acts.push({
+			id: 'autorun-launch',
+			label: 'Launch Auto Run',
+			category: 'Auto Run',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<polygon points="5 3 19 12 5 21 5 3" />
+				</svg>
+			),
+			available: () => !!activeSessionId && !currentAutoRunState?.isRunning,
+			action: () => setShowAutoRunSetup(true),
+		});
+		acts.push({
+			id: 'autorun-stop',
+			label: 'Stop Auto Run',
+			category: 'Auto Run',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<rect x="6" y="6" width="12" height="12" />
+				</svg>
+			),
+			available: () => !!currentAutoRunState?.isRunning,
+			action: () => handleOpenAutoRunPanel(),
+		});
+		acts.push({
+			id: 'autorun-documents',
+			label: 'View Auto Run Documents',
+			category: 'Auto Run',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+					<line x1="16" y1="13" x2="8" y2="13" />
+					<line x1="16" y1="17" x2="8" y2="17" />
+				</svg>
+			),
+			action: () => handleOpenAutoRunPanel(),
+		});
+
+		// --- Group Chat ---
+		acts.push({
+			id: 'groupchat-new',
+			label: 'Start New Group Chat',
+			category: 'Group Chat',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+					<circle cx="9" cy="7" r="4" />
+					<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+					<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+				</svg>
+			),
+			action: () => setShowGroupChatSetup(true),
+		});
+		acts.push({
+			id: 'groupchat-active',
+			label: 'View Active Chats',
+			category: 'Group Chat',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+				</svg>
+			),
+			available: () => activeGroupChats.length > 0,
+			action: () => setShowGroupChatList(true),
+		});
+
+		// --- Cue Automation ---
+		acts.push({
+			id: 'cue-dashboard',
+			label: 'Maestro Cue',
+			category: 'Cue',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+				</svg>
+			),
+			action: () => setShowCuePanel(true),
+		});
+
+		// --- Analytics ---
+		acts.push({
+			id: 'analytics-usage',
+			label: 'Usage Dashboard',
+			category: 'Analytics',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+					<path d="M22 12A10 10 0 0 0 12 2v10z" />
+				</svg>
+			),
+			action: () => setShowUsageDashboard(true),
+		});
+		acts.push({
+			id: 'analytics-achievements',
+			label: 'Achievements',
+			category: 'Analytics',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="12" cy="8" r="7" />
+					<polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+				</svg>
+			),
+			action: () => setShowAchievements(true),
+		});
+
+		// --- Settings ---
+		acts.push({
+			id: 'settings-open',
+			label: 'Open Settings',
+			category: 'Settings',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="12" cy="12" r="3" />
+					<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+				</svg>
+			),
+			action: () => setShowSettingsPanel(true),
+		});
+		acts.push({
+			id: 'settings-toggle-theme',
+			label: 'Toggle Dark/Light Theme',
+			category: 'Settings',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<circle cx="12" cy="12" r="5" />
+					<line x1="12" y1="1" x2="12" y2="3" />
+					<line x1="12" y1="21" x2="12" y2="23" />
+					<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+					<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+					<line x1="1" y1="12" x2="3" y2="12" />
+					<line x1="21" y1="12" x2="23" y2="12" />
+					<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+					<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+				</svg>
+			),
+			action: () => {
+				const currentTheme = settingsHook.settings?.theme;
+				const isDark =
+					!currentTheme ||
+					currentTheme === 'dracula' ||
+					currentTheme === 'monokai' ||
+					currentTheme === 'solarized-dark' ||
+					currentTheme === 'tokyo-night';
+				const newTheme = isDark ? 'github-light' : 'dracula';
+				settingsHook.setTheme(newTheme);
+			},
+		});
+
+		// --- View ---
+		acts.push({
+			id: 'view-notifications',
+			label: 'Notification Settings',
+			category: 'View',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+					<path d="M13.73 21a2 2 0 0 1-3.46 0" />
+				</svg>
+			),
+			action: () => setShowNotificationSettings(true),
+		});
+		acts.push({
+			id: 'view-all-sessions',
+			label: 'Toggle All Sessions View',
+			category: 'View',
+			icon: (
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<line x1="8" y1="6" x2="21" y2="6" />
+					<line x1="8" y1="12" x2="21" y2="12" />
+					<line x1="8" y1="18" x2="21" y2="18" />
+					<line x1="3" y1="6" x2="3.01" y2="6" />
+					<line x1="3" y1="12" x2="3.01" y2="12" />
+					<line x1="3" y1="18" x2="3.01" y2="18" />
+				</svg>
+			),
+			action: () => setShowAllSessions((prev) => !prev),
+		});
+		acts.push({
+			id: 'view-mode-switch',
+			label:
+				activeSession?.inputMode === 'terminal' ? 'Switch to AI Mode' : 'Switch to Terminal Mode',
+			category: 'View',
+			icon:
+				activeSession?.inputMode === 'terminal' ? (
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<path d="M12 3v2M12 19v2M5.64 5.64l1.42 1.42M16.95 16.95l1.41 1.41M3 12h2M19 12h2M5.64 18.36l1.42-1.42M16.95 7.05l1.41-1.41" />
+						<circle cx="12" cy="12" r="4" />
+					</svg>
+				) : (
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<polyline points="4 17 10 11 4 5" />
+						<line x1="12" y1="19" x2="20" y2="19" />
+					</svg>
+				),
+			available: () => !!activeSessionId,
+			action: () => {
+				const newMode = activeSession?.inputMode === 'terminal' ? 'ai' : 'terminal';
+				handleModeToggle(newMode as InputMode);
+			},
+		});
+
+		return acts;
+	}, [
+		activeSessionId,
+		activeSession,
+		sessions,
+		currentAutoRunState,
+		activeGroupChats.length,
+		settingsHook,
+		agentManagement,
+		handleOpenRightDrawer,
+		handleOpenAutoRunPanel,
+		handleModeToggle,
+	]);
 
 	// Determine content based on connection state
 	const renderContent = () => {
@@ -1146,6 +2682,7 @@ export default function MobileApp() {
 		overflow: 'hidden',
 		backgroundColor: colors.bgMain,
 		color: colors.textMain,
+		fontSize: settingsHook.settings?.fontSize ? `${settingsHook.settings.fontSize}px` : undefined,
 	};
 
 	// Determine if session pill bar should be shown
@@ -1155,9 +2692,38 @@ export default function MobileApp() {
 		sessions.length > 0;
 
 	return (
-		<div style={containerStyle}>
+		<div
+			style={containerStyle}
+			onTouchStart={handleMainTouchStart}
+			onTouchMove={handleMainTouchMove}
+			onTouchEnd={handleMainTouchEnd}
+		>
 			{/* Header with session info */}
-			<MobileHeader activeSession={activeSession} />
+			<MobileHeader
+				activeSession={activeSession}
+				autoRunState={currentAutoRunState}
+				onMenuTap={handleOpenAllSessions}
+				onSearchTap={handleOpenCommandPalette}
+				onAutoRunTap={handleOpenAutoRunPanel}
+				onRightDrawerTap={() => handleOpenRightDrawer('files')}
+				onCueTap={handleCueTap}
+				hasRunningCue={hasRunningCue}
+				onNotificationTap={handleOpenNotificationSettings}
+				onSettingsTap={handleOpenSettingsPanel}
+				notificationCount={notificationCount}
+				onGroupChatTap={handleGroupChatTap}
+				groupChatCount={activeGroupChats.length}
+				onUsageDashboardTap={() => {
+					setShowUsageDashboard(true);
+					triggerHaptic(HAPTIC_PATTERNS.tap);
+				}}
+				onAchievementsTap={() => {
+					setShowAchievements(true);
+					triggerHaptic(HAPTIC_PATTERNS.tap);
+				}}
+				onContextManagementTap={() => setShowContextManagement(true)}
+				onNewAgentTap={handleOpenAgentCreation}
+			/>
 
 			{/* Session pill bar - Row 1: Groups/Sessions with search button */}
 			{showSessionPillBar && (
@@ -1167,7 +2733,10 @@ export default function MobileApp() {
 					onSelectSession={handleSelectSession}
 					onOpenAllSessions={handleOpenAllSessions}
 					onOpenHistory={handleOpenHistoryPanel}
+					onOpenRightDrawer={() => handleOpenRightDrawer('files')}
 					onToggleBookmark={handleToggleBookmark}
+					onOpenCreateAgent={handleOpenAgentCreation}
+					onOpenContextManagement={() => setShowContextManagement(true)}
 				/>
 			)}
 
@@ -1194,6 +2763,7 @@ export default function MobileApp() {
 				<AutoRunIndicator
 					state={autoRunStates[activeSessionId]}
 					sessionName={activeSession?.name}
+					onTap={handleOpenAutoRunPanel}
 				/>
 			)}
 
@@ -1217,23 +2787,37 @@ export default function MobileApp() {
 					activeSessionId={activeSessionId}
 					onSelectSession={handleSelectSession}
 					onClose={handleCloseAllSessions}
+					onRenameAgent={agentManagement.renameAgent}
+					onDeleteAgent={agentManagement.deleteAgent}
+					onMoveToGroup={agentManagement.moveToGroup}
+					groups={agentManagement.groups}
+					onOpenCreateAgent={handleOpenAgentCreation}
 				/>
 			)}
 
-			{/* History panel - full-screen modal with history entries */}
-			{showHistoryPanel && (
-				<MobileHistoryPanel
-					onClose={handleCloseHistoryPanel}
+			{/* Right drawer - unified slide-out panel with Files, History, Auto Run, Git tabs */}
+			{showRightDrawer && activeSessionId && (
+				<RightDrawer
+					sessionId={activeSessionId}
+					activeTab={rightDrawerTab}
+					autoRunState={currentAutoRunState}
+					gitStatus={gitStatus}
+					onClose={handleCloseRightDrawer}
 					projectPath={activeSession?.cwd}
-					sessionId={activeSessionId || undefined}
-					initialFilter={historyFilter}
-					initialSearchQuery={historySearchQuery}
-					initialSearchOpen={historySearchOpen}
-					onFilterChange={setHistoryFilter}
-					onSearchChange={(query, isOpen) => {
-						setHistorySearchQuery(query);
-						setHistorySearchOpen(isOpen);
-					}}
+					onAutoRunOpenDocument={handleAutoRunOpenDocument}
+					onAutoRunOpenSetup={handleAutoRunOpenSetup}
+					sendRequest={sendRequest}
+					send={send}
+					onViewDiff={handleViewGitDiff}
+				/>
+			)}
+
+			{/* Git diff viewer - full-screen overlay when viewing a file diff */}
+			{gitDiffFile && gitStatus.diff && (
+				<GitDiffViewer
+					diff={gitStatus.diff.diff}
+					filePath={gitDiffFile}
+					onBack={handleBackFromGitDiff}
 				/>
 			)}
 
@@ -1244,6 +2828,132 @@ export default function MobileApp() {
 					activeTabId={activeSession.activeTabId}
 					onSelectTab={handleSelectTab}
 					onClose={handleCloseTabSearch}
+				/>
+			)}
+
+			{/* Auto Run panel - full-screen management view */}
+			{showAutoRunPanel && activeSessionId && (
+				<AutoRunPanel
+					sessionId={activeSessionId}
+					autoRunState={currentAutoRunState}
+					onClose={handleCloseAutoRunPanel}
+					onOpenDocument={handleAutoRunOpenDocument}
+					onOpenSetup={handleAutoRunOpenSetup}
+					sendRequest={sendRequest}
+					send={send}
+				/>
+			)}
+
+			{/* Auto Run document viewer - full-screen overlay on top of panel */}
+			{showAutoRunPanel && activeSessionId && autoRunViewingDoc && (
+				<AutoRunDocumentViewer
+					sessionId={activeSessionId}
+					filename={autoRunViewingDoc}
+					onBack={handleAutoRunBackFromDocument}
+					sendRequest={sendRequest}
+				/>
+			)}
+
+			{/* Auto Run setup sheet - bottom sheet on top of panel */}
+			{showAutoRunPanel && activeSessionId && showAutoRunSetup && (
+				<AutoRunSetupSheet
+					sessionId={activeSessionId}
+					documents={autoRunDocuments}
+					onLaunch={handleAutoRunLaunch}
+					onClose={handleAutoRunCloseSetup}
+				/>
+			)}
+
+			{/* Notification settings bottom sheet */}
+			{showNotificationSettings && (
+				<NotificationSettingsSheet
+					preferences={notificationPreferences}
+					onPreferencesChange={setNotificationPreferences}
+					permission={notificationPermission}
+					onClose={handleCloseNotificationSettings}
+				/>
+			)}
+
+			{/* Settings panel - full-screen overlay */}
+			{showSettingsPanel && (
+				<SettingsPanel onClose={handleCloseSettingsPanel} settingsHook={settingsHook} />
+			)}
+
+			{/* Agent creation sheet */}
+			{showAgentCreation && (
+				<AgentCreationSheet
+					groups={agentManagement.groups}
+					defaultCwd={activeSession?.cwd || ''}
+					createAgent={agentManagement.createAgent}
+					onCreated={handleAgentCreated}
+					onClose={() => setShowAgentCreation(false)}
+				/>
+			)}
+
+			{/* Group Chat panel — full-screen overlay */}
+			{activeGroupChatId && groupChat.activeChat && (
+				<GroupChatPanel
+					chatState={groupChat.activeChat}
+					onSendMessage={handleGroupChatSendMessage}
+					onStop={handleGroupChatStop}
+					onBack={handleGroupChatBack}
+				/>
+			)}
+
+			{/* Cue automation panel — full-screen overlay */}
+			{showCuePanel && (
+				<CuePanel
+					subscriptions={cue.subscriptions}
+					activity={cue.activity}
+					isLoading={cue.isLoading}
+					onToggleSubscription={cue.toggleSubscription}
+					onRefresh={handleCueRefresh}
+					onClose={handleCloseCuePanel}
+				/>
+			)}
+
+			{/* Usage Dashboard panel — full-screen overlay */}
+			{showUsageDashboard && (
+				<UsageDashboardPanel
+					onClose={() => setShowUsageDashboard(false)}
+					sendRequest={sendRequest}
+				/>
+			)}
+
+			{/* Achievements panel — full-screen overlay */}
+			{showAchievements && (
+				<AchievementsPanel onClose={() => setShowAchievements(false)} sendRequest={sendRequest} />
+			)}
+
+			{/* Context management sheet */}
+			{showContextManagement && activeSessionId && (
+				<ContextManagementSheet
+					sessions={sessions}
+					currentSessionId={activeSessionId}
+					sendRequest={sendRequest}
+					onClose={() => setShowContextManagement(false)}
+				/>
+			)}
+
+			{/* Group Chat setup sheet */}
+			{showGroupChatSetup && (
+				<GroupChatSetupSheet
+					sessions={sessions}
+					onStart={handleGroupChatStart}
+					onClose={() => setShowGroupChatSetup(false)}
+				/>
+			)}
+
+			{/* Group Chat list — small bottom sheet listing active chats */}
+			{showGroupChatList && (
+				<GroupChatListSheet
+					chats={groupChat.chats}
+					onSelectChat={handleGroupChatOpen}
+					onNewChat={() => {
+						setShowGroupChatList(false);
+						setShowGroupChatSetup(true);
+					}}
+					onClose={() => setShowGroupChatList(false)}
 				/>
 			)}
 
@@ -1309,10 +3019,17 @@ export default function MobileApp() {
 				onModeToggle={handleModeToggle}
 				isSessionBusy={activeSession?.state === 'busy'}
 				onInterrupt={handleInterrupt}
-				hasActiveSession={!!activeSessionId}
 				cwd={activeSession?.cwd}
 				slashCommands={allSlashCommands}
 				showRecentCommands={false}
+				onOpenCommandPalette={handleOpenCommandPalette}
+			/>
+
+			{/* Command palette */}
+			<QuickActionsMenu
+				isOpen={showCommandPalette}
+				onClose={handleCloseCommandPalette}
+				actions={commandPaletteActions}
 			/>
 
 			{/* Full-screen response viewer modal */}

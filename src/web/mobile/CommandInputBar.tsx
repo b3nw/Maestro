@@ -36,7 +36,6 @@ import {
 	type SlashCommand,
 	DEFAULT_SLASH_COMMANDS,
 } from './SlashCommandAutocomplete';
-import { QuickActionsMenu } from './QuickActionsMenu';
 import { triggerHaptic } from './constants';
 import {
 	InputModeToggleButton,
@@ -126,8 +125,6 @@ export interface CommandInputBarProps {
 	onSelectRecentCommand?: (command: string) => void;
 	/** Available slash commands (uses defaults if not provided) */
 	slashCommands?: SlashCommand[];
-	/** Whether a session is currently active (for quick actions menu) */
-	hasActiveSession?: boolean;
 	/** Current working directory (shown in terminal mode) */
 	cwd?: string;
 	/** Callback when input receives focus */
@@ -136,6 +133,8 @@ export interface CommandInputBarProps {
 	onInputBlur?: () => void;
 	/** Whether to show recent command chips (defaults to true) */
 	showRecentCommands?: boolean;
+	/** Callback when command palette should open (long-press of send button) */
+	onOpenCommandPalette?: () => void;
 }
 
 /**
@@ -160,11 +159,11 @@ export function CommandInputBar({
 	recentCommands,
 	onSelectRecentCommand,
 	slashCommands = DEFAULT_SLASH_COMMANDS,
-	hasActiveSession = false,
 	cwd,
 	onInputFocus,
 	onInputBlur,
 	showRecentCommands = true,
+	onOpenCommandPalette,
 }: CommandInputBarProps) {
 	const colors = useThemeColors();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -242,21 +241,18 @@ export function CommandInputBar({
 		focusRef: textareaRef as React.RefObject<HTMLTextAreaElement>,
 	});
 
-	// Long-press menu hook - handles quick actions menu state and touch handlers
+	// Long-press menu hook - opens the command palette on long-press of send button
 	const {
-		isMenuOpen: quickActionsOpen,
-		menuAnchor: quickActionsAnchor,
 		sendButtonRef,
 		handleTouchStart: handleSendButtonTouchStart,
 		handleTouchEnd: handleSendButtonTouchEnd,
 		handleTouchMove: handleSendButtonTouchMove,
-		handleQuickAction,
-		closeMenu: handleCloseQuickActions,
 	} = useLongPressMenu({
 		inputMode,
 		onModeToggle,
 		disabled: isDisabled,
 		value,
+		onOpenCommandPalette,
 	});
 
 	// Separate flag for whether send is blocked (AI thinking)
@@ -918,16 +914,6 @@ export function CommandInputBar({
           }
         `}
 			</style>
-
-			{/* Quick actions menu - shown on long-press of send button */}
-			<QuickActionsMenu
-				isOpen={quickActionsOpen}
-				onClose={handleCloseQuickActions}
-				onSelectAction={handleQuickAction}
-				inputMode={inputMode}
-				anchorPosition={quickActionsAnchor}
-				hasActiveSession={hasActiveSession}
-			/>
 		</div>
 	);
 }
