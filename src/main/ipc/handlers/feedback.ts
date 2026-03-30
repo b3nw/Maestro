@@ -790,11 +790,9 @@ export function registerFeedbackHandlers(_deps: FeedbackHandlerDependencies): vo
 		withIpcErrorLogging(
 			handlerOpts('get-conversation-prompt'),
 			async (): Promise<{ prompt: string; environment: string }> => {
-				const conversationPromptPath = app.isPackaged
-					? path.join(process.resourcesPath, 'prompts', 'feedback-conversation.md')
-					: path.join(app.getAppPath(), 'src', 'prompts', 'feedback-conversation.md');
-
-				const promptTemplate = await fs.readFile(conversationPromptPath, 'utf-8');
+				// Use the build-time generated prompt constant (no runtime file I/O needed)
+				const { feedbackConversationPrompt } = await import('../../../generated/prompts');
+				const promptTemplate = feedbackConversationPrompt;
 
 				const platformLabel = getPlatformLabel(process.platform);
 				const osVersion = typeof os.version === 'function' ? os.version() : '';
