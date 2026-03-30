@@ -58,6 +58,7 @@ import {
 } from '../utils/markdownConfig';
 import { formatShortcutKeys } from '../utils/shortcutFormatter';
 import { remarkFileLinks, buildFileTreeIndices } from '../utils/remarkFileLinks';
+import { getHomeDir, getHomeDirAsync } from '../utils/homeDir';
 
 interface AutoRunProps {
 	theme: Theme;
@@ -1475,15 +1476,23 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 		return null;
 	}, [fileTree]);
 
+	// Resolve homeDir for tilde path expansion
+	const [homeDir, setHomeDir] = useState<string | undefined>(getHomeDir);
+	useEffect(() => {
+		if (!homeDir) {
+			getHomeDirAsync()?.then(setHomeDir);
+		}
+	}, [homeDir]);
+
 	// Memoize remarkPlugins - include remarkFileLinks when we have file tree
 	const remarkPlugins = useMemo(() => {
 		const plugins: any[] = [...REMARK_GFM_PLUGINS];
-		if (fileTree.length > 0) {
+		if (fileTree.length > 0 || homeDir) {
 			// cwd is empty since we're at the root of the Auto Run folder
-			plugins.push([remarkFileLinks, { indices: fileTreeIndices || undefined, cwd: '' }]);
+			plugins.push([remarkFileLinks, { indices: fileTreeIndices || undefined, cwd: '', homeDir }]);
 		}
 		return plugins;
-	}, [fileTree, fileTreeIndices]);
+	}, [fileTree, fileTreeIndices, homeDir]);
 
 	// Base markdown components - stable unless theme, folderPath, or callbacks change
 	// Separated from search highlighting to prevent rebuilds on every search state change
