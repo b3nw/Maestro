@@ -85,6 +85,7 @@ export interface SessionDetailForHandler {
 	state: string;
 	inputMode: string;
 	agentSessionId?: string;
+	cwd?: string;
 }
 
 /**
@@ -176,6 +177,11 @@ export interface MessageHandlerCallbacks {
 	getAchievements: () => Promise<AchievementData[]>;
 	writeToTerminal: (sessionId: string, data: string) => boolean;
 	resizeTerminal: (sessionId: string, cols: number, rows: number) => boolean;
+	spawnTerminalForWeb: (
+		sessionId: string,
+		config: { cwd: string; cols?: number; rows?: number }
+	) => Promise<{ success: boolean; pid: number }>;
+	killTerminalForWeb: (sessionId: string) => boolean;
 }
 
 /**
@@ -537,6 +543,9 @@ export class WebSocketMessageHandler {
 
 	/**
 	 * Handle switch_mode message - switch between AI and terminal mode
+	 *
+	 * When switching to terminal mode, spawns a dedicated PTY process for the web client
+	 * (session ID: {sessionId}-terminal). When switching back to AI, kills it.
 	 */
 	private handleSwitchMode(client: WebClient, message: WebClientMessage): void {
 		const sessionId = message.sessionId as string;
@@ -562,7 +571,37 @@ export class WebSocketMessageHandler {
 		logger.info(`[Web] Calling switchModeCallback for session ${sessionId}: ${mode}`, LOG_CONTEXT);
 		this.callbacks
 			.switchMode(sessionId, mode)
-			.then((success) => {
+			.then(async (success) => {
+				// Spawn or kill the web terminal PTY based on mode
+				if (success && mode === 'terminal') {
+					// Look up session CWD for the terminal working directory
+					const sessionDetail = this.callbacks.getSessionDetail?.(sessionId);
+					const cwd = sessionDetail?.cwd || process.cwd();
+					try {
+						const spawnResult = await this.callbacks.spawnTerminalForWeb?.(sessionId, { cwd });
+						logger.info(
+							`[Web] Terminal PTY spawn for ${sessionId}: success=${spawnResult?.success}`,
+							LOG_CONTEXT
+						);
+						// Notify the web client that the PTY is ready so it can re-send
+						// its current dimensions (the initial resize fired before the PTY existed)
+						if (spawnResult?.success) {
+							this.send(client, {
+								type: 'terminal_ready',
+								sessionId,
+							});
+						}
+					} catch (err) {
+						logger.error(
+							`[Web] Failed to spawn terminal PTY for ${sessionId}: ${err}`,
+							LOG_CONTEXT
+						);
+					}
+				}
+				// When switching back to AI, keep the terminal PTY alive so the user
+				// can return to a running process (e.g. npm run dev). The PTY is only
+				// killed when the session itself is removed.
+
 				this.send(client, {
 					type: 'mode_switch_result',
 					success,

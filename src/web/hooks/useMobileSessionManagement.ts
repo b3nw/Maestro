@@ -513,8 +513,13 @@ export function useMobileSessionManagement(
 				previousSessionStatesRef.current.set(sessionId, state);
 
 				setSessions((prev) => {
+					// Exclude inputMode from server broadcasts to prevent race conditions
+					// with optimistic mode switches. The web client manages its own inputMode
+					// via handleModeToggle — server state_change broadcasts may carry stale
+					// inputMode values during the IPC round-trip (web → server → desktop → broadcast).
+					const { inputMode: _serverInputMode, ...safeAdditionalData } = additionalData || {};
 					const updatedSessions = prev.map((s) =>
-						s.id === sessionId ? { ...s, state, ...additionalData } : s
+						s.id === sessionId ? { ...s, state, ...safeAdditionalData } : s
 					);
 
 					// Show notification if response completed and app is backgrounded

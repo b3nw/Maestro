@@ -138,6 +138,7 @@ export type ServerMessageType =
 	| 'cue_subscriptions_changed'
 	| 'tool_event'
 	| 'terminal_data'
+	| 'terminal_ready'
 	| 'pong'
 	| 'subscribed'
 	| 'echo'
@@ -533,6 +534,8 @@ export interface WebSocketEventHandlers {
 	onNotificationEvent?: (event: NotificationEventMessage) => void;
 	/** Called when raw terminal PTY data is received (for xterm.js) */
 	onTerminalData?: (sessionId: string, data: string) => void;
+	/** Called when the web terminal PTY is spawned and ready (re-send dimensions) */
+	onTerminalReady?: (sessionId: string) => void;
 	/** Called when settings are changed (from web or desktop) */
 	onSettingsChanged?: (settings: SettingsChangedMessage['settings']) => void;
 	/** Called when groups are changed (created, renamed, deleted, membership) */
@@ -928,6 +931,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 						const data = message.data as string;
 						if (sessionId && data) {
 							handlersRef.current?.onTerminalData?.(sessionId, data);
+						}
+						break;
+					}
+
+					case 'terminal_ready': {
+						const sessionId = message.sessionId as string;
+						if (sessionId) {
+							handlersRef.current?.onTerminalReady?.(sessionId);
 						}
 						break;
 					}

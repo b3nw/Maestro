@@ -307,6 +307,13 @@ export class WebServer {
 	private resizeTerminalCallback:
 		| ((sessionId: string, cols: number, rows: number) => boolean)
 		| null = null;
+	private spawnTerminalForWebCallback:
+		| ((
+				sessionId: string,
+				config: { cwd: string; cols?: number; rows?: number }
+		  ) => Promise<{ success: boolean; pid: number }>)
+		| null = null;
+	private killTerminalForWebCallback: ((sessionId: string) => boolean) | null = null;
 
 	setWriteToTerminalCallback(callback: (sessionId: string, data: string) => boolean): void {
 		this.writeToTerminalCallback = callback;
@@ -316,6 +323,19 @@ export class WebServer {
 		callback: (sessionId: string, cols: number, rows: number) => boolean
 	): void {
 		this.resizeTerminalCallback = callback;
+	}
+
+	setSpawnTerminalForWebCallback(
+		callback: (
+			sessionId: string,
+			config: { cwd: string; cols?: number; rows?: number }
+		) => Promise<{ success: boolean; pid: number }>
+	): void {
+		this.spawnTerminalForWebCallback = callback;
+	}
+
+	setKillTerminalForWebCallback(callback: (sessionId: string) => boolean): void {
+		this.killTerminalForWebCallback = callback;
 	}
 
 	setExecuteCommandCallback(callback: ExecuteCommandCallback): void {
@@ -712,6 +732,14 @@ export class WebServer {
 				this.writeToTerminalCallback?.(sessionId, data) ?? false,
 			resizeTerminal: (sessionId: string, cols: number, rows: number) =>
 				this.resizeTerminalCallback?.(sessionId, cols, rows) ?? false,
+			spawnTerminalForWeb: (
+				sessionId: string,
+				config: { cwd: string; cols?: number; rows?: number }
+			) =>
+				this.spawnTerminalForWebCallback?.(sessionId, config) ??
+				Promise.resolve({ success: false, pid: 0 }),
+			killTerminalForWeb: (sessionId: string) =>
+				this.killTerminalForWebCallback?.(sessionId) ?? false,
 		});
 	}
 

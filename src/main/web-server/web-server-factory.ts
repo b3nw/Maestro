@@ -291,6 +291,63 @@ export function createWebServerFactory(deps: WebServerFactoryDependencies) {
 			return processManager.resize(`${sessionId}-terminal`, cols, rows);
 		});
 
+		// Spawn a dedicated terminal PTY for the web client
+		// Uses session ID format {sessionId}-terminal so data-listener broadcasts terminal_data
+		server.setSpawnTerminalForWebCallback(
+			async (sessionId: string, config: { cwd: string; cols?: number; rows?: number }) => {
+				const processManager = getProcessManager();
+				if (!processManager) {
+					logger.warn('processManager is null for spawnTerminalForWeb', 'WebServer');
+					return { success: false, pid: 0 };
+				}
+				const terminalSessionId = `${sessionId}-terminal`;
+				// Check if a process already exists for this terminal session
+				if (processManager.get(terminalSessionId)) {
+					logger.info(
+						`Terminal PTY already exists for web client: ${terminalSessionId}`,
+						'WebServer'
+					);
+					return { success: true, pid: 0 };
+				}
+				// Resolve shell: custom path > default from settings > system default
+				const customShellPath = settingsStore.get<string>('customShellPath', '');
+				const defaultShell = settingsStore.get<string>(
+					'defaultShell',
+					process.platform === 'win32' ? 'powershell' : 'bash'
+				);
+				const shell = (customShellPath && customShellPath.trim()) || defaultShell;
+				const shellArgs = settingsStore.get<string>('shellArgs', '');
+
+				logger.info(`Spawning terminal PTY for web client: ${terminalSessionId}`, 'WebServer', {
+					shell,
+					cwd: config.cwd,
+				});
+				return processManager.spawnTerminalTab({
+					sessionId: terminalSessionId,
+					cwd: config.cwd,
+					shell,
+					shellArgs,
+					cols: config.cols,
+					rows: config.rows,
+				});
+			}
+		);
+
+		// Kill the web client's dedicated terminal PTY
+		server.setKillTerminalForWebCallback((sessionId: string) => {
+			const processManager = getProcessManager();
+			if (!processManager) {
+				logger.warn('processManager is null for killTerminalForWeb', 'WebServer');
+				return false;
+			}
+			const terminalSessionId = `${sessionId}-terminal`;
+			if (!processManager.get(terminalSessionId)) {
+				return true; // Already gone
+			}
+			logger.info(`Killing terminal PTY for web client: ${terminalSessionId}`, 'WebServer');
+			return processManager.kill(terminalSessionId);
+		});
+
 		// Set up callback for web server to execute commands through the desktop
 		// This forwards AI commands to the renderer, ensuring single source of truth
 		// The renderer handles all spawn logic, state management, and broadcasts
