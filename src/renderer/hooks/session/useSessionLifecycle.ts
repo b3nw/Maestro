@@ -449,10 +449,15 @@ export function useSessionLifecycle(deps: SessionLifecycleDeps): SessionLifecycl
 		const { showUnreadOnly } = useUIStore.getState();
 
 		if (!showUnreadOnly) {
-			// Entering filter mode: save current active tab
-			useUIStore.getState().setPreFilterActiveTabId(session?.activeTabId || null);
+			// Entering filter mode: save current active tab (only if in AI mode —
+			// if the user is on a terminal/file tab we shouldn't force an AI restore on exit)
+			const wasAiMode =
+				session?.inputMode === 'ai' && !session?.activeTerminalTabId && !session?.activeFileTabId;
+			useUIStore
+				.getState()
+				.setPreFilterActiveTabId(wasAiMode ? session?.activeTabId || null : null);
 		} else {
-			// Exiting filter mode: restore previous active tab if it still exists
+			// Exiting filter mode: restore previous active AI tab if one was saved and still exists
 			const preFilterActiveTabId = useUIStore.getState().preFilterActiveTabId;
 			if (preFilterActiveTabId && session) {
 				const tabStillExists = session.aiTabs.some((t) => t.id === preFilterActiveTabId);
@@ -460,12 +465,18 @@ export function useSessionLifecycle(deps: SessionLifecycleDeps): SessionLifecycl
 					useSessionStore.getState().setSessions((prev) =>
 						prev.map((s) => {
 							if (s.id !== session.id) return s;
-							return { ...s, activeTabId: preFilterActiveTabId };
+							return {
+								...s,
+								activeTabId: preFilterActiveTabId,
+								activeFileTabId: null,
+								activeTerminalTabId: null,
+								inputMode: 'ai' as const,
+							};
 						})
 					);
 				}
-				useUIStore.getState().setPreFilterActiveTabId(null);
 			}
+			useUIStore.getState().setPreFilterActiveTabId(null);
 		}
 		useUIStore.getState().setShowUnreadOnly(!showUnreadOnly);
 	}, []);
