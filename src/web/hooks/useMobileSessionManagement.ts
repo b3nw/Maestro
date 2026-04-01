@@ -648,7 +648,8 @@ export function useMobileSessionManagement(
 								...s,
 								aiTabs: s.aiTabs?.map((tab) => ({
 									...tab,
-									hasUnread: true,
+									// Only mark the specific tab that received output as unread
+									hasUnread: tab.hasUnread || !tabId || tab.id === tabId,
 								})),
 							};
 						})

@@ -6,7 +6,7 @@
  * but rendered as a persistent, toggleable side panel for desktop-like UX.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useThemeColors } from '../components/ThemeProvider';
 import { GitStatusPanel } from './GitStatusPanel';
 import { FilesTabContent, HistoryTabContent, AutoRunTabContent } from './RightDrawer';
@@ -87,11 +87,19 @@ export function RightPanel({
 		enabled: !!isFullScreen,
 	});
 
+	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+		},
+		[]
+	);
+
 	const handleClose = useCallback(() => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
 		setIsOpen(false);
 		// Wait for close animation before unmounting
-		setTimeout(() => onClose(), 300);
+		closeTimerRef.current = setTimeout(() => onClose(), 300);
 	}, [onClose]);
 
 	const handleTabChange = useCallback((tab: RightDrawerTab) => {

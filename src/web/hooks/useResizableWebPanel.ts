@@ -34,6 +34,8 @@ export function useResizableWebPanel({
 	const startX = useRef(0);
 	const startWidth = useRef(0);
 	const cleanupRef = useRef<(() => void) | null>(null);
+	const widthRef = useRef(width);
+	widthRef.current = width;
 
 	// Clean up listeners and overlay on unmount
 	useEffect(() => {
@@ -61,7 +63,7 @@ export function useResizableWebPanel({
 			e.preventDefault();
 			isResizing.current = true;
 			startX.current = e.clientX;
-			startWidth.current = width;
+			startWidth.current = widthRef.current;
 
 			// Add a full-screen overlay to capture mouse events during drag
 			const overlay = document.createElement('div');
@@ -97,7 +99,7 @@ export function useResizableWebPanel({
 			document.addEventListener('mouseup', onMouseUp);
 			cleanupRef.current = cleanup;
 		},
-		[side, width, minWidth, maxWidth, commitWidth]
+		[side, minWidth, maxWidth, commitWidth]
 	);
 
 	return { width, panelRef, onResizeStart, isResizing };

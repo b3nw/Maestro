@@ -31,6 +31,7 @@
  */
 
 import path from 'path';
+import fs from 'fs/promises';
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 import type {
@@ -583,19 +584,39 @@ export class WebSocketMessageHandler {
 							`[Web] Terminal PTY spawn for ${sessionId}: success=${spawnResult?.success}`,
 							LOG_CONTEXT
 						);
-						// Notify the web client that the PTY is ready so it can re-send
-						// its current dimensions (the initial resize fired before the PTY existed)
 						if (spawnResult?.success) {
+							// Notify the web client that the PTY is ready so it can re-send
+							// its current dimensions (the initial resize fired before the PTY existed)
 							this.send(client, {
 								type: 'terminal_ready',
 								sessionId,
 							});
+						} else {
+							// PTY failed to spawn — report failure so the client can roll back
+							this.send(client, {
+								type: 'mode_switch_result',
+								success: false,
+								sessionId,
+								mode,
+								error: 'Failed to spawn terminal PTY',
+								requestId: message.requestId,
+							});
+							return;
 						}
 					} catch (err) {
 						logger.error(
 							`[Web] Failed to spawn terminal PTY for ${sessionId}: ${err}`,
 							LOG_CONTEXT
 						);
+						this.send(client, {
+							type: 'mode_switch_result',
+							success: false,
+							sessionId,
+							mode,
+							error: `Failed to spawn terminal: ${err instanceof Error ? err.message : String(err)}`,
+							requestId: message.requestId,
+						});
+						return;
 					}
 				}
 				// When switching back to AI, keep the terminal PTY alive so the user
@@ -1046,9 +1067,6 @@ export class WebSocketMessageHandler {
 			path: string;
 		}>
 	> {
-		const fs = await import('fs/promises');
-		const pathModule = await import('path');
-
 		// Common ignore patterns
 		const IGNORE = new Set([
 			'node_modules',
@@ -1095,7 +1113,7 @@ export class WebSocketMessageHandler {
 				});
 
 			for (const entry of sorted) {
-				const fullPath = pathModule.join(dirPath, entry.name);
+				const fullPath = path.join(dirPath, entry.name);
 
 				if (entry.isDirectory()) {
 					const children =

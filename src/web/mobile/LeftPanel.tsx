@@ -6,7 +6,7 @@
  * Sessions are grouped by their group, with status dots and mode indicators.
  */
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { useThemeColors } from '../components/ThemeProvider';
 import { StatusDot, type SessionStatus } from '../components/Badge';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
@@ -184,11 +184,19 @@ export function LeftPanel({
 		enabled: !!isFullScreen,
 	});
 
+	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+		},
+		[]
+	);
+
 	const handleClose = useCallback(() => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
 		setIsOpen(false);
 		// Wait for close animation before unmounting
-		setTimeout(() => onClose(), 300);
+		closeTimerRef.current = setTimeout(() => onClose(), 300);
 	}, [onClose]);
 
 	const toggleGroup = useCallback(

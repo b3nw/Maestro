@@ -93,11 +93,19 @@ export function RightDrawer({
 		lockDirection: true,
 	});
 
+	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+		},
+		[]
+	);
+
 	const handleClose = useCallback(() => {
 		triggerHaptic(HAPTIC_PATTERNS.tap);
 		setIsOpen(false);
 		// Wait for close animation before unmounting
-		setTimeout(() => onClose(), 300);
+		closeTimerRef.current = setTimeout(() => onClose(), 300);
 	}, [onClose]);
 
 	const handleOverlayClick = useCallback(() => {
