@@ -164,13 +164,25 @@ export function AgentConfigPanel({
 							}}
 						>
 							Input Prompt
+							{hasIncomingAgentEdges && data.includeUpstreamOutput !== false && (
+								<span
+									style={{
+										fontWeight: 400,
+										color: theme.colors.textDim,
+										fontSize: 10,
+										marginLeft: 4,
+									}}
+								>
+									(optional)
+								</span>
+							)}
 							<textarea
 								value={localInputPrompt}
 								onChange={handleInputPromptChange}
 								rows={expanded ? undefined : 3}
 								placeholder={
 									hasIncomingAgentEdges && data.includeUpstreamOutput !== false
-										? 'Instructions for this agent. Upstream output is auto-included via {{CUE_SOURCE_OUTPUT}}.'
+										? 'Optional — upstream output is auto-included. Add instructions to guide how the agent processes it.'
 										: hasIncomingAgentEdges
 											? 'Instructions for this agent. Use {{CUE_SOURCE_OUTPUT}} to include upstream output.'
 											: hasGitHubTrigger

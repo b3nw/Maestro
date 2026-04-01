@@ -96,8 +96,8 @@ export function validatePipelines(pipelines: CuePipeline[]): string[] {
 					const name = agentData.sessionName;
 					errors.push(`"${pipeline.name}": agent "${name}" is missing a prompt`);
 				}
-			} else if (!agentData.inputPrompt?.trim()) {
-				// Chain agent (incoming from other agents) — must have node-level prompt
+			} else if (!agentData.inputPrompt?.trim() && agentData.includeUpstreamOutput === false) {
+				// Chain agent with upstream output disabled — must have node-level prompt
 				const name = agentData.sessionName;
 				errors.push(`"${pipeline.name}": agent "${name}" is missing a prompt`);
 			}

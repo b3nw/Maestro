@@ -885,6 +885,97 @@ describe('ensureSourceOutputVariable', () => {
 	});
 });
 
+describe('chain agent with empty prompt', () => {
+	it('generates {{CUE_SOURCE_OUTPUT}} prompt for chain agent with empty inputPrompt', () => {
+		const pipeline = makePipeline({
+			nodes: [
+				{
+					id: 'trigger-1',
+					type: 'trigger',
+					position: { x: 0, y: 0 },
+					data: { eventType: 'file.changed', label: 'File Change', config: { watch: '**/*' } },
+				},
+				{
+					id: 'agent-1',
+					type: 'agent',
+					position: { x: 200, y: 0 },
+					data: {
+						sessionId: 's1',
+						sessionName: 'builder',
+						toolType: 'claude-code',
+						inputPrompt: 'Build the project',
+					},
+				},
+				{
+					id: 'agent-2',
+					type: 'agent',
+					position: { x: 400, y: 0 },
+					data: {
+						sessionId: 's2',
+						sessionName: 'tester',
+						toolType: 'claude-code',
+						inputPrompt: '',
+					},
+				},
+			],
+			edges: [
+				{ id: 'e1', source: 'trigger-1', target: 'agent-1', mode: 'pass' },
+				{ id: 'e2', source: 'agent-1', target: 'agent-2', mode: 'pass' },
+			],
+		});
+
+		const subs = pipelineToYamlSubscriptions(pipeline);
+		const chainSub = subs.find((s) => s.event === 'agent.completed');
+		expect(chainSub).toBeDefined();
+		expect(chainSub!.prompt).toBe('{{CUE_SOURCE_OUTPUT}}');
+		expect(chainSub!.source_session).toBe('builder');
+	});
+
+	it('generates {{CUE_SOURCE_OUTPUT}} prompt for chain agent with undefined inputPrompt', () => {
+		const pipeline = makePipeline({
+			nodes: [
+				{
+					id: 'trigger-1',
+					type: 'trigger',
+					position: { x: 0, y: 0 },
+					data: { eventType: 'file.changed', label: 'File Change', config: { watch: '**/*' } },
+				},
+				{
+					id: 'agent-1',
+					type: 'agent',
+					position: { x: 200, y: 0 },
+					data: {
+						sessionId: 's1',
+						sessionName: 'builder',
+						toolType: 'claude-code',
+						inputPrompt: 'Build',
+					},
+				},
+				{
+					id: 'agent-2',
+					type: 'agent',
+					position: { x: 400, y: 0 },
+					data: {
+						sessionId: 's2',
+						sessionName: 'reviewer',
+						toolType: 'claude-code',
+						// inputPrompt intentionally omitted
+					},
+				},
+			],
+			edges: [
+				{ id: 'e1', source: 'trigger-1', target: 'agent-1', mode: 'pass' },
+				{ id: 'e2', source: 'agent-1', target: 'agent-2', mode: 'pass' },
+			],
+		});
+
+		const subs = pipelineToYamlSubscriptions(pipeline);
+		const chainSub = subs.find((s) => s.event === 'agent.completed');
+		expect(chainSub).toBeDefined();
+		expect(chainSub!.prompt).toBe('{{CUE_SOURCE_OUTPUT}}');
+	});
+});
+
 describe('fan-out with per-edge prompts', () => {
 	it('produces fan_out_prompts when edges have different prompts', () => {
 		const pipeline = makePipeline({
