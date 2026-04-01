@@ -106,6 +106,21 @@ interface CodexMessageContent {
 }
 
 /**
+ * Tool use entry shape used when building SessionMessage.toolUse arrays.
+ * Provides type safety for the tool call / tool output merge logic.
+ */
+interface CodexToolUseEntry {
+	tool?: string;
+	name?: string;
+	args?: unknown;
+	state: {
+		status: string;
+		input?: unknown;
+		output?: string;
+	};
+}
+
+/**
  * Extract the session ID (UUID) from a Codex session filename
  * Format: rollout-TIMESTAMP-UUID.jsonl
  */
@@ -1022,13 +1037,13 @@ export class CodexSessionStorage extends BaseSessionStorage {
 						} catch {
 							parsedInput = entry.payload.arguments || {};
 						}
-						const toolInfo = {
+						const toolInfo: CodexToolUseEntry = {
 							tool: entry.payload.name,
 							args: entry.payload.arguments,
 							state: {
-								status: 'running' as const,
+								status: 'running',
 								input: parsedInput,
-							} as { status: string; input: unknown; output?: string },
+							},
 						};
 						messages.push({
 							type: 'assistant',
@@ -1051,14 +1066,27 @@ export class CodexSessionStorage extends BaseSessionStorage {
 						const callId = entry.payload.call_id;
 						const outputText = entry.payload.output || '';
 						// Find the matching tool call message by call_id and merge the output
-						const matchingMsg = callId
-							? messages.find((m) => m.uuid === callId && m.toolUse)
-							: undefined;
-						if (matchingMsg && Array.isArray(matchingMsg.toolUse)) {
-							const toolEntry = (matchingMsg.toolUse as any[])[0];
-							if (toolEntry?.state) {
-								toolEntry.state.status = 'completed';
-								toolEntry.state.output = outputText;
+						const matchingIdx = callId
+							? messages.findIndex((m) => m.uuid === callId && m.toolUse)
+							: -1;
+						if (matchingIdx >= 0) {
+							const matchingMsg = messages[matchingIdx];
+							const toolEntries = matchingMsg.toolUse as CodexToolUseEntry[] | undefined;
+							const firstEntry = toolEntries?.[0];
+							if (firstEntry?.state) {
+								// Replace the message immutably with updated tool state
+								const updatedEntry: CodexToolUseEntry = {
+									...firstEntry,
+									state: {
+										...firstEntry.state,
+										status: 'completed',
+										output: outputText,
+									},
+								};
+								messages[matchingIdx] = {
+									...matchingMsg,
+									toolUse: [updatedEntry, ...(toolEntries?.slice(1) || [])],
+								};
 							}
 						} else {
 							// No matching tool call found - create a standalone message

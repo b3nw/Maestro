@@ -274,4 +274,180 @@ describe('CodexSessionStorage - readSessionMessages', () => {
 			}
 		}
 	});
+
+	it('should handle function_call_output with no matching call_id', async () => {
+		const lines = [
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:29.069Z',
+				type: 'session_meta',
+				payload: {
+					id: 'orphan-test-session',
+					timestamp: '2026-03-08T03:10:28.101Z',
+					cwd: 'C:\\Users\\test\\project',
+				},
+			}),
+			// Output without a preceding tool call
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:40.000Z',
+				type: 'response_item',
+				payload: {
+					type: 'function_call_output',
+					call_id: 'call_nonexistent',
+					output: 'Orphaned output text',
+				},
+			}),
+		];
+		const content = lines.join('\n');
+
+		vi.spyOn(storage as any, 'findSessionFile').mockResolvedValue(
+			'/home/user/.codex/sessions/2026/03/08/orphan.jsonl'
+		);
+		vi.mocked(fs.readFile).mockResolvedValue(content);
+
+		const result = await storage.readSessionMessages('C:\\Users\\test\\project', 'orphan-session', {
+			offset: 0,
+			limit: 50,
+		});
+
+		// Should create a standalone message with the output text
+		const orphanMsg = result.messages.find((m) => m.content === 'Orphaned output text');
+		expect(orphanMsg).toBeDefined();
+		expect(orphanMsg!.toolUse).toBeUndefined();
+	});
+
+	it('should handle empty session file', async () => {
+		vi.spyOn(storage as any, 'findSessionFile').mockResolvedValue(
+			'/home/user/.codex/sessions/2026/03/08/empty.jsonl'
+		);
+		vi.mocked(fs.readFile).mockResolvedValue('');
+
+		const result = await storage.readSessionMessages('C:\\Users\\test\\project', 'empty-session', {
+			offset: 0,
+			limit: 50,
+		});
+
+		expect(result.messages).toEqual([]);
+		expect(result.total).toBe(0);
+	});
+
+	it('should handle session file with only malformed JSON lines', async () => {
+		const content = 'not json line 1\nalso not json\n{broken json';
+
+		vi.spyOn(storage as any, 'findSessionFile').mockResolvedValue(
+			'/home/user/.codex/sessions/2026/03/08/bad.jsonl'
+		);
+		vi.mocked(fs.readFile).mockResolvedValue(content);
+
+		const result = await storage.readSessionMessages('C:\\Users\\test\\project', 'bad-session', {
+			offset: 0,
+			limit: 50,
+		});
+
+		// Malformed lines should be silently skipped
+		expect(result.messages).toEqual([]);
+		expect(result.total).toBe(0);
+	});
+
+	it('should handle legacy item.completed tool_call and tool_result entries', async () => {
+		const lines = [
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:29.069Z',
+				type: 'session_meta',
+				payload: {
+					id: 'legacy-test',
+					timestamp: '2026-03-08T03:10:28.101Z',
+					cwd: 'C:\\Users\\test\\project',
+				},
+			}),
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:33.000Z',
+				type: 'item.completed',
+				item: {
+					id: 'item_tool1',
+					type: 'tool_call',
+					tool: 'shell',
+					args: { command: ['echo', 'hello'] },
+				},
+			}),
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:34.000Z',
+				type: 'item.completed',
+				item: {
+					id: 'item_result1',
+					type: 'tool_result',
+					output: 'hello',
+				},
+			}),
+		];
+		const content = lines.join('\n');
+
+		vi.spyOn(storage as any, 'findSessionFile').mockResolvedValue(
+			'/home/user/.codex/sessions/2026/03/08/legacy.jsonl'
+		);
+		vi.mocked(fs.readFile).mockResolvedValue(content);
+
+		const result = await storage.readSessionMessages('C:\\Users\\test\\project', 'legacy-session', {
+			offset: 0,
+			limit: 50,
+		});
+
+		// Should have tool_call message and tool_result message
+		const toolMsg = result.messages.find((m) => m.content === 'Tool: shell');
+		expect(toolMsg).toBeDefined();
+		expect(toolMsg!.toolUse).toBeDefined();
+
+		const resultMsg = result.messages.find((m) => m.content === 'hello');
+		expect(resultMsg).toBeDefined();
+	});
+
+	it('should handle function_call_output with empty output string', async () => {
+		const lines = [
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:29.069Z',
+				type: 'session_meta',
+				payload: {
+					id: 'empty-output-test',
+					cwd: 'C:\\Users\\test\\project',
+				},
+			}),
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:33.000Z',
+				type: 'response_item',
+				payload: {
+					type: 'function_call',
+					name: 'write_file',
+					arguments: '{"path":"test.txt"}',
+					call_id: 'call_empty_out',
+				},
+			}),
+			JSON.stringify({
+				timestamp: '2026-03-08T03:10:34.000Z',
+				type: 'response_item',
+				payload: {
+					type: 'function_call_output',
+					call_id: 'call_empty_out',
+					output: '',
+				},
+			}),
+		];
+		const content = lines.join('\n');
+
+		vi.spyOn(storage as any, 'findSessionFile').mockResolvedValue(
+			'/home/user/.codex/sessions/2026/03/08/empty-out.jsonl'
+		);
+		vi.mocked(fs.readFile).mockResolvedValue(content);
+
+		const result = await storage.readSessionMessages(
+			'C:\\Users\\test\\project',
+			'empty-output-session',
+			{ offset: 0, limit: 50 }
+		);
+
+		// The tool call should exist and have its output merged (even if empty)
+		const toolMsg = result.messages.find((m) => m.content === 'Tool: write_file');
+		expect(toolMsg).toBeDefined();
+		const toolUseArr = toolMsg!.toolUse as any[];
+		expect(toolUseArr[0].state.status).toBe('completed');
+		expect(toolUseArr[0].state.output).toBe('');
+	});
 });
