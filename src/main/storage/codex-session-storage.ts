@@ -444,6 +444,13 @@ async function parseSessionFile(
 			durationSeconds,
 		};
 	} catch (error) {
+		// RangeError: Invalid string length occurs when the file is too large for V8
+		// string allocation (e.g., under MAX_SESSION_FILE_SIZE but system memory is low).
+		// This is expected and not worth reporting to Sentry.
+		if (error instanceof RangeError) {
+			logger.warn('Codex session file too large to parse', LOG_CONTEXT, { filePath });
+			return null;
+		}
 		logger.error(`Error reading Codex session file: ${filePath}`, LOG_CONTEXT, error);
 		captureException(error, { operation: 'codexStorage:readSessionFile', filePath });
 		return null;
