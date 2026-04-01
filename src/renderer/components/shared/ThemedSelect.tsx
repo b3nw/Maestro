@@ -6,7 +6,7 @@
  * Supports full keyboard navigation (Arrow keys, Home/End, Enter/Space, Escape).
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { Theme } from '../../types';
 import { useClickOutside } from '../../hooks/ui';
@@ -40,14 +40,20 @@ export function ThemedSelect({
 	'aria-label': ariaLabel,
 	id,
 }: ThemedSelectProps) {
+	const instanceId = useId();
 	const [open, setOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(-1);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [dropUp, setDropUp] = useState(false);
 
-	const handleClose = useCallback(() => setOpen(false), []);
-	useClickOutside(containerRef, handleClose, open);
+	const closeAndRefocus = useCallback(() => {
+		setOpen(false);
+		triggerRef.current?.focus();
+	}, []);
+
+	useClickOutside(containerRef, closeAndRefocus, open);
 
 	// Reset active index to selected option when opening
 	useEffect(() => {
@@ -73,9 +79,9 @@ export function ThemedSelect({
 	const handleSelect = useCallback(
 		(optValue: string) => {
 			onChange(optValue);
-			setOpen(false);
+			closeAndRefocus();
 		},
-		[onChange]
+		[onChange, closeAndRefocus]
 	);
 
 	const handleMenuKeyDown = useCallback(
@@ -105,11 +111,11 @@ export function ThemedSelect({
 					}
 					break;
 				case 'Escape':
-					setOpen(false);
+					closeAndRefocus();
 					break;
 			}
 		},
-		[options, activeIndex, handleSelect]
+		[options, activeIndex, handleSelect, closeAndRefocus]
 	);
 
 	const selectedLabel = options.find((o) => o.value === value)?.label ?? value;
@@ -117,6 +123,7 @@ export function ThemedSelect({
 	return (
 		<div ref={containerRef} style={{ position: 'relative', ...style }}>
 			<button
+				ref={triggerRef}
 				type="button"
 				id={id}
 				aria-label={ariaLabel}
@@ -160,6 +167,7 @@ export function ThemedSelect({
 					ref={menuRef}
 					role="listbox"
 					tabIndex={-1}
+					aria-activedescendant={activeIndex >= 0 ? `${instanceId}-opt-${activeIndex}` : undefined}
 					onKeyDown={handleMenuKeyDown}
 					style={{
 						position: 'absolute',
@@ -180,6 +188,7 @@ export function ThemedSelect({
 					{options.map((opt, i) => (
 						<button
 							key={opt.value}
+							id={`${instanceId}-opt-${i}`}
 							type="button"
 							role="option"
 							aria-selected={opt.value === value}
