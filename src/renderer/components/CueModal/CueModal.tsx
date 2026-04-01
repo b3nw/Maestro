@@ -211,7 +211,6 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 				async () => {
 					try {
 						await window.maestro.cue.deleteYaml(session.projectRoot);
-						await refresh();
 					} catch (err) {
 						captureException(err, {
 							extra: { context: 'handleRemoveCue', projectRoot: session.projectRoot },
@@ -219,6 +218,19 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 						notifyToast({
 							title: 'Failed to remove Cue configuration',
 							message: 'Could not delete cue.yaml. Check file permissions.',
+							type: 'error',
+						});
+						return;
+					}
+					try {
+						await refresh();
+					} catch (err) {
+						captureException(err, {
+							extra: { context: 'handleRemoveCue', projectRoot: session.projectRoot },
+						});
+						notifyToast({
+							title: 'Failed to refresh project',
+							message: 'Cue configuration was removed but the view could not be refreshed.',
 							type: 'error',
 						});
 					}
