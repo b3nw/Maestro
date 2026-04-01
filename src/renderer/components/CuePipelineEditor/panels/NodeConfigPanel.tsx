@@ -80,7 +80,8 @@ export function NodeConfigPanel({
 	const ExpandIcon = expanded ? ChevronsDown : ChevronsUp;
 
 	const hasFanIn = (incomingAgentEdgeCount ?? 0) > 1;
-	const collapsedHeight = isTrigger ? 'auto' : hasFanIn ? 340 : 240;
+	const hasUpstreamAgents = hasIncomingAgentEdges === true;
+	const collapsedHeight = isTrigger ? 'auto' : hasFanIn ? 340 : hasUpstreamAgents ? 280 : 240;
 
 	return (
 		<div

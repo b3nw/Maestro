@@ -163,19 +163,20 @@ export function AgentConfigPanel({
 								minHeight: 0,
 							}}
 						>
-							Input Prompt
-							{hasIncomingAgentEdges && data.includeUpstreamOutput !== false && (
-								<span
-									style={{
-										fontWeight: 400,
-										color: theme.colors.textDim,
-										fontSize: 10,
-										marginLeft: 4,
-									}}
-								>
-									(optional)
-								</span>
-							)}
+							<span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+								Input Prompt
+								{hasIncomingAgentEdges && data.includeUpstreamOutput !== false && (
+									<span
+										style={{
+											fontWeight: 400,
+											color: theme.colors.textDim,
+											fontSize: 10,
+										}}
+									>
+										(optional)
+									</span>
+								)}
+							</span>
 							<textarea
 								value={localInputPrompt}
 								onChange={handleInputPromptChange}
@@ -199,34 +200,41 @@ export function AgentConfigPanel({
 							/>
 						</label>
 						{hasIncomingAgentEdges && (
-							<>
-								<label
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 6,
-										fontSize: 11,
-										color: theme.colors.textDim,
-										cursor: 'pointer',
-										marginTop: 2,
-									}}
-								>
-									<input
-										type="checkbox"
-										checked={data.includeUpstreamOutput !== false}
-										onChange={(e) =>
-											onUpdateNode(node.id, {
-												includeUpstreamOutput: e.target.checked,
-											} as Partial<AgentNodeData>)
-										}
-										style={{ accentColor: CUE_COLOR }}
-									/>
+							<label
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 6,
+									fontSize: 11,
+									color: theme.colors.textDim,
+									cursor: 'pointer',
+									marginTop: 2,
+								}}
+							>
+								<input
+									type="checkbox"
+									checked={data.includeUpstreamOutput !== false}
+									onChange={(e) =>
+										onUpdateNode(node.id, {
+											includeUpstreamOutput: e.target.checked,
+										} as Partial<AgentNodeData>)
+									}
+									style={{ accentColor: CUE_COLOR }}
+								/>
+								<span>
 									Auto-include upstream output
-								</label>
-								<div style={{ color: theme.colors.textDim, fontSize: 10, marginTop: 2 }}>
-									Use {'{{CUE_SOURCE_OUTPUT}}'} in your prompt to control placement.
-								</div>
-							</>
+									<span
+										style={{
+											color: theme.colors.textDim,
+											fontSize: 10,
+											marginLeft: 4,
+											opacity: 0.7,
+										}}
+									>
+										— use {'{{CUE_SOURCE_OUTPUT}}'} to control placement
+									</span>
+								</span>
+							</label>
 						)}
 						<div
 							style={{
