@@ -1002,9 +1002,6 @@ export async function generateInlineDocuments(
 						supportsStreamJsonInput: agent?.capabilities?.supportsStreamJsonInput ?? false,
 						hasImages: false, // Document generation never sends images
 					});
-				if (sendViaStdin && !argsForSpawn.includes('--input-format')) {
-					argsForSpawn.push('--input-format', 'stream-json');
-				}
 
 				window.maestro.process
 					.spawn({

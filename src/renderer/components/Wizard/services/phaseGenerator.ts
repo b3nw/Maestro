@@ -1132,14 +1132,6 @@ class PhaseGenerator {
 					supportsStreamJsonInput: agent?.capabilities?.supportsStreamJsonInput ?? false,
 					hasImages: false, // Document generation never sends images
 				});
-			if (sendViaStdin) {
-				const inputFormatIndex = argsForSpawn.findIndex((arg) => arg === '--input-format');
-				if (inputFormatIndex === -1) {
-					argsForSpawn.push('--input-format', 'stream-json');
-				} else if (argsForSpawn[inputFormatIndex + 1] !== 'stream-json') {
-					argsForSpawn[inputFormatIndex + 1] = 'stream-json';
-				}
-			}
 
 			wizardDebugLogger.log('spawn', 'Calling process.spawn', {
 				sessionId,
