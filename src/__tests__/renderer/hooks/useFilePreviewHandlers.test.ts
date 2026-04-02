@@ -71,8 +71,20 @@ describe('useFilePreviewHandlers', () => {
 		});
 
 		const first = result.current.memoizedFilePreviewFile;
-		rerender({ tab }); // Same tab
+		// Rerender with a new but value-equal tab to verify memo stability on object identity change
+		rerender({ tab: makeFileTab() });
 		expect(result.current.memoizedFilePreviewFile).toBe(first); // Same reference
+	});
+
+	it('does not match sibling path prefixes for filePreviewCwd', () => {
+		const { result } = renderHook(() =>
+			useFilePreviewHandlers({
+				activeSession: makeSession({ fullPath: '/test/project' }),
+				activeFileTabId: 'file-1',
+				activeFileTab: makeFileTab({ path: '/test/project2/src/foo.ts' }),
+			})
+		);
+		expect(result.current.filePreviewCwd).toBe('');
 	});
 
 	it('computes filePreviewCwd from session path', () => {

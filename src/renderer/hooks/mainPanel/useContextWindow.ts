@@ -1,17 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { calculateContextDisplay } from '../../utils/contextUsage';
 import { captureException } from '../../utils/sentry';
-import type { Session } from '../../types';
-
-interface AITab {
-	usageStats?: {
-		inputTokens?: number;
-		outputTokens?: number;
-		cacheCreationInputTokens?: number;
-		cacheReadInputTokens?: number;
-		contextWindow?: number;
-	};
-}
+import type { Session, AITab } from '../../types';
 
 /**
  * Loads and computes context window metrics for the active tab.

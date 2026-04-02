@@ -236,7 +236,7 @@ export const MainPanel = React.memo(
 					setTerminalSearchOpen(true);
 				},
 			}),
-			[refreshGitStatus]
+			[refreshGitStatus, activeSession?.id]
 		);
 
 		// Handler for input focus - select session in sidebar
@@ -285,7 +285,7 @@ export const MainPanel = React.memo(
 		});
 
 		// Handler to view git diff
-		const handleViewGitDiff = async () => {
+		const handleViewGitDiff = useCallback(async () => {
 			if (!activeSession || !activeSession.isGitRepo) return;
 
 			const cwd =
@@ -297,7 +297,14 @@ export const MainPanel = React.memo(
 			if (diff.diff) {
 				setGitDiffPreview(diff.diff);
 			}
-		};
+		}, [
+			activeSession?.isGitRepo,
+			activeSession?.inputMode,
+			activeSession?.shellCwd,
+			activeSession?.cwd,
+			filePreviewSshRemoteId,
+			setGitDiffPreview,
+		]);
 
 		// Show log viewer
 		if (logViewerOpen) {
