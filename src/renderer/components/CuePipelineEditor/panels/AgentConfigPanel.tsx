@@ -124,7 +124,7 @@ export function AgentConfigPanel({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 8,
+				gap: 12,
 				flex: 1,
 				minHeight: 0,
 				overflowY: 'auto',
@@ -195,7 +195,7 @@ export function AgentConfigPanel({
 									resize: 'vertical',
 									fontFamily: 'inherit',
 									lineHeight: 1.4,
-									...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: hasFanIn ? 48 : 72 }),
+									...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: hasFanIn ? 64 : 80 }),
 								}}
 							/>
 						</label>
@@ -287,7 +287,7 @@ export function AgentConfigPanel({
 								fontFamily: 'inherit',
 								lineHeight: 1.4,
 								cursor: outputDisabled ? 'not-allowed' : undefined,
-								...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: hasFanIn ? 48 : 72 }),
+								...(expanded ? { flex: 1, minHeight: 0 } : { minHeight: hasFanIn ? 64 : 80 }),
 							}}
 						/>
 					</label>
