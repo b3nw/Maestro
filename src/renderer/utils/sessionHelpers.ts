@@ -373,7 +373,7 @@ export function isSessionRemote(session: SessionSshInfo | null | undefined): boo
  *
  * Returns the context needed for cross-host history sync when:
  * - The session uses an SSH remote
- * - The syncHistory setting is not disabled (defaults to true)
+ * - The syncHistory setting is explicitly enabled
  *
  * @param session - Session with SSH remote fields and cwd
  * @returns Shared context object, or undefined if not applicable
@@ -386,8 +386,8 @@ export function buildSharedHistoryContext(
 	const config = session.sessionSshRemoteConfig;
 	if (!config?.enabled || !config.remoteId) return undefined;
 
-	// Respect the syncHistory toggle (defaults to true)
-	if (config.syncHistory === false) return undefined;
+	// Respect the syncHistory toggle (opt-in, defaults to false)
+	if (!config.syncHistory) return undefined;
 
 	const remoteCwd = session.cwd;
 	if (!remoteCwd) return undefined;
