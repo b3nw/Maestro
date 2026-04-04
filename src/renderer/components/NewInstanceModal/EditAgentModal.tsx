@@ -44,7 +44,6 @@ export function EditAgentModal({
 	const [customPath, setCustomPath] = useState('');
 	const [customArgs, setCustomArgs] = useState('');
 	const [customEnvVars, setCustomEnvVars] = useState<Record<string, string>>({});
-	const [_customModel, setCustomModel] = useState('');
 	const [refreshingAgent, setRefreshingAgent] = useState(false);
 	const [copiedId, setCopiedId] = useState(false);
 	// Provider change state
@@ -57,14 +56,23 @@ export function EditAgentModal({
 		undefined
 	);
 	const nameInputRef = useRef<HTMLInputElement>(null);
+	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+	// Clear copy timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+		};
+	}, []);
 
 	// Copy session ID to clipboard
 	const handleCopySessionId = useCallback(async () => {
 		if (!session) return;
 		const ok = await safeClipboardWrite(session.id);
 		if (ok) {
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
 			setCopiedId(true);
-			setTimeout(() => setCopiedId(false), 2000);
+			copyTimeoutRef.current = setTimeout(() => setCopiedId(false), 2000);
 		}
 	}, [session]);
 
@@ -135,12 +143,10 @@ export function EditAgentModal({
 				setCustomPath('');
 				setCustomArgs('');
 				setCustomEnvVars({});
-				setCustomModel('');
 			} else {
 				setCustomPath(session.customPath ?? '');
 				setCustomArgs(session.customArgs ?? '');
 				setCustomEnvVars(session.customEnvVars ?? {});
-				setCustomModel(session.customModel ?? '');
 			}
 		}
 	}, [isOpen, session, selectedToolType]);
@@ -150,7 +156,8 @@ export function EditAgentModal({
 		if (isOpen && session) {
 			setInstanceName(session.name);
 			setNudgeMessage(session.nudgeMessage || '');
-			setSelectedToolType(session.toolType);
+			// Only reset if different to avoid re-triggering the config loading effect
+			setSelectedToolType((prev) => (prev === session.toolType ? prev : session.toolType));
 		}
 	}, [isOpen, session]);
 

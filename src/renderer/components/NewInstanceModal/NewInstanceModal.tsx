@@ -58,12 +58,15 @@ export function NewInstanceModal({
 	}, []);
 
 	// Expand tilde in path
-	const expandTilde = (path: string): string => {
-		if (!homeDir) return path;
-		if (path === '~') return homeDir;
-		if (path.startsWith('~/')) return homeDir + path.slice(1);
-		return path;
-	};
+	const expandTilde = React.useCallback(
+		(path: string): string => {
+			if (!homeDir) return path;
+			if (path === '~') return homeDir;
+			if (path.startsWith('~/')) return homeDir + path.slice(1);
+			return path;
+		},
+		[homeDir]
+	);
 
 	const handleWorkingDirChange = React.useCallback((value: string) => {
 		setWorkingDir(value);
@@ -731,7 +734,11 @@ export function NewInstanceModal({
 
 					{/* Remote path validation status (only shown when SSH is enabled) */}
 					{isSshEnabled && workingDir.trim() && (
-						<RemotePathStatus theme={theme} validation={remotePathValidation} />
+						<RemotePathStatus
+							theme={theme}
+							validation={remotePathValidation}
+							remoteHost={sshRemoteHost}
+						/>
 					)}
 
 					{/* Directory Warning with Acknowledgment */}

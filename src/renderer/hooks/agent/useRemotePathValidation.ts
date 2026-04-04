@@ -47,11 +47,15 @@ export function useRemotePathValidation({
 			return;
 		}
 
+		let cancelled = false;
+
 		const timeoutId = setTimeout(async () => {
+			if (cancelled) return;
 			setValidation((prev) => ({ ...prev, checking: true }));
 
 			try {
 				const stat = await window.maestro.fs.stat(trimmedPath, sshRemoteId);
+				if (cancelled) return;
 				if (stat && stat.isDirectory) {
 					setValidation({
 						checking: false,
@@ -74,6 +78,7 @@ export function useRemotePathValidation({
 					});
 				}
 			} catch {
+				if (cancelled) return;
 				setValidation({
 					checking: false,
 					valid: false,
@@ -83,7 +88,10 @@ export function useRemotePathValidation({
 			}
 		}, debounceMs);
 
-		return () => clearTimeout(timeoutId);
+		return () => {
+			cancelled = true;
+			clearTimeout(timeoutId);
+		};
 	}, [isSshEnabled, path, sshRemoteId, debounceMs]);
 
 	return validation;

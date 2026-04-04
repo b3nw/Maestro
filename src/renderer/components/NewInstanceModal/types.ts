@@ -18,6 +18,12 @@ export interface AgentDebugInfo {
 	error: string | null;
 }
 
+export interface SessionSshRemoteConfig {
+	enabled: boolean;
+	remoteId: string | null;
+	workingDirOverride?: string;
+}
+
 export interface NewInstanceModalProps {
 	isOpen: boolean;
 	onClose: () => void;
@@ -32,13 +38,9 @@ export interface NewInstanceModalProps {
 		customModel?: string,
 		customContextWindow?: number,
 		customProviderPath?: string,
-		sessionSshRemoteConfig?: {
-			enabled: boolean;
-			remoteId: string | null;
-			workingDirOverride?: string;
-		}
+		sessionSshRemoteConfig?: SessionSshRemoteConfig
 	) => void;
-	theme: any;
+	theme: Theme;
 	existingSessions: Session[];
 	sourceSession?: Session; // Optional session to duplicate from
 }
@@ -56,13 +58,9 @@ export interface EditAgentModalProps {
 		customEnvVars?: Record<string, string>,
 		customModel?: string,
 		customContextWindow?: number,
-		sessionSshRemoteConfig?: {
-			enabled: boolean;
-			remoteId: string | null;
-			workingDirOverride?: string;
-		}
+		sessionSshRemoteConfig?: SessionSshRemoteConfig
 	) => void;
-	theme: any;
+	theme: Theme;
 	session: Session | null;
 	existingSessions: Session[];
 }

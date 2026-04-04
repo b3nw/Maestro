@@ -21,6 +21,11 @@ vi.mock('../../../../renderer/contexts/LayerStackContext', () => ({
 		registerLayer: mockRegisterLayer,
 		unregisterLayer: mockUnregisterLayer,
 		updateLayerHandler: mockUpdateLayerHandler,
+		getTopLayer: () => undefined,
+		closeTopLayer: vi.fn().mockResolvedValue(true),
+		getLayers: () => [],
+		hasOpenLayers: () => false,
+		hasOpenModal: () => false,
 	}),
 }));
 
@@ -64,7 +69,7 @@ const createSession = (overrides: Partial<Session> = {}): Session =>
 		customModel: 'claude-sonnet',
 		customContextWindow: 100000,
 		...overrides,
-	}) as any;
+	}) as Session;
 
 describe('EditAgentModal', () => {
 	let theme: Theme;
@@ -444,9 +449,7 @@ describe('EditAgentModal', () => {
 
 		// SSH selector should appear after SSH configs load
 		await waitFor(() => {
-			// The SshRemoteSelector renders when remotes exist
-			// We can verify it loaded by checking the remotes were fetched
-			expect(window.maestro.sshRemote.getConfigs).toHaveBeenCalled();
+			expect(screen.getByText('SSH Remote Execution')).toBeInTheDocument();
 		});
 	});
 });

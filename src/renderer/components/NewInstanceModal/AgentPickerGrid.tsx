@@ -70,7 +70,7 @@ export const AgentPickerGrid = React.memo(function AgentPickerGrid({
 					</p>
 				</div>
 			) : (
-				<div className="space-y-1">
+				<div className="space-y-1" role="listbox">
 					{sortedAgents.map((agent) => {
 						const isSupported = SUPPORTED_AGENTS.includes(agent.id);
 						const isExpanded = expandedAgent === agent.id;
@@ -301,8 +301,8 @@ export const AgentPickerGrid = React.memo(function AgentPickerGrid({
 							<span className="opacity-50">PATH:</span>
 						</div>
 						<div className="pl-2 break-all text-[10px]">
-							{debugInfo.envPath.split(':').map((p) => (
-								<div key={`${debugInfo.platform}-${p}`}>{p}</div>
+							{debugInfo.envPath.split(':').map((p, i) => (
+								<div key={`${debugInfo.platform}-${i}-${p}`}>{p}</div>
 							))}
 						</div>
 					</div>
