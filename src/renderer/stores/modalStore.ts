@@ -120,6 +120,11 @@ export interface DirectorNotesData {
 	initialTab?: 'overview' | 'history' | 'ai-overview';
 }
 
+/** Cue modal data */
+export interface CueModalData {
+	initialTab?: 'dashboard' | 'pipeline';
+}
+
 /** Cue YAML editor data */
 export interface CueYamlEditorData {
 	sessionId: string;
@@ -268,6 +273,7 @@ export interface ModalDataMap {
 	keyboardMastery: KeyboardMasteryData;
 	lightbox: LightboxData;
 	directorNotes: DirectorNotesData;
+	cueModal: CueModalData;
 	cueYamlEditor: CueYamlEditorData;
 }
 
@@ -797,6 +803,8 @@ export function getModalActions() {
 
 		// Maestro Cue Modal
 		setCueModalOpen: (open: boolean) => (open ? openModal('cueModal') : closeModal('cueModal')),
+		openCueModalWithTab: (tab: 'dashboard' | 'pipeline') =>
+			openModal('cueModal', { initialTab: tab }),
 
 		// Maestro Cue YAML Editor (standalone, bypasses CueModal dashboard)
 		openCueYamlEditor: (sessionId: string, projectRoot: string) =>

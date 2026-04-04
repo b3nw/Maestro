@@ -103,21 +103,23 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 	return (
 		<div className="space-y-5">
 			{/* Font Family */}
-			<FontConfigurationPanel
-				fontFamily={fontFamily}
-				setFontFamily={setFontFamily}
-				systemFonts={systemFonts}
-				fontsLoaded={fontsLoaded}
-				fontLoading={fontLoading}
-				customFonts={customFonts}
-				onAddCustomFont={addCustomFont}
-				onRemoveCustomFont={removeCustomFont}
-				onFontInteraction={handleFontInteraction}
-				theme={theme}
-			/>
+			<div data-setting-id="display-font-family">
+				<FontConfigurationPanel
+					fontFamily={fontFamily}
+					setFontFamily={setFontFamily}
+					systemFonts={systemFonts}
+					fontsLoaded={fontsLoaded}
+					fontLoading={fontLoading}
+					customFonts={customFonts}
+					onAddCustomFont={addCustomFont}
+					onRemoveCustomFont={removeCustomFont}
+					onFontInteraction={handleFontInteraction}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Font Size */}
-			<div>
+			<div data-setting-id="display-font-size">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">Font Size</div>
 				<ToggleButtonGroup
 					options={[
@@ -133,7 +135,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Max Log Buffer */}
-			<div>
+			<div data-setting-id="display-max-log-buffer">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">Maximum Log Buffer</div>
 				<ToggleButtonGroup
 					options={[1000, 5000, 10000, 25000]}
@@ -148,7 +150,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Max Output Lines */}
-			<div>
+			<div data-setting-id="display-max-output-lines">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">
 					Max Output Lines per Response
 				</div>
@@ -171,7 +173,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Message Alignment */}
-			<div>
+			<div data-setting-id="display-message-alignment">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">
 					User Message Alignment
 				</div>
@@ -190,7 +192,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 				</p>
 			</div>
 
-			<div>
+			<div data-setting-id="display-icon-theme">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">
 					Files Pane Icon Theme
 				</div>
@@ -210,7 +212,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Window Chrome Settings */}
-			<div>
+			<div data-setting-id="display-window-chrome">
 				<label
 					className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2"
 					style={{ color: theme.colors.textDim }}
@@ -289,7 +291,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Starred Tabs in Unread Filter */}
-			<div>
+			<div data-setting-id="display-tab-filtering">
 				<label
 					className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2"
 					style={{ color: theme.colors.textDim }}
@@ -371,7 +373,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Document Graph Settings */}
-			<div>
+			<div data-setting-id="display-document-graph">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Sparkles className="w-3 h-3" />
 					Document Graph
@@ -441,7 +443,7 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Context Window Warnings */}
-			<div>
+			<div data-setting-id="display-context-warnings">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<AlertTriangle className="w-3 h-3" />
 					Context Window Warnings
@@ -610,18 +612,20 @@ export function DisplayTab({ theme }: DisplayTabProps) {
 			</div>
 
 			{/* Local File Indexing Ignore Patterns */}
-			<IgnorePatternsSection
-				theme={theme}
-				title="Local Ignore Patterns"
-				description="Configure glob patterns for folders to exclude when indexing local files in the file explorer. Excluding large directories (like .git) reduces memory usage and speeds up file tree loading."
-				ignorePatterns={localIgnorePatterns}
-				onIgnorePatternsChange={setLocalIgnorePatterns}
-				defaultPatterns={DEFAULT_LOCAL_IGNORE_PATTERNS}
-				showHonorGitignore
-				honorGitignore={localHonorGitignore}
-				onHonorGitignoreChange={setLocalHonorGitignore}
-				onReset={() => setLocalHonorGitignore(true)}
-			/>
+			<div data-setting-id="display-ignore-patterns">
+				<IgnorePatternsSection
+					theme={theme}
+					title="Local Ignore Patterns"
+					description="Configure glob patterns for folders to exclude when indexing local files in the file explorer. Excluding large directories (like .git) reduces memory usage and speeds up file tree loading."
+					ignorePatterns={localIgnorePatterns}
+					onIgnorePatternsChange={setLocalIgnorePatterns}
+					defaultPatterns={DEFAULT_LOCAL_IGNORE_PATTERNS}
+					showHonorGitignore
+					honorGitignore={localHonorGitignore}
+					onHonorGitignoreChange={setLocalHonorGitignore}
+					onReset={() => setLocalHonorGitignore(true)}
+				/>
+			</div>
 		</div>
 	);
 }

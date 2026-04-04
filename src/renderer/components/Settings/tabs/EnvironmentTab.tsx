@@ -21,7 +21,7 @@ export function EnvironmentTab({ theme }: EnvironmentTabProps) {
 	return (
 		<div className="space-y-5">
 			{/* Global Environment Variables */}
-			<div>
+			<div data-setting-id="environment-global-vars">
 				<div className="flex items-center gap-2 mb-1">
 					<Globe className="w-3 h-3" style={{ color: theme.colors.textDim }} />
 					<span className="text-xs font-bold opacity-70 uppercase">

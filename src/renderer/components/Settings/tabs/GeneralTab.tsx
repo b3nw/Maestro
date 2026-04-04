@@ -154,7 +154,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 	return (
 		<div className="space-y-5">
 			{/* About Me (Conductor Profile) */}
-			<div>
+			<div data-setting-id="general-conductor-profile">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-1 flex items-center gap-2">
 					<User className="w-3 h-3" />
 					Conductor Profile (aka, About Me)
@@ -189,7 +189,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Default Shell */}
-			<div>
+			<div data-setting-id="general-default-shell">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-1 flex items-center gap-2">
 					<Terminal className="w-3 h-3" />
 					Default Terminal Shell
@@ -405,7 +405,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* System Log Level */}
-			<div>
+			<div data-setting-id="general-log-level">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2">System Log Level</div>
 				<ToggleButtonGroup
 					options={[
@@ -424,7 +424,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* GitHub CLI Path */}
-			<div>
+			<div data-setting-id="general-gh-path">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Terminal className="w-3 h-3" />
 					GitHub CLI (gh) Path
@@ -470,7 +470,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Input Behavior Settings */}
-			<div>
+			<div data-setting-id="general-input-behavior">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Keyboard className="w-3 h-3" />
 					Input Send Behavior
@@ -536,18 +536,20 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Default History Toggle */}
-			<SettingCheckbox
-				icon={History}
-				sectionLabel="Default History Toggle"
-				title='Enable "History" by default for new tabs'
-				description='When enabled, new AI tabs will have the "History" toggle on by default, saving a synopsis after each completion'
-				checked={defaultSaveToHistory}
-				onChange={setDefaultSaveToHistory}
-				theme={theme}
-			/>
+			<div data-setting-id="general-history">
+				<SettingCheckbox
+					icon={History}
+					sectionLabel="Default History Toggle"
+					title='Enable "History" by default for new tabs'
+					description='When enabled, new AI tabs will have the "History" toggle on by default, saving a synopsis after each completion'
+					checked={defaultSaveToHistory}
+					onChange={setDefaultSaveToHistory}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Default Thinking Toggle - Three states: Off, On, Sticky */}
-			<div>
+			<div data-setting-id="general-thinking-mode">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Brain className="w-3 h-3" />
 					Default Thinking Mode
@@ -578,29 +580,33 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Automatic Tab Naming */}
-			<SettingCheckbox
-				icon={Tag}
-				sectionLabel="Automatic Tab Naming"
-				title="Automatically name tabs based on first message"
-				description="When you send your first message to a new tab, an AI will analyze it and generate a descriptive tab name. The naming request runs in parallel and leaves no history."
-				checked={automaticTabNamingEnabled}
-				onChange={setAutomaticTabNamingEnabled}
-				theme={theme}
-			/>
+			<div data-setting-id="general-tab-naming">
+				<SettingCheckbox
+					icon={Tag}
+					sectionLabel="Automatic Tab Naming"
+					title="Automatically name tabs based on first message"
+					description="When you send your first message to a new tab, an AI will analyze it and generate a descriptive tab name. The naming request runs in parallel and leaves no history."
+					checked={automaticTabNamingEnabled}
+					onChange={setAutomaticTabNamingEnabled}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Auto-scroll AI Output */}
-			<SettingCheckbox
-				icon={ArrowDownToLine}
-				sectionLabel="Auto-scroll AI Output"
-				title="Auto-scroll AI output"
-				description="Automatically scroll to the bottom when new AI output arrives. When disabled, a floating button appears for new messages."
-				checked={autoScrollAiMode}
-				onChange={setAutoScrollAiMode}
-				theme={theme}
-			/>
+			<div data-setting-id="general-auto-scroll">
+				<SettingCheckbox
+					icon={ArrowDownToLine}
+					sectionLabel="Auto-scroll AI Output"
+					title="Auto-scroll AI output"
+					description="Automatically scroll to the bottom when new AI output arrives. When disabled, a floating button appears for new messages."
+					checked={autoScrollAiMode}
+					onChange={setAutoScrollAiMode}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Sleep Prevention */}
-			<div>
+			<div data-setting-id="general-power">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Battery className="w-3 h-3" />
 					Power
@@ -669,7 +675,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Rendering Options */}
-			<div>
+			<div data-setting-id="general-rendering">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<Monitor className="w-3 h-3" />
 					Rendering Options
@@ -772,40 +778,46 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 			</div>
 
 			{/* Check for Updates on Startup */}
-			<SettingCheckbox
-				icon={Download}
-				sectionLabel="Updates"
-				title="Check for updates on startup"
-				description="Automatically check for new Maestro versions when the app starts"
-				checked={checkForUpdatesOnStartup}
-				onChange={setCheckForUpdatesOnStartup}
-				theme={theme}
-			/>
+			<div data-setting-id="general-updates">
+				<SettingCheckbox
+					icon={Download}
+					sectionLabel="Updates"
+					title="Check for updates on startup"
+					description="Automatically check for new Maestro versions when the app starts"
+					checked={checkForUpdatesOnStartup}
+					onChange={setCheckForUpdatesOnStartup}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Beta Updates */}
-			<SettingCheckbox
-				icon={FlaskConical}
-				sectionLabel="Pre-release Channel"
-				title="Include beta and release candidate updates"
-				description="Opt-in to receive pre-release versions (e.g., v0.11.1-rc, v0.12.0-beta). These may contain experimental features and bugs."
-				checked={enableBetaUpdates}
-				onChange={setEnableBetaUpdates}
-				theme={theme}
-			/>
+			<div data-setting-id="general-beta-updates">
+				<SettingCheckbox
+					icon={FlaskConical}
+					sectionLabel="Pre-release Channel"
+					title="Include beta and release candidate updates"
+					description="Opt-in to receive pre-release versions (e.g., v0.11.1-rc, v0.12.0-beta). These may contain experimental features and bugs."
+					checked={enableBetaUpdates}
+					onChange={setEnableBetaUpdates}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Crash Reporting */}
-			<SettingCheckbox
-				icon={Bug}
-				sectionLabel="Privacy"
-				title="Send anonymous crash reports"
-				description="Help improve Maestro by automatically sending crash reports. No personal data is collected. Changes take effect after restart."
-				checked={crashReportingEnabled}
-				onChange={setCrashReportingEnabled}
-				theme={theme}
-			/>
+			<div data-setting-id="general-crash-reporting">
+				<SettingCheckbox
+					icon={Bug}
+					sectionLabel="Privacy"
+					title="Send anonymous crash reports"
+					description="Help improve Maestro by automatically sending crash reports. No personal data is collected. Changes take effect after restart."
+					checked={crashReportingEnabled}
+					onChange={setCrashReportingEnabled}
+					theme={theme}
+				/>
+			</div>
 
 			{/* Settings Storage Location */}
-			<div>
+			<div data-setting-id="general-storage">
 				<div className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
 					<FolderSync className="w-3 h-3" />
 					Storage Location

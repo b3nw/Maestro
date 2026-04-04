@@ -1097,7 +1097,7 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
 										</button>
 										{modelMenuOpen && (
 											<div
-												className="absolute bottom-full left-0 mb-1 w-max max-h-48 overflow-y-auto rounded border shadow-lg z-50 scrollbar-thin"
+												className="absolute bottom-full left-0 mb-1 max-h-48 overflow-y-auto rounded border shadow-lg z-50 scrollbar-thin"
 												style={{
 													backgroundColor: theme.colors.bgMain,
 													borderColor: theme.colors.border,
@@ -1150,7 +1150,7 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
 											</button>
 											{effortMenuOpen && (
 												<div
-													className="absolute bottom-full left-0 mb-1 w-max rounded border shadow-lg z-50 scrollbar-thin"
+													className="absolute bottom-full left-0 mb-1 max-h-48 overflow-y-auto rounded border shadow-lg z-50 scrollbar-thin"
 													style={{
 														backgroundColor: theme.colors.bgMain,
 														borderColor: theme.colors.border,
