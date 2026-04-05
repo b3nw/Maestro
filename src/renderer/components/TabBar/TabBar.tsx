@@ -52,7 +52,7 @@ function TabBarInner({
 	onFileTabClose,
 	onUnifiedTabReorder,
 	activeTerminalTabId,
-	inputMode,
+	inputMode = 'ai',
 	onTerminalTabSelect,
 	onTerminalTabClose,
 	onTerminalTabRename,
