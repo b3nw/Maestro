@@ -3,6 +3,13 @@ import { Check } from 'lucide-react';
 import type { Theme, HistoryEntry } from '../../types';
 import { LOOKBACK_OPTIONS, CUE_COLOR } from './historyConstants';
 
+/** Pre-computed activity graph bucket from backend */
+export interface GraphBucket {
+	auto: number;
+	user: number;
+	cue: number;
+}
+
 // Activity bar graph component with configurable lookback window
 export interface ActivityGraphProps {
 	entries: HistoryEntry[];
@@ -11,6 +18,8 @@ export interface ActivityGraphProps {
 	onBarClick?: (bucketStartTime: number, bucketEndTime: number) => void;
 	lookbackHours: number | null; // null = all time
 	onLookbackChange: (hours: number | null) => void;
+	/** Pre-computed buckets from backend (uses all entries, not just first page) */
+	precomputedBuckets?: GraphBucket[];
 }
 
 export const ActivityGraph: React.FC<ActivityGraphProps> = ({
@@ -20,6 +29,7 @@ export const ActivityGraph: React.FC<ActivityGraphProps> = ({
 	onBarClick,
 	lookbackHours,
 	onLookbackChange,
+	precomputedBuckets,
 }) => {
 	const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -59,8 +69,14 @@ export const ActivityGraph: React.FC<ActivityGraphProps> = ({
 		}
 	}, [entries, endTime, lookbackHours, lookbackConfig.bucketCount]);
 
-	// Group entries into buckets
+	// Group entries into buckets — use precomputed data from backend when available
 	const bucketData = useMemo(() => {
+		// Prefer backend-computed buckets (covers all entries, not just first page)
+		if (precomputedBuckets && precomputedBuckets.length === bucketCount) {
+			return precomputedBuckets;
+		}
+
+		// Fallback: client-side bucketing from available entries
 		const buckets: { auto: number; user: number; cue: number }[] = Array.from(
 			{ length: bucketCount },
 			() => ({
@@ -89,7 +105,7 @@ export const ActivityGraph: React.FC<ActivityGraphProps> = ({
 		});
 
 		return buckets;
-	}, [entries, startTime, endTime, msPerBucket, bucketCount]);
+	}, [precomputedBuckets, entries, startTime, endTime, msPerBucket, bucketCount]);
 
 	// Find max value for scaling
 	const maxValue = useMemo(() => {

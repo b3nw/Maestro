@@ -575,4 +575,57 @@ describe('ActivityGraph', () => {
 		const label = container.querySelector('[data-testid="viewport-indicator-label"]');
 		expect(label).not.toBeInTheDocument();
 	});
+
+	it('uses precomputedBuckets when provided instead of client-side bucketing', () => {
+		// Provide entries that would produce 1 auto in the last bucket via client-side bucketing
+		const entries = [createMockEntry({ type: 'AUTO', timestamp: NOW - 30 * 60 * 1000 })];
+
+		// But precomputed buckets say there are 5 auto in the last bucket (backend saw more data)
+		const precomputedBuckets = Array.from({ length: 24 }, () => ({ auto: 0, user: 0, cue: 0 }));
+		precomputedBuckets[23] = { auto: 5, user: 3, cue: 0 };
+
+		const { container } = render(
+			<ActivityGraph
+				entries={entries}
+				theme={mockTheme}
+				lookbackHours={24}
+				onLookbackChange={vi.fn()}
+				precomputedBuckets={precomputedBuckets}
+			/>
+		);
+
+		// Hover the last bar to verify tooltip shows precomputed values
+		const bars = container.querySelectorAll('.flex-1.min-w-0.flex.flex-col.justify-end');
+		const lastBar = bars[bars.length - 1];
+		fireEvent.mouseEnter(lastBar);
+
+		// Should show 5 (from precomputed) not 1 (from client-side bucketing)
+		expect(screen.getByText('5')).toBeInTheDocument();
+		expect(screen.getByText('3')).toBeInTheDocument();
+	});
+
+	it('falls back to client-side bucketing when precomputedBuckets length does not match', () => {
+		const entries = [createMockEntry({ type: 'AUTO', timestamp: NOW - 30 * 60 * 1000 })];
+
+		// Wrong number of buckets — should be ignored
+		const wrongBuckets = [{ auto: 99, user: 0, cue: 0 }];
+
+		const { container } = render(
+			<ActivityGraph
+				entries={entries}
+				theme={mockTheme}
+				lookbackHours={24}
+				onLookbackChange={vi.fn()}
+				precomputedBuckets={wrongBuckets}
+			/>
+		);
+
+		// Should fall back to client-side bucketing: 1 auto entry in last bucket
+		const bars = container.querySelectorAll('.flex-1.min-w-0.flex.flex-col.justify-end');
+		const lastBar = bars[bars.length - 1];
+		fireEvent.mouseEnter(lastBar);
+
+		expect(screen.getByText('1')).toBeInTheDocument();
+		expect(screen.queryByText('99')).not.toBeInTheDocument();
+	});
 });

@@ -2921,6 +2921,7 @@ interface MaestroAPI {
 			filter?: 'AUTO' | 'USER' | 'CUE' | null;
 			limit?: number;
 			offset?: number;
+			graphBucketCount?: number;
 		}) => Promise<{
 			entries: Array<{
 				id: string;
@@ -2951,6 +2952,7 @@ interface MaestroAPI {
 				userCount: number;
 				totalCount: number;
 			};
+			graphBuckets?: Array<{ auto: number; user: number; cue: number }>;
 		}>;
 		generateSynopsis: (options: {
 			lookbackDays: number;
