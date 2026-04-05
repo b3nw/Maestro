@@ -320,7 +320,7 @@ export interface AppModalsProps {
 	onPromptToggleEnterToSend: () => void;
 	onCloseQueueBrowser: () => void;
 	onRemoveQueueItem: (sessionId: string, itemId: string) => void;
-	onSwitchQueueSession: (sessionId: string) => void;
+	onSwitchQueueSession: (sessionId: string, tabId?: string) => void;
 	onReorderQueueItems: (sessionId: string, fromIndex: number, toIndex: number) => void;
 
 	// --- AppGroupChatModals props ---
