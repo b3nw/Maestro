@@ -707,6 +707,10 @@ export function LeftPanel({
 			clearTimeout(longPressTimerRef.current);
 			longPressTimerRef.current = null;
 		}
+		// Reset triggered flag after a microtask so the click handler sees it first
+		requestAnimationFrame(() => {
+			longPressTriggeredRef.current = false;
+		});
 	}, []);
 
 	const handleCreateGroupConfirm = useCallback(
@@ -914,9 +918,11 @@ export function LeftPanel({
 				<div
 					style={{
 						flex: 1,
+						minHeight: 0,
 						overflowY: 'auto',
 						overflowX: 'hidden',
 						padding: '6px',
+						paddingBottom: 'calc(80px + env(safe-area-inset-bottom))',
 					}}
 				>
 					{sessions.length === 0 && (
