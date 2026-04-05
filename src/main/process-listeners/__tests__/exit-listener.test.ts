@@ -64,6 +64,7 @@ describe('Exit Listener', () => {
 				getGroupChatReadOnlyState: vi.fn().mockReturnValue(false),
 				respawnParticipantWithRecovery: vi.fn().mockResolvedValue(undefined),
 				clearActiveParticipantTaskSession: vi.fn(),
+				clearModeratorResponseTimeout: vi.fn(),
 			},
 			groupChatStorage: {
 				loadGroupChat: vi.fn().mockResolvedValue(createMockGroupChat()),
@@ -387,6 +388,87 @@ describe('Exit Listener', () => {
 
 			await vi.waitFor(() => {
 				expect(mockDeps.groupChatRouter.routeModeratorResponse).toHaveBeenCalled();
+			});
+		});
+
+		it('should clear moderator response timeout on exit', () => {
+			setupListener();
+			const handler = eventHandlers.get('exit');
+			const sessionId = 'group-chat-test-chat-123-moderator-1234567890';
+
+			handler?.(sessionId, 0);
+
+			expect(mockDeps.groupChatRouter.clearModeratorResponseTimeout).toHaveBeenCalledWith(
+				'test-chat-123'
+			);
+		});
+
+		it('should emit system message and idle when moderator exits with no buffered output', async () => {
+			mockDeps.outputBuffer.getGroupChatBufferedOutput = vi.fn().mockReturnValue(undefined);
+			setupListener();
+			const handler = eventHandlers.get('exit');
+			const sessionId = 'group-chat-test-chat-123-moderator-1234567890';
+
+			handler?.(sessionId, 0);
+
+			expect(mockDeps.groupChatEmitters.emitMessage).toHaveBeenCalledWith(
+				'test-chat-123',
+				expect.objectContaining({
+					from: 'system',
+					content: expect.stringContaining('exited without producing output'),
+				})
+			);
+			expect(mockDeps.groupChatEmitters.emitStateChange).toHaveBeenCalledWith(
+				'test-chat-123',
+				'idle'
+			);
+		});
+
+		it('should emit system message and idle when moderator output parses to empty string', async () => {
+			mockDeps.outputParser.extractTextFromStreamJson = vi.fn().mockReturnValue('   ');
+			setupListener();
+			const handler = eventHandlers.get('exit');
+			const sessionId = 'group-chat-test-chat-123-moderator-1234567890';
+
+			handler?.(sessionId, 0);
+
+			await vi.waitFor(() => {
+				expect(mockDeps.groupChatEmitters.emitMessage).toHaveBeenCalledWith(
+					'test-chat-123',
+					expect.objectContaining({
+						from: 'system',
+						content: expect.stringContaining('no visible output'),
+					})
+				);
+				expect(mockDeps.groupChatEmitters.emitStateChange).toHaveBeenCalledWith(
+					'test-chat-123',
+					'idle'
+				);
+			});
+		});
+
+		it('should emit system message and idle when moderator response processing fails', async () => {
+			mockDeps.groupChatStorage.loadGroupChat = vi
+				.fn()
+				.mockRejectedValue(new Error('Storage unavailable'));
+			setupListener();
+			const handler = eventHandlers.get('exit');
+			const sessionId = 'group-chat-test-chat-123-moderator-1234567890';
+
+			handler?.(sessionId, 0);
+
+			await vi.waitFor(() => {
+				expect(mockDeps.groupChatEmitters.emitMessage).toHaveBeenCalledWith(
+					'test-chat-123',
+					expect.objectContaining({
+						from: 'system',
+						content: expect.stringContaining('Failed to process moderator response'),
+					})
+				);
+				expect(mockDeps.groupChatEmitters.emitStateChange).toHaveBeenCalledWith(
+					'test-chat-123',
+					'idle'
+				);
 			});
 		});
 	});

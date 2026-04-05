@@ -134,6 +134,58 @@ const participantTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 /** How long to wait for a participant before treating them as timed-out (10 minutes). */
 const PARTICIPANT_RESPONSE_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** How long to wait for the moderator process before treating it as timed-out (10 minutes). */
+const MODERATOR_RESPONSE_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * Tracks per-group-chat moderator timeout handles.
+ * Maps groupChatId -> NodeJS.Timeout
+ * Timeouts fire if the moderator process never exits (hung process, API hang, etc.)
+ */
+const moderatorTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Registers a response timeout for the moderator.
+ * If the moderator doesn't exit in MODERATOR_RESPONSE_TIMEOUT_MS, the state is
+ * force-reset to idle so the chat doesn't hang forever.
+ */
+export function setModeratorResponseTimeout(groupChatId: string): void {
+	clearModeratorResponseTimeout(groupChatId);
+
+	const handle = setTimeout(() => {
+		moderatorTimeouts.delete(groupChatId);
+		console.warn(
+			`[GroupChat:Debug] Moderator timed out after ${MODERATOR_RESPONSE_TIMEOUT_MS / 1000}s for ${groupChatId} — force-resetting to idle`
+		);
+		logger.warn('[GroupChat] Moderator timed out — resetting to idle', LOG_CONTEXT, {
+			groupChatId,
+			timeoutMs: MODERATOR_RESPONSE_TIMEOUT_MS,
+		});
+
+		groupChatEmitters.emitMessage?.(groupChatId, {
+			timestamp: new Date().toISOString(),
+			from: 'system',
+			content: `⚠️ Moderator did not respond within ${MODERATOR_RESPONSE_TIMEOUT_MS / 60000} minutes. Resetting to idle. You can send another message to retry.`,
+		});
+
+		groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
+		powerManager.removeBlockReason(`groupchat:${groupChatId}`);
+	}, MODERATOR_RESPONSE_TIMEOUT_MS);
+
+	moderatorTimeouts.set(groupChatId, handle);
+}
+
+/**
+ * Cancels the moderator response timeout (called when the moderator process exits).
+ */
+export function clearModeratorResponseTimeout(groupChatId: string): void {
+	const handle = moderatorTimeouts.get(groupChatId);
+	if (handle) {
+		clearTimeout(handle);
+		moderatorTimeouts.delete(groupChatId);
+	}
+}
+
 function getParticipantTimeoutKey(groupChatId: string, participantName: string): string {
 	return `${groupChatId}:${participantName}`;
 }
@@ -779,6 +831,9 @@ ${readOnly ? 'READ-ONLY MODE is active. You and all participants can only inspec
 				// Emit state change to show moderator is thinking
 				groupChatEmitters.emitStateChange?.(groupChatId, 'moderator-thinking');
 				console.log(`[GroupChat:Debug] Emitted state change: moderator-thinking`);
+
+				// Start moderator timeout to prevent indefinite hanging
+				setModeratorResponseTimeout(groupChatId);
 
 				// Add power block reason to prevent sleep during group chat activity
 				powerManager.addBlockReason(`groupchat:${groupChatId}`);
@@ -1701,6 +1756,9 @@ Review the agent responses above. Either:
 		// Emit state change to show moderator is thinking (synthesizing)
 		groupChatEmitters.emitStateChange?.(groupChatId, 'moderator-thinking');
 		console.log(`[GroupChat:Debug] Emitted state change: moderator-thinking`);
+
+		// Start moderator timeout to prevent indefinite hanging
+		setModeratorResponseTimeout(groupChatId);
 
 		// Prepare spawn config variables (may be overridden by SSH wrapping)
 		let spawnCommand = command;

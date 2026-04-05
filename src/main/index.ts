@@ -85,6 +85,7 @@ import {
 	getGroupChatReadOnlyState,
 	respawnParticipantWithRecovery,
 	clearActiveParticipantTaskSession,
+	clearModeratorResponseTimeout,
 } from './group-chat/group-chat-router';
 import { createSshRemoteStoreAdapter } from './utils/ssh-remote-resolver';
 import { updateParticipant, loadGroupChat, updateGroupChat } from './group-chat/group-chat-storage';
@@ -967,6 +968,7 @@ function setupProcessListeners() {
 				getGroupChatReadOnlyState,
 				respawnParticipantWithRecovery,
 				clearActiveParticipantTaskSession,
+				clearModeratorResponseTimeout,
 			},
 			groupChatStorage: {
 				loadGroupChat,
