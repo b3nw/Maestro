@@ -134,7 +134,6 @@ beforeEach(() => {
 
 	useSettingsStore.setState({
 		enterToSendAI: true,
-		enterToSendTerminal: true,
 	} as any);
 });
 
@@ -667,35 +666,6 @@ describe('Enter-to-send', () => {
 			result.current.handleInputKeyDown(e);
 		});
 
-		expect(deps.processInput).not.toHaveBeenCalled();
-	});
-
-	it('uses enterToSendTerminal setting in terminal mode', () => {
-		setActiveSession({ inputMode: 'terminal' });
-		useSettingsStore.setState({ enterToSendTerminal: true } as any);
-		const deps = createMockDeps();
-		const { result } = renderHook(() => useInputKeyDown(deps));
-		const e = createKeyEvent('Enter');
-
-		act(() => {
-			result.current.handleInputKeyDown(e);
-		});
-
-		expect(deps.processInput).toHaveBeenCalled();
-	});
-
-	it('does not send on Enter+Meta when enterToSendTerminal is true', () => {
-		setActiveSession({ inputMode: 'terminal' });
-		useSettingsStore.setState({ enterToSendTerminal: true } as any);
-		const deps = createMockDeps();
-		const { result } = renderHook(() => useInputKeyDown(deps));
-		const e = createKeyEvent('Enter', { metaKey: true });
-
-		act(() => {
-			result.current.handleInputKeyDown(e);
-		});
-
-		// metaKey with enterToSend=true should not match either branch
 		expect(deps.processInput).not.toHaveBeenCalled();
 	});
 });
@@ -1311,27 +1281,6 @@ describe('Enter-to-send — additional', () => {
 		});
 
 		expect(deps.processInput).not.toHaveBeenCalled();
-	});
-
-	it('terminal mode with enterToSendTerminal=false requires Cmd+Enter', () => {
-		setActiveSession({ inputMode: 'terminal' });
-		useSettingsStore.setState({ enterToSendTerminal: false } as any);
-		const deps = createMockDeps();
-		const { result } = renderHook(() => useInputKeyDown(deps));
-
-		// Plain Enter does not send
-		const e1 = createKeyEvent('Enter');
-		act(() => {
-			result.current.handleInputKeyDown(e1);
-		});
-		expect(deps.processInput).not.toHaveBeenCalled();
-
-		// Cmd+Enter does send
-		const e2 = createKeyEvent('Enter', { metaKey: true });
-		act(() => {
-			result.current.handleInputKeyDown(e2);
-		});
-		expect(deps.processInput).toHaveBeenCalled();
 	});
 
 	it('no active session uses undefined inputMode, falls to AI enterToSend setting', () => {

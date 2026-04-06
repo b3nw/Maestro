@@ -346,7 +346,6 @@ export interface WebSettings {
 	theme: string;
 	fontSize: number;
 	enterToSendAI: boolean;
-	enterToSendTerminal: boolean;
 	defaultSaveToHistory: boolean;
 	defaultShowThinking: string;
 	autoScroll: boolean;

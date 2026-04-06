@@ -160,12 +160,6 @@ export const SETTINGS_METADATA: Record<string, SettingMetadata> = {
 		default: false,
 		category: 'editor',
 	},
-	enterToSendTerminal: {
-		description: 'When true, pressing Enter sends commands in terminal mode.',
-		type: 'boolean',
-		default: true,
-		category: 'editor',
-	},
 	defaultSaveToHistory: {
 		description: 'Whether completed tasks are saved to history by default.',
 		type: 'boolean',

@@ -1540,7 +1540,6 @@ export class WebSocketMessageHandler {
 		'activeThemeId',
 		'fontSize',
 		'enterToSendAI',
-		'enterToSendTerminal',
 		'defaultSaveToHistory',
 		'defaultShowThinking',
 		'autoScroll',

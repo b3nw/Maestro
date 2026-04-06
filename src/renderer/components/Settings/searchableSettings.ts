@@ -78,7 +78,7 @@ export const GENERAL_SETTINGS: SearchableSetting[] = [
 		tab: 'general',
 		tabLabel: 'General',
 		label: 'Input Send Behavior',
-		description: 'Configure how to send messages — Enter or Cmd+Enter for AI and terminal modes',
+		description: 'Configure how to send messages — Enter or Cmd+Enter',
 		keywords: ['enter', 'send', 'input', 'submit', 'keyboard', 'newline'],
 	},
 	{

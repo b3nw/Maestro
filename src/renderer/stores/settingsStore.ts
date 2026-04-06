@@ -196,7 +196,6 @@ export interface SettingsStoreState {
 	customThemeColors: ThemeColors;
 	customThemeBaseId: ThemeId;
 	enterToSendAI: boolean;
-	enterToSendTerminal: boolean;
 	forcedParallelExecution: boolean;
 	forcedParallelAcknowledged: boolean;
 	defaultSaveToHistory: boolean;
@@ -284,7 +283,6 @@ export interface SettingsStoreActions {
 	setCustomThemeColors: (value: ThemeColors) => void;
 	setCustomThemeBaseId: (value: ThemeId) => void;
 	setEnterToSendAI: (value: boolean) => void;
-	setEnterToSendTerminal: (value: boolean) => void;
 	setForcedParallelExecution: (value: boolean) => void;
 	setForcedParallelAcknowledged: (value: boolean) => void;
 	setDefaultSaveToHistory: (value: boolean) => void;
@@ -434,7 +432,6 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 		customThemeColors: DEFAULT_CUSTOM_THEME_COLORS,
 		customThemeBaseId: 'dracula',
 		enterToSendAI: false,
-		enterToSendTerminal: true,
 		forcedParallelExecution: false,
 		forcedParallelAcknowledged: false,
 		defaultSaveToHistory: true,
@@ -582,11 +579,6 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 		setEnterToSendAI: (value) => {
 			set({ enterToSendAI: value });
 			window.maestro.settings.set('enterToSendAI', value);
-		},
-
-		setEnterToSendTerminal: (value) => {
-			set({ enterToSendTerminal: value });
-			window.maestro.settings.set('enterToSendTerminal', value);
 		},
 
 		setForcedParallelExecution: (value) => {
@@ -1505,9 +1497,6 @@ export async function loadAllSettings(): Promise<void> {
 		if (allSettings['enterToSendAI'] !== undefined)
 			patch.enterToSendAI = allSettings['enterToSendAI'] as boolean;
 
-		if (allSettings['enterToSendTerminal'] !== undefined)
-			patch.enterToSendTerminal = allSettings['enterToSendTerminal'] as boolean;
-
 		if (allSettings['forcedParallelExecution'] !== undefined)
 			patch.forcedParallelExecution = allSettings['forcedParallelExecution'] as boolean;
 		if (allSettings['forcedParallelAcknowledged'] !== undefined)
@@ -1926,7 +1915,6 @@ export function getSettingsActions() {
 		setCustomThemeColors: state.setCustomThemeColors,
 		setCustomThemeBaseId: state.setCustomThemeBaseId,
 		setEnterToSendAI: state.setEnterToSendAI,
-		setEnterToSendTerminal: state.setEnterToSendTerminal,
 		setForcedParallelExecution: state.setForcedParallelExecution,
 		setForcedParallelAcknowledged: state.setForcedParallelAcknowledged,
 		setDefaultSaveToHistory: state.setDefaultSaveToHistory,

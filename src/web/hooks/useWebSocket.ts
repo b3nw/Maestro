@@ -345,7 +345,6 @@ export interface SettingsChangedMessage extends ServerMessage {
 		theme: string;
 		fontSize: number;
 		enterToSendAI: boolean;
-		enterToSendTerminal: boolean;
 		defaultSaveToHistory: boolean;
 		defaultShowThinking: string;
 		autoScroll: boolean;

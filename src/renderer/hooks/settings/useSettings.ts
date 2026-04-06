@@ -80,8 +80,6 @@ export interface UseSettingsReturn {
 	setCustomThemeBaseId: (value: ThemeId) => void;
 	enterToSendAI: boolean;
 	setEnterToSendAI: (value: boolean) => void;
-	enterToSendTerminal: boolean;
-	setEnterToSendTerminal: (value: boolean) => void;
 	defaultSaveToHistory: boolean;
 	setDefaultSaveToHistory: (value: boolean) => void;
 

@@ -235,7 +235,6 @@ export function useInputKeyDown(deps: InputKeyDownDeps): InputKeyDownReturn {
 			// Read enter-to-send settings at call time (not closure)
 			const settings = useSettingsStore.getState();
 			const enterToSendAI = settings.enterToSendAI;
-			const enterToSendTerminal = settings.enterToSendTerminal;
 
 			if (e.key === 'Enter') {
 				// Check for forced parallel send shortcut (only in AI mode, only when feature enabled)
@@ -283,13 +282,10 @@ export function useInputKeyDown(deps: InputKeyDownDeps): InputKeyDownReturn {
 					}
 				}
 
-				const currentEnterToSend =
-					activeSession?.inputMode === 'terminal' ? enterToSendTerminal : enterToSendAI;
-
-				if (currentEnterToSend && !e.shiftKey && !e.metaKey) {
+				if (enterToSendAI && !e.shiftKey && !e.metaKey) {
 					e.preventDefault();
 					processInput();
-				} else if (!currentEnterToSend && (e.metaKey || e.ctrlKey)) {
+				} else if (!enterToSendAI && (e.metaKey || e.ctrlKey)) {
 					e.preventDefault();
 					processInput();
 				}

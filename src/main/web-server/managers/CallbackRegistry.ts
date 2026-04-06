@@ -323,7 +323,6 @@ export class CallbackRegistry {
 			theme: 'dracula',
 			fontSize: 14,
 			enterToSendAI: false,
-			enterToSendTerminal: true,
 			defaultSaveToHistory: true,
 			defaultShowThinking: 'off',
 			autoScroll: false,

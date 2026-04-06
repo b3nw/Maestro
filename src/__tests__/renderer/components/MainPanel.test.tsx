@@ -456,7 +456,6 @@ describe('MainPanel', () => {
 		useSettingsStore.setState({
 			fontFamily: 'monospace',
 			enterToSendAI: true,
-			enterToSendTerminal: false,
 			chatRawTextMode: false,
 			autoScrollAiMode: false,
 			userMessageAlignment: 'right',
