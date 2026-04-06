@@ -132,12 +132,13 @@ export function DirectorNotesModal({
 	}, []);
 
 	// Check if a tab can be navigated to
+	// Allow navigating to AI Overview during generation so user can see the progress bar
 	const isTabEnabled = useCallback(
 		(tabId: TabId) => {
-			if (tabId === 'ai-overview') return overviewReady;
+			if (tabId === 'ai-overview') return overviewReady || overviewGenerating;
 			return true;
 		},
-		[overviewReady]
+		[overviewReady, overviewGenerating]
 	);
 
 	// Navigate to adjacent tab
@@ -252,8 +253,8 @@ export function DirectorNotesModal({
 								)}
 								{tab.label}
 								{showGenerating && (
-									<span className="text-[10px] font-normal">
-										({overviewProgress > 0 ? `${overviewProgress}%` : 'generating...'})
+									<span className="text-[10px] font-normal tabular-nums">
+										{overviewProgress > 0 ? `${overviewProgress}%` : 'starting…'}
 									</span>
 								)}
 							</button>
