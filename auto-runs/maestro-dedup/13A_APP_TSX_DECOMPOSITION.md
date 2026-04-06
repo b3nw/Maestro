@@ -96,11 +96,13 @@ Break down `App.tsx` from 4,034 lines into focused modules. This is the single l
 
 ### 4. Extract modal orchestration
 
-- [ ] Create `src/renderer/components/AppModals.tsx`
-- [ ] Move all conditional modal rendering (`{isOpen && <Modal />}` blocks) from App.tsx into AppModals
-- [ ] Define `AppModalsProps` interface with all modal open states and handlers
-- [ ] Import and render `<AppModals>` from App.tsx
-- [ ] Run lint and tests: `rtk npm run lint && CI=1 rtk vitest run`
+- [x] Create `src/renderer/components/AppModals.tsx`
+- [x] Move all conditional modal rendering (`{isOpen && <Modal />}` blocks) from App.tsx into AppModals
+- [x] Define `AppModalsProps` interface with all modal open states and handlers
+- [x] Import and render `<AppModals>` from App.tsx
+- [x] Run lint and tests: `rtk npm run lint && CI=1 rtk vitest run`
+
+**Result:** Integrated the previously-created `AppStandaloneModals.tsx` (608 lines) into App.tsx, replacing ~500 lines of inline standalone modal rendering (18 modals: DebugPackage, WindowsWarning, AppOverlays, Playground, DebugWizard, Marketplace, Symphony, DirectorNotes, CueModal, CueYamlEditor, GistPublish, DocumentGraph, DeleteAgent, Settings, WizardResume, MaestroWizard, TourOverlay, flash notifications). The component self-sources modal open/close state from modalStore, sessionStore, fileExplorerStore, and tabStore - App.tsx only passes handler callbacks and computed values. Also fixed 7 type mismatches in `AppStandaloneModalsProps` (SymphonyContributionData, MindMapLayoutType, wizard/tour handler signatures, DirectorNotesResumeSession arity), replaced broken `updateSessionWith` import with `useSessionStore.getState().setSessions()` pattern, and removed 7 lazy imports + 15 unused destructured variables from App.tsx. This is the second major modal extraction layer: `AppModals/` directory handles info, confirm, session, group, worktree, utility, and agent modals; `AppStandaloneModals` handles debug, marketplace, wizard, settings, tour, gist, document graph, and celebration overlays. App.tsx reduced from 3,470 to 3,137 lines (-333 lines). Lint passes (no new errors), tests match baseline (24,537 passed, 42 pre-existing failures, 107 pending - improved from 55 baseline failures).
 
 ### 5. Extract session management effects
 
