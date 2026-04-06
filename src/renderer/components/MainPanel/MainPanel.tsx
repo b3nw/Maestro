@@ -224,6 +224,30 @@ export const MainPanel = React.memo(
 		const [agentDefaultModel, setAgentDefaultModel] = useState('');
 		const [agentDefaultEffort, setAgentDefaultEffort] = useState('');
 		const updateSession = useSessionStore((s) => s.updateSession);
+		const setSessions = useSessionStore((s) => s.setSessions);
+
+		// Navigate to agent/tab when clicking an agent pill in the log viewer
+		const handleLogSessionClick = useCallback(
+			(sessionId: string, tabId?: string) => {
+				setLogViewerOpen(false);
+				setActiveSessionId(sessionId);
+				setSessions((prev) =>
+					prev.map((s) => {
+						if (s.id !== sessionId) return s;
+						if (tabId && !s.aiTabs?.some((t) => t.id === tabId)) {
+							return { ...s, activeFileTabId: null, inputMode: 'ai' as const };
+						}
+						return {
+							...s,
+							...(tabId && { activeTabId: tabId }),
+							activeFileTabId: null,
+							inputMode: 'ai' as const,
+						};
+					})
+				);
+			},
+			[setLogViewerOpen, setActiveSessionId, setSessions]
+		);
 
 		// Fetch available models, effort levels, and agent defaults when agent type changes
 		useEffect(() => {
@@ -384,6 +408,7 @@ export const MainPanel = React.memo(
 						savedSelectedLevels={logViewerSelectedLevels}
 						onSelectedLevelsChange={useSettingsStore.getState().setLogViewerSelectedLevels}
 						onShortcutUsed={props.onShortcutUsed}
+						onSessionClick={handleLogSessionClick}
 					/>
 				</div>
 			);

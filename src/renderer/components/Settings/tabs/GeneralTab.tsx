@@ -299,6 +299,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 							borderColor: theme.colors.border,
 							color: theme.colors.textMain,
 							minHeight: '100px',
+							paddingBottom: '1.75rem',
 						}}
 						maxLength={1000}
 					/>
@@ -463,7 +464,7 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 						className="mt-2 space-y-3 p-3 rounded border"
 						style={{
 							borderColor: theme.colors.border,
-							backgroundColor: theme.colors.bgActivity,
+							backgroundColor: theme.colors.bgMain,
 						}}
 					>
 						{/* Custom Shell Path */}

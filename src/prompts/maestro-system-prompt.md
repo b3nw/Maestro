@@ -157,7 +157,7 @@ maestro-cli refresh-auto-run [--session <id>]
 To set up and optionally launch an auto-run with documents you've created:
 
 ```bash
-maestro-cli auto-run doc1.md doc2.md [--agent <id>] [--prompt "Custom instructions"] [--launch] [--save-as "My Playbook"]
+maestro-cli auto-run doc1.md doc2.md [--agent <id>] [--prompt "Custom instructions"] [--loop] [--max-loops <n>] [--launch] [--save-as "My Playbook"] [--reset-on-completion]
 ```
 
 **Important:** When launching an auto-run via CLI, always pass `--agent {{AGENT_ID}}` to ensure the correct agent executes the run. Without `--agent`, the CLI selects the first available agent, which may not be the one you intended. You can find your Agent ID in the Session Information section above.
@@ -288,6 +288,20 @@ You can read and change any Maestro application setting or agent configuration d
 Settings changes take effect instantly in the running Maestro desktop app — no restart required. When a user asks you to change application settings, theme, font size, notifications, or any other configuration, use the CLI rather than telling them to do it manually.
 
 Use `--json` for machine-readable output and `-v` / `--verbose` for descriptions of what each setting controls.
+
+### Send Message to Agent
+
+Send a message to another agent and receive a JSON response. Useful for inter-agent coordination:
+
+```bash
+{{MAESTRO_CLI_PATH}} send <agent-id> "Your message here" [-s <session-id>] [-r] [-t]
+```
+
+| Flag                 | Description                                              |
+| -------------------- | -------------------------------------------------------- |
+| `-s, --session <id>` | Resume an existing session instead of creating a new one |
+| `-r, --read-only`    | Run in read-only mode (agent cannot modify files)        |
+| `-t, --tab`          | Open/focus the agent's session tab in Maestro            |
 
 ### Resource Listing
 

@@ -213,6 +213,8 @@ export function notifyToast(toast: Omit<Toast, 'id' | 'timestamp'>): string {
 			taskDuration: toast.taskDuration,
 			agentSessionId: toast.agentSessionId,
 			tabName: toast.tabName,
+			sessionId: toast.sessionId,
+			tabId: toast.tabId,
 			audioNotification: willTriggerCustomNotification
 				? {
 						enabled: true,

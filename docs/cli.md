@@ -78,10 +78,11 @@ On failure, `success` is `false` and an `error` field is included:
 }
 ```
 
-| Flag                 | Description                                              |
-| -------------------- | -------------------------------------------------------- |
-| `-s, --session <id>` | Resume an existing session instead of creating a new one |
-| `-r, --read-only`    | Run in read-only/plan mode (agent cannot modify files)   |
+| Flag                 | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `-s, --session <id>` | Resume an existing session instead of creating a new one      |
+| `-r, --read-only`    | Run in read-only/plan mode (agent cannot modify files)        |
+| `-t, --tab`          | Open/focus the agent's session tab in the Maestro desktop app |
 
 Error codes: `AGENT_NOT_FOUND`, `AGENT_UNSUPPORTED`, `CLAUDE_NOT_FOUND`, `CODEX_NOT_FOUND`.
 
@@ -342,6 +343,82 @@ maestro-cli playbook <playbook-id> --json
 
 The `send` command always outputs JSON (no `--json` flag needed).
 
+### Desktop Integration
+
+Commands for interacting with the running Maestro desktop app. These are especially useful for AI agents to trigger UI updates after creating or modifying files.
+
+#### Open a File
+
+Open a file as a preview tab in the Maestro desktop app:
+
+```bash
+maestro-cli open-file <file-path> [--session <id>]
+```
+
+#### Refresh the File Tree
+
+Refresh the file tree sidebar after creating multiple files or making significant filesystem changes:
+
+```bash
+maestro-cli refresh-files [--session <id>]
+```
+
+#### Refresh Auto Run Documents
+
+Refresh the Auto Run document list after creating or modifying auto-run documents:
+
+```bash
+maestro-cli refresh-auto-run [--session <id>]
+```
+
+### Configuring Auto-Run
+
+Set up and optionally launch an auto-run session with one or more markdown documents. Documents must be `.md` files containing `- [ ]` checkbox tasks.
+
+```bash
+# Configure documents for auto-run
+maestro-cli auto-run doc1.md doc2.md
+
+# Configure and immediately launch
+maestro-cli auto-run doc1.md doc2.md --agent <agent-id> --launch
+
+# Add a custom prompt for the agent
+maestro-cli auto-run doc1.md --prompt "Focus on test coverage"
+
+# Save as a reusable playbook
+maestro-cli auto-run doc1.md doc2.md --save-as "Auth Rewrite"
+
+# Enable looping (re-run documents after completion)
+maestro-cli auto-run doc1.md --loop --launch
+
+# Loop with a maximum number of iterations
+maestro-cli auto-run doc1.md --loop --max-loops 3 --launch
+
+# Reset task checkboxes on completion (useful with looping)
+maestro-cli auto-run doc1.md --reset-on-completion --loop --launch
+```
+
+| Flag                    | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `-a, --agent <id>`      | Target agent to run the documents (partial ID supported) |
+| `-s, --session <id>`    | Deprecated — use `--agent` instead                       |
+| `-p, --prompt <text>`   | Custom prompt/instructions for the agent                 |
+| `--loop`                | Enable looping (re-run documents after completion)       |
+| `--max-loops <n>`       | Maximum number of loop iterations (implies `--loop`)     |
+| `--save-as <name>`      | Save the configuration as a named playbook               |
+| `--launch`              | Immediately start the auto-run after configuring         |
+| `--reset-on-completion` | Reset task checkboxes when documents complete            |
+
+### Checking Status
+
+Check if the Maestro desktop app is running and reachable:
+
+```bash
+maestro-cli status
+```
+
+Returns the app version, uptime, and connection status.
+
 ## Scheduling with Cron
 
 ```bash
@@ -359,6 +436,10 @@ This means agents can:
 - **Change settings** on behalf of the user (e.g., "switch to the nord theme", "increase font size")
 - **Manage agent configs** (e.g., "set the Codex context window to 128000")
 - **List resources** like agents, groups, and playbooks
+- **Open files** in the Maestro file preview tab
+- **Refresh the file tree** after creating or modifying files
+- **Configure and launch auto-runs** with documents they create
+- **Send messages** to other agents for inter-agent coordination
 
 When a user asks an agent to change a Maestro setting, the agent can use the CLI directly rather than instructing the user to navigate the settings modal. Changes take effect instantly.
 

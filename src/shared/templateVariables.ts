@@ -355,7 +355,10 @@ export function substituteTemplateVariables(template: string, context: TemplateC
 
 		// Path variables
 		CWD: session.cwd,
-		AUTORUN_FOLDER: autoRunFolder || session.autoRunFolderPath || '',
+		AUTORUN_FOLDER:
+			autoRunFolder ||
+			session.autoRunFolderPath ||
+			`${session.fullPath || session.projectRoot || session.cwd}/.maestro/playbooks`,
 
 		// Aliases (not documented in TEMPLATE_VARIABLES but still supported for internal use and backwards compatibility)
 		SESSION_ID: session.id,

@@ -29,7 +29,6 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { existsSync } from 'fs';
-import { getLocalIpAddressSync } from '../utils/networkUtils';
 import { logger } from '../utils/logger';
 import { WebSocketMessageHandler } from './handlers';
 import { BroadcastService } from './services';
@@ -267,7 +266,6 @@ export class WebServer {
 
 	/**
 	 * Get the full secure URL (with token)
-	 * Uses the detected local IP address for LAN accessibility
 	 */
 	getSecureUrl(): string {
 		return `http://${this.localIpAddress}:${this.port}/${this.securityToken}`;
@@ -275,7 +273,6 @@ export class WebServer {
 
 	/**
 	 * Get URL for a specific session
-	 * Uses the detected local IP address for LAN accessibility
 	 */
 	getSessionUrl(sessionId: string): string {
 		return `http://${this.localIpAddress}:${this.port}/${this.securityToken}/session/${sessionId}`;
@@ -886,8 +883,8 @@ export class WebServer {
 		}
 
 		try {
-			// Detect local IP address for LAN accessibility (sync - no network delay)
-			this.localIpAddress = getLocalIpAddressSync();
+			// Bind to localhost only — no LAN exposure
+			this.localIpAddress = 'localhost';
 			logger.info(`Using IP address: ${this.localIpAddress}`, LOG_CONTEXT);
 
 			// Setup middleware and routes (must be done before listen)
@@ -897,7 +894,7 @@ export class WebServer {
 			// Wire up message handler callbacks
 			this.setupMessageHandlerCallbacks();
 
-			await this.server.listen({ port: this.port, host: '0.0.0.0' });
+			await this.server.listen({ port: this.port, host: '127.0.0.1' });
 
 			// Get the actual port (important when using port 0 for random assignment)
 			const address = this.server.server.address();

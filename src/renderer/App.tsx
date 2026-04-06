@@ -3877,6 +3877,10 @@ function MaestroConsoleInner() {
 								savedSelectedLevels={logViewerSelectedLevels}
 								onSelectedLevelsChange={setLogViewerSelectedLevels}
 								onShortcutUsed={handleLogViewerShortcutUsed}
+								onSessionClick={(sessionId, tabId) => {
+									handleCloseLogViewer();
+									handleToastSessionClick(sessionId, tabId);
+								}}
 							/>
 						</Suspense>
 					</div>
