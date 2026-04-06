@@ -261,18 +261,11 @@ export function AutoRunExpandedModal({
 						<button
 							onClick={() => !isLocked && setMode('edit')}
 							disabled={isLocked}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors ${
-								localMode === 'edit' && !isLocked ? 'font-semibold' : ''
-							} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+							className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
 							style={{
-								backgroundColor:
-									localMode === 'edit' && !isLocked ? theme.colors.bgMain : 'transparent',
-								color: isLocked
-									? theme.colors.textDim
-									: localMode === 'edit'
-										? theme.colors.textMain
-										: theme.colors.textDim,
-								border: `1px solid ${localMode === 'edit' && !isLocked ? theme.colors.accent : theme.colors.border}`,
+								color: theme.colors.accent,
+								border: `1px solid ${theme.colors.accent}${localMode === 'edit' && !isLocked ? '' : '40'}`,
+								backgroundColor: `${theme.colors.accent}${localMode === 'edit' && !isLocked ? '30' : '15'}`,
 							}}
 							title={isLocked ? 'Editing disabled while Auto Run active' : 'Edit document'}
 						>
@@ -281,17 +274,11 @@ export function AutoRunExpandedModal({
 						</button>
 						<button
 							onClick={() => setMode('preview')}
-							className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors ${
-								localMode === 'preview' || isLocked ? 'font-semibold' : ''
-							}`}
+							className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors"
 							style={{
-								backgroundColor:
-									localMode === 'preview' || isLocked ? theme.colors.bgMain : 'transparent',
-								color:
-									localMode === 'preview' || isLocked
-										? theme.colors.textMain
-										: theme.colors.textDim,
-								border: `1px solid ${localMode === 'preview' || isLocked ? theme.colors.accent : theme.colors.border}`,
+								color: theme.colors.accent,
+								border: `1px solid ${theme.colors.accent}${localMode === 'preview' || isLocked ? '' : '40'}`,
+								backgroundColor: `${theme.colors.accent}${localMode === 'preview' || isLocked ? '30' : '15'}`,
 							}}
 							title="Preview document"
 						>
@@ -390,11 +377,11 @@ export function AutoRunExpandedModal({
 									onOpenBatchRunner?.();
 								}}
 								disabled={isAgentBusy}
-								className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors ${isAgentBusy ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+								className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isAgentBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
 								style={{
-									backgroundColor: theme.colors.accent,
-									color: theme.colors.accentForeground,
-									border: `1px solid ${theme.colors.accent}`,
+									color: theme.colors.accent,
+									border: `1px solid ${theme.colors.accent}40`,
+									backgroundColor: `${theme.colors.accent}15`,
 								}}
 								title={isAgentBusy ? 'Cannot run while agent is thinking' : 'Run auto-run on tasks'}
 							>
@@ -406,10 +393,10 @@ export function AutoRunExpandedModal({
 						{onOpenMarketplace && (
 							<button
 								onClick={onOpenMarketplace}
-								className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs transition-colors hover:opacity-90"
+								className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors hover:bg-white/10"
 								style={{
 									color: theme.colors.accent,
-									border: `1px solid ${theme.colors.accent}`,
+									border: `1px solid ${theme.colors.accent}40`,
 									backgroundColor: `${theme.colors.accent}15`,
 								}}
 								title="Browse Playbook Exchange - discover and share community playbooks"
@@ -424,8 +411,12 @@ export function AutoRunExpandedModal({
 					<div className="flex items-center gap-2">
 						<button
 							onClick={handleClose}
-							className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors hover:bg-white/10"
-							style={{ color: theme.colors.textDim }}
+							className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors hover:bg-white/10"
+							style={{
+								color: theme.colors.accent,
+								border: `1px solid ${theme.colors.accent}40`,
+								backgroundColor: `${theme.colors.accent}15`,
+							}}
 							title={`Collapse${shortcuts?.toggleAutoRunExpanded ? ` (${formatShortcutKeys(shortcuts.toggleAutoRunExpanded.keys)})` : ' (Esc)'}`}
 						>
 							<Minimize2 className="w-4 h-4" />

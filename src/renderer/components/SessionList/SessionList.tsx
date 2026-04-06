@@ -45,6 +45,7 @@ interface SessionListProps {
 	// Computed values (not in stores — remain as props)
 	theme: Theme;
 	sortedSessions: Session[];
+	navIndexMap?: Map<string, number>;
 	isLiveMode: boolean;
 	webInterfaceUrl: string | null;
 	showSessionJumpNumbers?: boolean;
@@ -214,6 +215,7 @@ function SessionListInner(props: SessionListProps) {
 	const {
 		theme,
 		sortedSessions,
+		navIndexMap,
 		isLiveMode,
 		webInterfaceUrl,
 		toggleGlobalLive,
@@ -479,6 +481,20 @@ function SessionListInner(props: SessionListProps) {
 		return map;
 	}, [sessions, toggleBookmark]);
 
+	// Helper: compute navIndexMap key for a session based on render context
+	const getNavKey = (variant: string, session: Session, groupId?: string): string => {
+		if (variant === 'bookmark') return `bookmark:${session.id}`;
+		if (variant === 'group' && groupId) return `group:${groupId}:${session.id}`;
+		return `ungrouped:${session.id}`;
+	};
+
+	// Helper: compute navIndexMap key for a worktree child based on render context
+	const getChildNavKey = (variant: string, childId: string, groupId?: string): string => {
+		if (variant === 'bookmark') return `bookmark:wt:${childId}`;
+		if (variant === 'group' && groupId) return `group:${groupId}:wt:${childId}`;
+		return `ungrouped:wt:${childId}`;
+	};
+
 	// Helper component: Renders a session item with its worktree children (if any)
 	const renderSessionWithWorktrees = (
 		session: Session,
@@ -503,7 +519,9 @@ function SessionListInner(props: SessionListProps) {
 		const hasWorktrees = worktreeChildren.length > 0;
 		// Force expand worktrees when filtering by unread
 		const worktreesExpanded = showUnreadAgentsOnly ? true : (session.worktreesExpanded ?? true);
-		const globalIdx = sortedSessionIndexById.get(session.id) ?? -1;
+		// Use navIndexMap for keyboard selection (context-aware: distinguishes bookmark vs group instances)
+		const navKey = getNavKey(variant, session, options.groupId);
+		const globalIdx = navIndexMap?.get(navKey) ?? sortedSessionIndexById.get(session.id) ?? -1;
 		const isKeyboardSelected = activeFocus === 'sidebar' && globalIdx === selectedSidebarIndex;
 
 		// In flat/ungrouped view, wrap sessions with worktrees in a left-bordered container
@@ -580,7 +598,9 @@ function SessionListInner(props: SessionListProps) {
 								? worktreeChildren
 								: sortedWorktreeChildrenByParentId.get(session.id) || []
 							).map((child) => {
-								const childGlobalIdx = sortedSessionIndexById.get(child.id) ?? -1;
+								const childNavKey = getChildNavKey(variant, child.id, options.groupId);
+								const childGlobalIdx =
+									navIndexMap?.get(childNavKey) ?? sortedSessionIndexById.get(child.id) ?? -1;
 								const isChildKeyboardSelected =
 									activeFocus === 'sidebar' && childGlobalIdx === selectedSidebarIndex;
 								return (

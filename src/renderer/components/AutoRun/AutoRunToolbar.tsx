@@ -84,11 +84,11 @@ export const AutoRunToolbar = memo(function AutoRunToolbar({
 						onOpenBatchRunner?.();
 					}}
 					disabled={isAgentBusy}
-					className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-medium transition-colors ${isAgentBusy ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+					className={`${btnClass} ${isAgentBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
 					style={{
-						backgroundColor: theme.colors.accent,
-						color: theme.colors.accentForeground,
-						border: `1px solid ${theme.colors.accent}`,
+						color: theme.colors.accent,
+						border: `1px solid ${theme.colors.accent}40`,
+						backgroundColor: `${theme.colors.accent}15`,
 					}}
 					title={isAgentBusy ? 'Cannot run while agent is thinking' : 'Run auto-run on tasks'}
 				>
@@ -118,8 +118,9 @@ export const AutoRunToolbar = memo(function AutoRunToolbar({
 					onClick={onLaunchWizard}
 					className={btnClass}
 					style={{
-						color: theme.colors.textDim,
-						border: `1px solid ${theme.colors.border}`,
+						color: theme.colors.accent,
+						border: `1px solid ${theme.colors.accent}40`,
+						backgroundColor: `${theme.colors.accent}15`,
 					}}
 					title="Launch In-Tab Wizard"
 				>
@@ -132,8 +133,9 @@ export const AutoRunToolbar = memo(function AutoRunToolbar({
 				onClick={onOpenHelp}
 				className={btnClass}
 				style={{
-					color: theme.colors.textDim,
-					border: `1px solid ${theme.colors.border}`,
+					color: theme.colors.accent,
+					border: `1px solid ${theme.colors.accent}40`,
+					backgroundColor: `${theme.colors.accent}15`,
 				}}
 				title="Learn about Auto Runner"
 			>

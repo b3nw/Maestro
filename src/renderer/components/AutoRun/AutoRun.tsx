@@ -690,10 +690,11 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 					{onExpand && (
 						<button
 							onClick={onExpand}
-							className="flex items-center justify-center gap-1.5 px-2 py-1 rounded text-xs transition-colors hover:bg-white/10"
+							className="flex items-center justify-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/10"
 							style={{
-								color: theme.colors.textDim,
-								border: `1px solid ${theme.colors.border}`,
+								color: theme.colors.accent,
+								border: `1px solid ${theme.colors.accent}40`,
+								backgroundColor: `${theme.colors.accent}15`,
 							}}
 							title={`Expand to full screen${shortcuts?.toggleAutoRunExpanded ? ` (${formatShortcutKeys(shortcuts.toggleAutoRunExpanded.keys)})` : ''}`}
 						>
@@ -711,10 +712,11 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 							}
 						}}
 						disabled={mode === 'preview' && isLocked}
-						className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-xs transition-colors ${mode === 'preview' && isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}`}
+						className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-xs font-medium transition-colors ${mode === 'preview' && isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}`}
 						style={{
-							color: theme.colors.textDim,
-							border: `1px solid ${theme.colors.border}`,
+							color: theme.colors.accent,
+							border: `1px solid ${theme.colors.accent}40`,
+							backgroundColor: `${theme.colors.accent}15`,
 						}}
 						title={
 							mode === 'edit'

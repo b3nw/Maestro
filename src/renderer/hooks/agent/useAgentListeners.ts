@@ -622,9 +622,9 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 															...tab,
 															state: 'idle' as const,
 															thinkingStartTime: undefined,
-															// Clear stale agentSessionId so the next spawn
-															// starts a fresh session instead of trying --resume
-															agentSessionId: null,
+															// Preserve agentSessionId for session resume —
+															// stale IDs are cleared by onAgentError when
+															// session_not_found is detected
 														}
 													: tab;
 											} else {
@@ -633,7 +633,6 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 															...tab,
 															state: 'idle' as const,
 															thinkingStartTime: undefined,
-															agentSessionId: null,
 														}
 													: tab;
 											}
@@ -1253,6 +1252,9 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 												...tab,
 												logs: [...tab.logs, errorLogEntry],
 												agentError: isSessionNotFound ? undefined : agentError,
+												// Clear stale agentSessionId on session_not_found so the next
+												// spawn starts a fresh session instead of retrying --resume
+												...(isSessionNotFound ? { agentSessionId: null } : {}),
 											}
 										: tab
 								)

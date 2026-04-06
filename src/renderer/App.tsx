@@ -1761,11 +1761,12 @@ function MaestroConsoleInner() {
 
 	// --- SESSION SORTING ---
 	// Extracted hook for sorted and visible session lists (ignores leading emojis for alphabetization)
-	const { sortedSessions, visibleSessions } = useSortedSessions({
-		sessions,
-		groups,
-		bookmarksCollapsed,
-	});
+	const { sortedSessions, visibleSessions, navSessions, bookmarkNavSize, navIndexMap } =
+		useSortedSessions({
+			sessions,
+			groups,
+			bookmarksCollapsed,
+		});
 
 	// --- KEYBOARD NAVIGATION ---
 	// Extracted hook for sidebar navigation, panel focus, and related keyboard handlers
@@ -1776,6 +1777,8 @@ function MaestroConsoleInner() {
 		handleEscapeInMain,
 	} = useKeyboardNavigation({
 		sortedSessions,
+		navSessions,
+		bookmarkNavSize,
 		selectedSidebarIndex,
 		setSelectedSidebarIndex,
 		activeSessionId,
@@ -3103,6 +3106,7 @@ function MaestroConsoleInner() {
 		webInterfaceUrl,
 		showSessionJumpNumbers,
 		visibleSessions,
+		navIndexMap,
 
 		// Ref
 		sidebarContainerRef,

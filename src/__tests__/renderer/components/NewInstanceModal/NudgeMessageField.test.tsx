@@ -57,7 +57,7 @@ describe('NudgeMessageField', () => {
 	it('should show character count', () => {
 		render(<NudgeMessageField theme={createTheme()} value="Hello" onChange={vi.fn()} />);
 
-		expect(screen.getByText(/5\/1000 characters/)).toBeInTheDocument();
+		expect(screen.getByText('5/1000')).toBeInTheDocument();
 	});
 
 	it('should render label with optional hint', () => {
@@ -72,7 +72,7 @@ describe('NudgeMessageField', () => {
 			<NudgeMessageField theme={createTheme()} value="Hi" onChange={vi.fn()} maxLength={500} />
 		);
 
-		expect(screen.getByText(/2\/500 characters/)).toBeInTheDocument();
+		expect(screen.getByText('2/500')).toBeInTheDocument();
 	});
 
 	it('should truncate input to maxLength', () => {

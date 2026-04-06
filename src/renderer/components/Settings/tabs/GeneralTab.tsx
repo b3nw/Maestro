@@ -294,12 +294,11 @@ export function GeneralTab({ theme, isOpen }: GeneralTabProps) {
 						value={conductorProfile}
 						onChange={(e) => setConductorProfile(e.target.value)}
 						placeholder="e.g., I'm a senior developer working on a React/TypeScript project. I prefer concise explanations and clean code patterns..."
-						className="w-full p-3 rounded border bg-transparent outline-none text-sm resize-none"
+						className="w-full p-3 pb-8 rounded border bg-transparent outline-none text-sm resize-none"
 						style={{
 							borderColor: theme.colors.border,
 							color: theme.colors.textMain,
 							minHeight: '100px',
-							paddingBottom: '1.75rem',
 						}}
 						maxLength={1000}
 					/>

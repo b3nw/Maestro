@@ -1686,8 +1686,13 @@ export function ProcessMonitor(props: ProcessMonitorProps) {
 								</span>
 							</div>
 							<code
-								className="text-sm font-mono break-all block whitespace-pre-wrap"
-								style={{ color: theme.colors.textMain, userSelect: 'text', cursor: 'text' }}
+								className="text-sm font-mono break-all block whitespace-pre-wrap overflow-y-auto"
+								style={{
+									color: theme.colors.textMain,
+									userSelect: 'text',
+									cursor: 'text',
+									maxHeight: '300px',
+								}}
 							>
 								{commandLine}
 							</code>
@@ -1771,7 +1776,7 @@ export function ProcessMonitor(props: ProcessMonitorProps) {
 					backgroundColor: theme.colors.bgActivity,
 					borderColor: theme.colors.border,
 					width: 'fit-content',
-					minWidth: '500px',
+					minWidth: '700px',
 					maxWidth: '90vw',
 				}}
 				onClick={(e) => e.stopPropagation()}
@@ -1888,14 +1893,14 @@ export function ProcessMonitor(props: ProcessMonitorProps) {
 								color: theme.colors.textDim,
 							}}
 						>
-							<div className="flex items-center gap-4">
+							<div className="flex items-center gap-4 whitespace-nowrap">
 								<span>
 									{sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} •{' '}
 									{groups.length} {groups.length === 1 ? 'group' : 'groups'}
 								</span>
 								<span style={{ opacity: 0.7 }}>↑↓ navigate • Enter view details • R refresh</span>
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
 								<div
 									className="w-2 h-2 rounded-full"
 									style={{ backgroundColor: theme.colors.success }}

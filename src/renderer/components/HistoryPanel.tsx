@@ -137,6 +137,23 @@ export const HistoryPanel = React.memo(
 			loadHistory();
 		}, [loadHistory]);
 
+		// Subscribe to real-time history entry additions
+		useEffect(() => {
+			const cleanup = window.maestro.directorNotes.onHistoryEntryAdded((entry, sourceSessionId) => {
+				// Only add entries belonging to this session
+				if (sourceSessionId !== session.id) return;
+
+				setHistoryEntries((prev) => {
+					// Deduplicate
+					if (prev.some((e) => e.id === entry.id)) return prev;
+					// Prepend (newest first), cap at MAX_HISTORY_IN_MEMORY
+					return [entry, ...prev].slice(0, MAX_HISTORY_IN_MEMORY);
+				});
+			});
+
+			return cleanup;
+		}, [session.id]);
+
 		// Load persisted graph lookback preference for this session
 		useEffect(() => {
 			const loadLookbackPreference = async () => {

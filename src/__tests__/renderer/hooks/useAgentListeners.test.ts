@@ -693,6 +693,32 @@ describe('useAgentListeners', () => {
 			expect(agentErrorOpen).toBe(false);
 		});
 
+		it('clears agentSessionId on session_not_found so next spawn starts fresh', () => {
+			const deps = createMockDeps();
+			const tab = createMockTab({ id: 'tab-1', agentSessionId: 'stale-session-id' });
+			const session = createMockSession({
+				id: 'sess-1',
+				state: 'busy',
+				aiTabs: [tab],
+				activeTabId: 'tab-1',
+			});
+			useSessionStore.setState({
+				sessions: [session],
+				activeSessionId: 'sess-1',
+			});
+
+			renderHook(() => useAgentListeners(deps));
+
+			onAgentErrorHandler?.('sess-1-ai-tab-1', {
+				...baseError,
+				type: 'session_not_found',
+			});
+
+			const updated = useSessionStore.getState().sessions.find((s) => s.id === 'sess-1');
+			const updatedTab = updated?.aiTabs.find((t) => t.id === 'tab-1');
+			expect(updatedTab?.agentSessionId).toBeNull();
+		});
+
 		it('appends error log entry to the target tab', () => {
 			const deps = createMockDeps();
 			const tab = createMockTab({ id: 'tab-1', logs: [] });
@@ -875,7 +901,7 @@ describe('useAgentListeners', () => {
 	// ========================================================================
 
 	describe('onExit', () => {
-		it('transitions AI session from busy to idle on process exit and clears agentSessionId', async () => {
+		it('transitions AI session from busy to idle on process exit and preserves agentSessionId for resume', async () => {
 			const deps = createMockDeps();
 			const tab = createMockTab({ id: 'tab-1', agentSessionId: 'old-session-id' });
 			const session = createMockSession({
@@ -900,10 +926,11 @@ describe('useAgentListeners', () => {
 
 			const updated = useSessionStore.getState().sessions.find((s) => s.id === 'sess-1');
 			expect(updated?.state).toBe('idle');
-			// agentSessionId must be cleared so the next spawn starts a fresh session
-			// instead of trying --resume with a stale ID
+			// agentSessionId is preserved on normal exit so the next message can
+			// resume the conversation. Stale IDs are cleared by onAgentError when
+			// session_not_found is detected.
 			const updatedTab = updated?.aiTabs.find((t) => t.id === 'tab-1');
-			expect(updatedTab?.agentSessionId).toBeNull();
+			expect(updatedTab?.agentSessionId).toBe('old-session-id');
 		});
 
 		it('processes execution queue on exit', async () => {
