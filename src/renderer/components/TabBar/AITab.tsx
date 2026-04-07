@@ -364,7 +364,7 @@ export const AITab = memo(function AITab({
 	// Memoize display name to avoid recalculation on every render.
 	// Deps are the specific fields getTabDisplayName reads (name, agentSessionId) —
 	// using [tab] would invalidate on every logs/state change which is too aggressive.
-	const displayName = useMemo(() => getTabDisplayName(tab), [tab.name, tab.agentSessionId, tab.id]);
+	const displayName = useMemo(() => getTabDisplayName(tab), [tab.name, tab.agentSessionId]);
 
 	// Hover background varies by theme mode for proper contrast
 	const hoverBgColor = theme.mode === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.08)';

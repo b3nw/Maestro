@@ -228,6 +228,7 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 	const audioFeedbackEnabled = useSettingsStore((s) => s.audioFeedbackEnabled);
 	const setAudioFeedbackEnabled = useSettingsStore((s) => s.setAudioFeedbackEnabled);
 	const storeSetHistorySearchFilterOpen = useUIStore((s) => s.setHistorySearchFilterOpen);
+	const setSuccessFlashNotification = useUIStore((s) => s.setSuccessFlashNotification);
 
 	const [search, setSearch] = useState('');
 	const [mode, setMode] = useState<'main' | 'move-to-group' | 'agents'>(initialMode);
@@ -501,12 +502,8 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 						);
 					}
 				} else {
-					notifyToast({
-						type: 'info',
-						title: 'No unread tabs',
-						message: 'All tabs have been read',
-						duration: 2,
-					});
+					setSuccessFlashNotification('No unread tabs');
+					setTimeout(() => setSuccessFlashNotification(null), 2000);
 				}
 				setQuickActionOpen(false);
 			},

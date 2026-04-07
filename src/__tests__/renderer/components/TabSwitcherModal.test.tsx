@@ -427,8 +427,8 @@ describe('TabSwitcherModal', () => {
 				expect(screen.getByText('ABC12345')).toBeInTheDocument();
 			});
 
-			it('falls back to tab ID marker when no name or agentSessionId', () => {
-				const tab = createTestTab({ id: 'abc12345-test-tab', name: '', agentSessionId: undefined });
+			it('returns "New Session" if no name or agentSessionId', () => {
+				const tab = createTestTab({ name: '', agentSessionId: undefined });
 
 				renderWithLayerStack(
 					<TabSwitcherModal
@@ -442,8 +442,7 @@ describe('TabSwitcherModal', () => {
 					/>
 				);
 
-				// Falls back to tab.id first octet: "abc12345-test-tab" → "ABC12345"
-				expect(screen.getByText('ABC12345')).toBeInTheDocument();
+				expect(screen.getByText('New Session')).toBeInTheDocument();
 			});
 		});
 

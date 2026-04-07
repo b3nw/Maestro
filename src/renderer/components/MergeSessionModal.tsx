@@ -139,9 +139,6 @@ function getSessionDisplayName(session: Session): string {
 }
 
 /**
- * Get display name for a tab
- */
-/**
  * MergeSessionModal Component
  */
 export function MergeSessionModal({

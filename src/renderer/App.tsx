@@ -1637,14 +1637,9 @@ function MaestroConsoleInner() {
 				);
 			}
 		} else {
-			notifyToast({
-				type: 'info',
-				title: 'No unread tabs',
-				message: 'All tabs have been read',
-				duration: 2,
-			});
+			showSuccessFlash('No unread tabs');
 		}
-	}, [sortedSessions, setSessions, setActiveSessionId]);
+	}, [sortedSessions, setSessions, setActiveSessionId, showSuccessFlash]);
 
 	// showConfirmation, performDeleteSession — provided by useSessionLifecycle hook (Phase 2H)
 	// deleteSession, deleteWorktreeGroup — provided by useSessionCrud hook

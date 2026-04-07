@@ -117,9 +117,6 @@ function estimateTokens(logs: { text: string }[]): number {
 }
 
 /**
- * Get display name for a tab
- */
-/**
  * SendToAgentModal Component
  */
 export function SendToAgentModal({

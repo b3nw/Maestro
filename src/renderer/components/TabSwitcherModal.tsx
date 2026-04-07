@@ -92,10 +92,6 @@ function getContextPercentage(tab: AITab, agentId?: ToolType): number {
 }
 
 /**
- * Get the display name for a tab.
- * Priority: name > first UUID octet > "New Session"
- */
-/**
  * Get the UUID pill display (first octet of session ID)
  */
 function getUuidPill(agentSessionId: string | undefined | null): string | null {

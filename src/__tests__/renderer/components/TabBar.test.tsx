@@ -318,7 +318,7 @@ describe('TabBar', () => {
 			expect(screen.getByText('ABCD1234')).toBeInTheDocument();
 		});
 
-		it('displays tab ID marker when no name and no agentSessionId', () => {
+		it('displays "New Session" when no name and no agentSessionId', () => {
 			const tabs = [
 				createTab({
 					id: 'tab-1',
@@ -338,8 +338,7 @@ describe('TabBar', () => {
 				/>
 			);
 
-			// Falls back to tab.id first octet: "tab-1" → "TAB"
-			expect(screen.getByText('TAB')).toBeInTheDocument();
+			expect(screen.getByText('New Session')).toBeInTheDocument();
 		});
 	});
 
@@ -1097,7 +1096,7 @@ describe('TabBar', () => {
 				/>
 			);
 
-			const tab = screen.getByText('TAB').closest('[data-tab-id]')!;
+			const tab = screen.getByText('New Session').closest('[data-tab-id]')!;
 			fireEvent.mouseEnter(tab);
 
 			act(() => {
@@ -2647,7 +2646,7 @@ describe('TabBar', () => {
 				/>
 			);
 
-			const tab = screen.getByText('TAB').closest('[data-tab-id]')!;
+			const tab = screen.getByText('New Session').closest('[data-tab-id]')!;
 			fireEvent.mouseEnter(tab);
 
 			act(() => {
