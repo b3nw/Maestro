@@ -568,20 +568,6 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 				/>
 			)}
 
-			{/* Search Bar */}
-			{searchOpen && (
-				<AutoRunSearchBar
-					theme={theme}
-					searchQuery={searchQuery}
-					onSearchQueryChange={setSearchQuery}
-					currentMatchIndex={currentMatchIndex}
-					totalMatches={totalMatches}
-					onNextMatch={goToNextMatchWithFlag}
-					onPrevMatch={goToPrevMatchWithFlag}
-					onClose={closeSearch}
-				/>
-			)}
-
 			{/* Content Area - only shown when folder is selected */}
 			{folderPath && (
 				<div
@@ -681,6 +667,20 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 						</div>
 					)}
 				</div>
+			)}
+
+			{/* Search Bar - between content and button bar */}
+			{searchOpen && (
+				<AutoRunSearchBar
+					theme={theme}
+					searchQuery={searchQuery}
+					onSearchQueryChange={setSearchQuery}
+					currentMatchIndex={currentMatchIndex}
+					totalMatches={totalMatches}
+					onNextMatch={goToNextMatchWithFlag}
+					onPrevMatch={goToPrevMatchWithFlag}
+					onClose={closeSearch}
+				/>
 			)}
 
 			{/* Editor Mode Bar - Expand, Edit/Preview toggle below content area */}
