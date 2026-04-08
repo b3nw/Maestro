@@ -51,8 +51,9 @@ export const REGEX_PARTICIPANT_FALLBACK = new RegExp(
 
 // Web broadcast session ID patterns
 // Tab IDs may contain dashes (e.g., UUIDs), so we match everything after the -ai- delimiter
+// The optional -fp-{timestamp} suffix is stripped (forced parallel execution uses unique session IDs)
 export const REGEX_AI_SUFFIX = /-ai-.+$/;
-export const REGEX_AI_TAB_ID = /-ai-(.+)$/;
+export const REGEX_AI_TAB_ID = /-ai-(.+?)(?:-fp-\d+)?$/;
 
 // Auto Run session ID patterns (batch and synopsis operations)
 // Format: {sessionId}-batch-{timestamp} or {sessionId}-synopsis-{timestamp}

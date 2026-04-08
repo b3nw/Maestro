@@ -360,9 +360,9 @@ export function ProcessMonitor(props: ProcessMonitorProps) {
 		return 'ai';
 	};
 
-	// Extract tab ID from process session ID (format: {sessionId}-ai-{tabId} or {sessionId}-terminal-{tabId})
+	// Extract tab ID from process session ID (format: {sessionId}-ai-{tabId}[-fp-{timestamp}] or {sessionId}-terminal-{tabId})
 	const parseTabId = (processSessionId: string): string | null => {
-		const aiMatch = processSessionId.match(/-ai-(.+)$/);
+		const aiMatch = processSessionId.match(/-ai-(.+?)(?:-fp-\d+)?$/);
 		if (aiMatch) return aiMatch[1];
 		const terminalMatch = processSessionId.match(/-terminal-(.+)$/);
 		if (terminalMatch) return terminalMatch[1];

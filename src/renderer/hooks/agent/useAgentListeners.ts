@@ -37,6 +37,7 @@ import {
 	parseGroupChatSessionId,
 	isSynopsisSession,
 	isBatchSession,
+	REGEX_AI_TAB,
 } from '../../utils/sessionIdParser';
 import {
 	estimateContextUsage,
@@ -199,7 +200,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 			let tabIdFromSession: string | undefined;
 
 			// Format: sessionId-ai-tabId
-			const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+			const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 			if (aiTabMatch) {
 				actualSessionId = aiTabMatch[1];
 				tabIdFromSession = aiTabMatch[2];
@@ -304,7 +305,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 				let isFromAi: boolean;
 				let tabIdFromSession: string | undefined;
 
-				const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+				const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 				if (aiTabMatch) {
 					actualSessionId = aiTabMatch[1];
 					tabIdFromSession = aiTabMatch[2];
@@ -1031,7 +1032,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 			let tabIdFromSession: string | undefined;
 			let isFromAi = false;
 
-			const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+			const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 			if (aiTabMatch) {
 				actualSessionId = aiTabMatch[1];
 				tabIdFromSession = aiTabMatch[2];
@@ -1344,7 +1345,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 		// ================================================================
 		const unsubscribeThinkingChunk = window.maestro.process.onThinkingChunk?.(
 			(sessionId: string, content: string) => {
-				const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+				const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 				if (!aiTabMatch) return;
 
 				const actualSessionId = aiTabMatch[1];
@@ -1464,7 +1465,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 		const unsubscribeSshRemote = window.maestro.process.onSshRemote?.(
 			(sessionId: string, sshRemote: { id: string; name: string; host: string } | null) => {
 				let actualSessionId: string;
-				const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+				const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 				if (aiTabMatch) {
 					actualSessionId = aiTabMatch[1];
 				} else if (sessionId.endsWith('-ai') || sessionId.endsWith('-terminal')) {
@@ -1536,7 +1537,7 @@ export function useAgentListeners(deps: UseAgentListenersDeps): void {
 					timestamp: number;
 				}
 			) => {
-				const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
+				const aiTabMatch = sessionId.match(REGEX_AI_TAB);
 				if (!aiTabMatch) return;
 
 				const actualSessionId = aiTabMatch[1];
