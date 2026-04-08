@@ -9,10 +9,10 @@
  * - WebSocket: Real-time updates for session state, logs, theme
  *
  * URL Structure:
- *   http://localhost:PORT/$TOKEN/                  → Dashboard (all live sessions)
- *   http://localhost:PORT/$TOKEN/session/$UUID     → Single session view
- *   http://localhost:PORT/$TOKEN/api/*             → REST API
- *   http://localhost:PORT/$TOKEN/ws                → WebSocket
+ *   http://LAN_IP:PORT/$TOKEN/                  → Dashboard (all live sessions)
+ *   http://LAN_IP:PORT/$TOKEN/session/$UUID     → Single session view
+ *   http://LAN_IP:PORT/$TOKEN/api/*             → REST API
+ *   http://LAN_IP:PORT/$TOKEN/ws                → WebSocket
  *
  * Security:
  * - Token regenerated on each app restart (unless Persistent Web Link is enabled)
@@ -30,6 +30,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { existsSync } from 'fs';
 import { logger } from '../utils/logger';
+import { getLocalIpAddress } from '../utils/networkUtils';
 import { WebSocketMessageHandler } from './handlers';
 import { BroadcastService } from './services';
 import { ApiRoutes, StaticRoutes, WsRoute } from './routes';
@@ -883,8 +884,9 @@ export class WebServer {
 		}
 
 		try {
-			// Bind to localhost only — no LAN exposure
-			this.localIpAddress = 'localhost';
+			// Detect LAN IP for display URLs, bind to 0.0.0.0 for LAN accessibility
+			// Security token (UUID) prevents unauthorized access
+			this.localIpAddress = await getLocalIpAddress();
 			logger.info(`Using IP address: ${this.localIpAddress}`, LOG_CONTEXT);
 
 			// Setup middleware and routes (must be done before listen)
@@ -894,7 +896,7 @@ export class WebServer {
 			// Wire up message handler callbacks
 			this.setupMessageHandlerCallbacks();
 
-			await this.server.listen({ port: this.port, host: '127.0.0.1' });
+			await this.server.listen({ port: this.port, host: '0.0.0.0' });
 
 			// Get the actual port (important when using port 0 for random assignment)
 			const address = this.server.server.address();
