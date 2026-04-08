@@ -381,6 +381,7 @@ export function NewInstanceModal({
 						enabled: true,
 						remoteId: sshRemoteConfig.remoteId,
 						workingDirOverride: sshRemoteConfig.workingDirOverride,
+						syncHistory: sshRemoteConfig.syncHistory,
 					}
 				: { enabled: false, remoteId: null };
 

@@ -184,6 +184,7 @@ export function EditAgentModal({
 				enabled: true,
 				remoteId: session.sessionSshRemoteConfig.remoteId,
 				workingDirOverride: session.sessionSshRemoteConfig.workingDirOverride,
+				syncHistory: session.sessionSshRemoteConfig.syncHistory,
 			});
 		} else {
 			setSshRemoteConfig(undefined);
@@ -282,6 +283,7 @@ export function EditAgentModal({
 						enabled: true,
 						remoteId: sshRemoteConfig.remoteId,
 						workingDirOverride: sshRemoteConfig.workingDirOverride,
+						syncHistory: sshRemoteConfig.syncHistory,
 					}
 				: { enabled: false, remoteId: null };
 

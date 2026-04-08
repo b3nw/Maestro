@@ -21,7 +21,11 @@ import {
 	sortEntriesByTimestamp,
 } from '../../../shared/history';
 import { getHistoryManager } from '../../history-manager';
-import { writeEntryRemote, readRemoteEntriesSsh } from '../../shared-history-manager';
+import {
+	writeEntryRemote,
+	readRemoteEntriesSsh,
+	readRemoteEntriesLocal,
+} from '../../shared-history-manager';
 import { withIpcErrorLogging, CreateHandlerOptions } from '../../utils/ipcHandler';
 import type { SafeSendFn } from '../../utils/safe-send';
 
@@ -83,7 +87,7 @@ export function registerHistoryHandlers(deps: HistoryHandlerDependencies): void 
 					localEntries = historyManager.getAllEntries();
 				}
 
-				// Merge shared history entries from other hosts (only for SSH sessions with syncHistory enabled)
+				// Merge shared history entries from other hosts
 				let sharedEntries: HistoryEntry[] = [];
 				try {
 					if (sharedContext?.sshRemoteId && sharedContext?.remoteCwd) {
@@ -96,6 +100,10 @@ export function registerHistoryHandlers(deps: HistoryHandlerDependencies): void 
 								maxEntries
 							);
 						}
+					} else if (projectPath) {
+						// Local session: read .maestro/history/ from project dir
+						// to see entries written by remote SSH operators
+						sharedEntries = readRemoteEntriesLocal(projectPath, maxEntries);
 					}
 				} catch (error) {
 					logger.warn(`Failed to read shared history: ${error}`, LOG_CONTEXT);

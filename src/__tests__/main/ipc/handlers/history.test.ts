@@ -30,6 +30,7 @@ vi.mock('../../../../main/history-manager', () => ({
 vi.mock('../../../../main/shared-history-manager', () => ({
 	writeEntryRemote: vi.fn(() => Promise.resolve()),
 	readRemoteEntriesSsh: vi.fn(() => Promise.resolve([])),
+	readRemoteEntriesLocal: vi.fn(() => []),
 }));
 
 // Mock the logger
@@ -189,7 +190,7 @@ describe('history IPC handlers', () => {
 			expect(result).toEqual([]);
 		});
 
-		it('should NOT read shared history for local agents (no sharedContext)', async () => {
+		it('should NOT read SSH shared history for local agents (no sharedContext)', async () => {
 			const mockEntries = [createMockEntry()];
 			vi.mocked(mockHistoryManager.getEntriesByProjectPath).mockReturnValue(mockEntries);
 
@@ -197,7 +198,30 @@ describe('history IPC handlers', () => {
 			const result = await handler!({} as any, '/test/project');
 
 			expect(sharedHistoryModule.readRemoteEntriesSsh).not.toHaveBeenCalled();
+			// Local agents still read .maestro/history/ from the project dir
+			expect(sharedHistoryModule.readRemoteEntriesLocal).toHaveBeenCalledWith(
+				'/test/project',
+				undefined
+			);
 			expect(result).toEqual(mockEntries);
+		});
+
+		it('should merge local .maestro/history/ entries for local agents', async () => {
+			const localEntries = [createMockEntry({ id: 'local-1' })];
+			const sharedLocalEntries = [
+				createMockEntry({ id: 'remote-operator-1', hostname: 'ssh-client' }),
+			];
+			vi.mocked(mockHistoryManager.getEntriesByProjectPath).mockReturnValue(localEntries);
+			vi.mocked(sharedHistoryModule.readRemoteEntriesLocal).mockReturnValue(sharedLocalEntries);
+
+			const handler = handlers.get('history:getAll');
+			const result = await handler!({} as any, '/test/project');
+
+			expect(sharedHistoryModule.readRemoteEntriesLocal).toHaveBeenCalledWith(
+				'/test/project',
+				undefined
+			);
+			expect(result).toHaveLength(2);
 		});
 
 		it('should read shared history from remote when sharedContext is provided', async () => {
