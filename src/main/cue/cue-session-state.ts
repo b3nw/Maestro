@@ -6,6 +6,7 @@ export interface SessionState {
 	timers: ReturnType<typeof setInterval>[];
 	watchers: (() => void)[];
 	yamlWatcher: (() => void) | null;
+	sleepPrevented: boolean;
 	lastTriggered?: string;
 	nextTriggers: Map<string, number>;
 }

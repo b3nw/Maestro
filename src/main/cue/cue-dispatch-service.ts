@@ -60,7 +60,7 @@ export function createCueDispatchService(deps: CueDispatchServiceDeps): CueDispa
 						},
 					};
 					const perTargetPrompt = sub.fan_out_prompts?.[i];
-					const prompt = perTargetPrompt || sub.prompt || sub.prompt_file || '';
+					const prompt = perTargetPrompt ?? sub.prompt ?? sub.prompt_file ?? '';
 					deps.executeRun(
 						targetSession.id,
 						prompt,

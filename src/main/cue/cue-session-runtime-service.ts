@@ -76,13 +76,22 @@ export function createCueSessionRuntimeService(
 		if (!deps.enabled()) return;
 
 		const config = loadCueConfig(session.projectRoot);
-		if (!config) return;
+		if (!config) {
+			if (!pendingYamlWatchers.has(session.id)) {
+				const yamlWatcher = watchCueYaml(session.projectRoot, () => {
+					deps.onRefreshRequested(session.id, session.projectRoot);
+				});
+				pendingYamlWatchers.set(session.id, yamlWatcher);
+			}
+			return;
+		}
 
 		const state: SessionState = {
 			config,
 			timers: [],
 			watchers: [],
 			yamlWatcher: null,
+			sleepPrevented: false,
 			nextTriggers: new Map(),
 		};
 
@@ -111,6 +120,7 @@ export function createCueSessionRuntimeService(
 			enabled: deps.enabled,
 			scheduledFiredKeys: deps.scheduledFiredKeys,
 			onLog: deps.onLog,
+			dispatchSubscription: deps.dispatchSubscription,
 			executeCueRun: deps.executeCueRun,
 		};
 
@@ -157,7 +167,8 @@ export function createCueSessionRuntimeService(
 
 		sessions.set(session.id, state);
 
-		if (hasTimeBasedSubscriptions(config, session.id)) {
+		state.sleepPrevented = hasTimeBasedSubscriptions(config, session.id);
+		if (state.sleepPrevented) {
 			deps.onPreventSleep?.(`cue:schedule:${session.id}`);
 		}
 
@@ -171,7 +182,9 @@ export function createCueSessionRuntimeService(
 		const state = sessions.get(sessionId);
 		if (!state) return;
 
-		deps.onAllowSleep?.(`cue:schedule:${sessionId}`);
+		if (state.sleepPrevented) {
+			deps.onAllowSleep?.(`cue:schedule:${sessionId}`);
+		}
 
 		for (const timer of state.timers) {
 			clearInterval(timer);
@@ -229,10 +242,12 @@ export function createCueSessionRuntimeService(
 		}
 
 		if (hadSession) {
-			const yamlWatcher = watchCueYaml(projectRoot, () => {
-				deps.onRefreshRequested(sessionId, projectRoot);
-			});
-			pendingYamlWatchers.set(sessionId, yamlWatcher);
+			if (!pendingYamlWatchers.has(sessionId)) {
+				const yamlWatcher = watchCueYaml(projectRoot, () => {
+					deps.onRefreshRequested(sessionId, projectRoot);
+				});
+				pendingYamlWatchers.set(sessionId, yamlWatcher);
+			}
 			return {
 				reloaded: false,
 				configRemoved: true,

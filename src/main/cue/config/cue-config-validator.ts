@@ -222,7 +222,7 @@ export function validateCueConfigDocument(config: unknown): { valid: boolean; er
 	}
 
 	if (cfg.settings !== undefined) {
-		if (typeof cfg.settings !== 'object' || cfg.settings === null) {
+		if (typeof cfg.settings !== 'object' || cfg.settings === null || Array.isArray(cfg.settings)) {
 			errors.push('"settings" must be an object');
 		} else {
 			const settings = cfg.settings as Record<string, unknown>;
