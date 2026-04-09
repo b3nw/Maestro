@@ -67,11 +67,10 @@ vi.mock('crypto', () => ({
 	randomUUID: vi.fn(() => `uuid-${Math.random().toString(36).slice(2, 8)}`),
 }));
 
-import {
-	CueEngine,
-	calculateNextScheduledTime,
-	type CueEngineDeps,
-} from '../../../main/cue/cue-engine';
+import { CueEngine, type CueEngineDeps } from '../../../main/cue/cue-engine';
+// `calculateNextScheduledTime` lives in cue-subscription-setup. Phase 3 cleanup
+// dropped the cue-engine re-export that previously existed for test convenience.
+import { calculateNextScheduledTime } from '../../../main/cue/cue-subscription-setup';
 import { createMockSession, createMockConfig, createMockDeps } from './cue-test-helpers';
 
 describe('CueEngine', () => {

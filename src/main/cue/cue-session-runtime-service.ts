@@ -10,12 +10,33 @@ import {
 	setupTaskScannerSubscription,
 	type SubscriptionSetupDeps,
 } from './cue-subscription-setup';
-import { createCueEvent, type CueConfig, type CueEvent, type CueSubscription } from './cue-types';
+import { createCueEvent, type CueEvent, type CueSubscription } from './cue-types';
 import {
 	countActiveSubscriptions,
 	hasTimeBasedSubscriptions,
 	type SessionState,
 } from './cue-session-state';
+import type { CueSessionRegistry } from './cue-session-registry';
+
+/**
+ * Why a session is being initialized. Used to gate `app.startup` triggers,
+ * which must fire exactly once per Electron process lifecycle and only when
+ * the engine is starting because of a real system boot.
+ *
+ * - `system-boot`: Electron just launched. app.startup subscriptions fire.
+ * - `user-toggle`: User flipped the Cue toggle off and back on. Do NOT fire
+ *   app.startup again — that would surprise users who expect toggling to be
+ *   idempotent.
+ * - `refresh`: A YAML hot-reload re-initialized the session. app.startup
+ *   already fired (or didn't) on this process; do not re-fire.
+ * - `discovery`: Auto-discovery added a new session after boot. The startup
+ *   moment for that session has already passed, so do not fire.
+ */
+export type SessionInitReason = 'system-boot' | 'user-toggle' | 'refresh' | 'discovery';
+
+export interface InitSessionOptions {
+	reason: SessionInitReason;
+}
 
 export interface CueSessionRuntimeServiceDeps {
 	enabled: () => boolean;
@@ -24,9 +45,7 @@ export interface CueSessionRuntimeServiceDeps {
 	onLog: (level: MainLogLevel, message: string, data?: unknown) => void;
 	onPreventSleep?: (reason: string) => void;
 	onAllowSleep?: (reason: string) => void;
-	scheduledFiredKeys: Set<string>;
-	startupFiredKeys: Set<string>;
-	isBootScan: () => boolean;
+	registry: CueSessionRegistry;
 	executeCueRun: (
 		sessionId: string,
 		prompt: string,
@@ -47,11 +66,7 @@ export interface CueSessionRuntimeServiceDeps {
 }
 
 export interface CueSessionRuntimeService {
-	getSessionStates(): Map<string, SessionState>;
-	getSessionConfigs(): Map<string, CueConfig>;
-	hasSession(sessionId: string): boolean;
-	getSessionState(sessionId: string): SessionState | undefined;
-	initSession(session: SessionInfo): void;
+	initSession(session: SessionInfo, opts: InitSessionOptions): void;
 	refreshSession(
 		sessionId: string,
 		projectRoot: string
@@ -69,14 +84,14 @@ export interface CueSessionRuntimeService {
 export function createCueSessionRuntimeService(
 	deps: CueSessionRuntimeServiceDeps
 ): CueSessionRuntimeService {
-	const sessions = new Map<string, SessionState>();
+	const { registry } = deps;
 	const pendingYamlWatchers = new Map<string, () => void>();
 
 	function getSession(sessionId: string): SessionInfo | undefined {
 		return deps.getSessions().find((session) => session.id === sessionId);
 	}
 
-	function initSession(session: SessionInfo): void {
+	function initSession(session: SessionInfo, opts: InitSessionOptions): void {
 		if (!deps.enabled()) return;
 
 		const loadResult = loadCueConfigDetailed(session.projectRoot);
@@ -125,7 +140,7 @@ export function createCueSessionRuntimeService(
 
 		const setupDeps: SubscriptionSetupDeps = {
 			enabled: deps.enabled,
-			scheduledFiredKeys: deps.scheduledFiredKeys,
+			registry,
 			onLog: deps.onLog,
 			dispatchSubscription: deps.dispatchSubscription,
 			executeCueRun: deps.executeCueRun,
@@ -148,31 +163,36 @@ export function createCueSessionRuntimeService(
 			}
 		}
 
-		for (const sub of config.subscriptions) {
-			if (sub.enabled === false) continue;
-			if (sub.agent_id && sub.agent_id !== session.id) continue;
-			if (sub.event !== 'app.startup') continue;
-			if (!deps.isBootScan()) continue;
+		// app.startup subscriptions fire exactly once per process lifecycle, and
+		// only when the engine is starting because of a real system boot. Toggling
+		// Cue off/on or hot-reloading a YAML must NOT re-fire startup events.
+		if (opts.reason === 'system-boot') {
+			for (const sub of config.subscriptions) {
+				if (sub.enabled === false) continue;
+				if (sub.agent_id && sub.agent_id !== session.id) continue;
+				if (sub.event !== 'app.startup') continue;
 
-			const firedKey = `${session.id}:${sub.name}`;
-			if (deps.startupFiredKeys.has(firedKey)) continue;
-			deps.startupFiredKeys.add(firedKey);
+				if (!registry.markStartupFired(session.id, sub.name)) continue;
 
-			const event = createCueEvent('app.startup', sub.name, {
-				reason: 'system_startup',
-			});
+				const event = createCueEvent('app.startup', sub.name, {
+					reason: 'system_startup',
+				});
 
-			if (sub.filter && !matchesFilter(event.payload, sub.filter)) {
-				deps.onLog('cue', `[CUE] "${sub.name}" filter not matched (${describeFilter(sub.filter)})`);
-				continue;
+				if (sub.filter && !matchesFilter(event.payload, sub.filter)) {
+					deps.onLog(
+						'cue',
+						`[CUE] "${sub.name}" filter not matched (${describeFilter(sub.filter)})`
+					);
+					continue;
+				}
+
+				deps.onLog('cue', `[CUE] "${sub.name}" triggered (app.startup)`);
+				state.lastTriggered = event.timestamp;
+				deps.dispatchSubscription(session.id, sub, event, session.name);
 			}
-
-			deps.onLog('cue', `[CUE] "${sub.name}" triggered (app.startup)`);
-			state.lastTriggered = event.timestamp;
-			deps.dispatchSubscription(session.id, sub, event, session.name);
 		}
 
-		sessions.set(session.id, state);
+		registry.register(session.id, state);
 
 		state.sleepPrevented = hasTimeBasedSubscriptions(config, session.id);
 		if (state.sleepPrevented) {
@@ -186,7 +206,7 @@ export function createCueSessionRuntimeService(
 	}
 
 	function teardownSession(sessionId: string): void {
-		const state = sessions.get(sessionId);
+		const state = registry.get(sessionId);
 		if (!state) return;
 
 		if (state.sleepPrevented) {
@@ -206,22 +226,19 @@ export function createCueSessionRuntimeService(
 		deps.clearFanInState(sessionId);
 		deps.clearQueue(sessionId, true);
 
-		for (const sub of state.config.subscriptions) {
-			for (const key of deps.scheduledFiredKeys) {
-				if (key.startsWith(`${sessionId}:${sub.name}:`)) {
-					deps.scheduledFiredKeys.delete(key);
-				}
-			}
-		}
+		// Drop time.scheduled dedup keys for this session — they only matter while
+		// the session is initialized. Startup keys are NOT cleared here so that a
+		// refresh inside the same process lifecycle does not re-fire app.startup.
+		registry.clearScheduledForSession(sessionId);
 	}
 
 	function refreshSession(
 		sessionId: string,
 		projectRoot: string
 	): { reloaded: boolean; configRemoved: boolean; sessionName?: string; activeCount?: number } {
-		const hadSession = sessions.has(sessionId);
+		const hadSession = registry.has(sessionId);
 		teardownSession(sessionId);
-		sessions.delete(sessionId);
+		registry.unregister(sessionId);
 
 		const pendingWatcher = pendingYamlWatchers.get(sessionId);
 		if (pendingWatcher) {
@@ -234,8 +251,8 @@ export function createCueSessionRuntimeService(
 			return { reloaded: false, configRemoved: false };
 		}
 
-		initSession({ ...session, projectRoot });
-		const newState = sessions.get(sessionId);
+		initSession({ ...session, projectRoot }, { reason: 'refresh' });
+		const newState = registry.get(sessionId);
 		if (newState) {
 			const activeCount = countActiveSubscriptions(newState.config.subscriptions, sessionId);
 			return {
@@ -263,16 +280,13 @@ export function createCueSessionRuntimeService(
 		return { reloaded: false, configRemoved: false, sessionName: session.name };
 	}
 
-	function removeSession(sessionId: string): void {
+	function removeSessionInternal(sessionId: string): void {
 		teardownSession(sessionId);
-		sessions.delete(sessionId);
+		registry.unregister(sessionId);
 		deps.clearQueue(sessionId);
-
-		for (const key of deps.startupFiredKeys) {
-			if (key.startsWith(`${sessionId}:`)) {
-				deps.startupFiredKeys.delete(key);
-			}
-		}
+		// Removing a session means its app.startup history is no longer relevant —
+		// if the same session id is re-added later (rare), we want startup to fire.
+		registry.clearStartupForSession(sessionId);
 
 		const pendingWatcher = pendingYamlWatchers.get(sessionId);
 		if (pendingWatcher) {
@@ -282,41 +296,23 @@ export function createCueSessionRuntimeService(
 	}
 
 	return {
-		getSessionStates(): Map<string, SessionState> {
-			return new Map(sessions);
-		},
-
-		getSessionConfigs(): Map<string, CueConfig> {
-			const configs = new Map<string, CueConfig>();
-			for (const [sessionId, state] of sessions) {
-				configs.set(sessionId, state.config);
-			}
-			return configs;
-		},
-
-		hasSession(sessionId: string): boolean {
-			return sessions.has(sessionId);
-		},
-
-		getSessionState(sessionId: string): SessionState | undefined {
-			return sessions.get(sessionId);
-		},
-
 		initSession,
 		refreshSession,
 
 		removeSession(sessionId: string): void {
-			removeSession(sessionId);
+			removeSessionInternal(sessionId);
 			deps.onLog('cue', `[CUE] Session removed: ${sessionId}`);
 		},
 
 		teardownSession,
 
 		clearAll(): void {
-			for (const [sessionId] of sessions) {
+			for (const [sessionId] of registry.snapshot()) {
 				teardownSession(sessionId);
 			}
-			sessions.clear();
+			// Drop session state and time.scheduled keys; preserve startup keys
+			// so toggling Cue off/on does not re-fire app.startup subscriptions.
+			registry.clear();
 
 			for (const [, cleanup] of pendingYamlWatchers) {
 				cleanup();

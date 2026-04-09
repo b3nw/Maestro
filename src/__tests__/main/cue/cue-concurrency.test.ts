@@ -594,7 +594,7 @@ describe('CueEngine Concurrency Control', () => {
 			});
 			mockLoadCueConfig.mockReturnValue(config);
 			const engine = new CueEngine(deps);
-			engine.start(true);
+			engine.start('system-boot');
 
 			// Heartbeat fires immediately and takes the slot.
 			// Both startup-a and startup-b are queued (max_concurrent=1).

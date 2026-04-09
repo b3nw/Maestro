@@ -13,6 +13,7 @@ import { createCueFileWatcher } from './cue-file-watcher';
 import { createCueGitHubPoller } from './cue-github-poller';
 import { createCueTaskScanner } from './cue-task-scanner';
 import { matchesFilter, describeFilter } from './cue-filter';
+import type { CueSessionRegistry } from './cue-session-registry';
 
 export const DEFAULT_FILE_DEBOUNCE_MS = 5000;
 
@@ -65,7 +66,7 @@ export interface SubscriptionSetupState {
 /** Dependencies for subscription setup */
 export interface SubscriptionSetupDeps {
 	enabled: () => boolean;
-	scheduledFiredKeys: Set<string>;
+	registry: CueSessionRegistry;
 	onLog: (level: MainLogLevel, message: string, data?: unknown) => void;
 	dispatchSubscription: (
 		ownerSessionId: string,
@@ -172,20 +173,16 @@ export function setupScheduledSubscription(
 		// Check if current time matches any scheduled time
 		if (!times.includes(currentTime)) {
 			// Evict stale fired-keys from previous minutes
-			for (const key of deps.scheduledFiredKeys) {
-				if (key.startsWith(`${session.id}:${sub.name}:`) && !key.endsWith(`:${currentTime}`)) {
-					deps.scheduledFiredKeys.delete(key);
-				}
-			}
+			deps.registry.evictStaleScheduledKeys(session.id, sub.name, currentTime);
 			return;
 		}
 
-		// Guard against double-fire (e.g., config refresh within the same minute)
-		const firedKey = `${session.id}:${sub.name}:${currentTime}`;
-		if (deps.scheduledFiredKeys.has(firedKey)) {
+		// Guard against double-fire (e.g., config refresh within the same minute).
+		// markScheduledFired is the atomic check-and-set: returns false if the
+		// (session, sub, currentTime) tuple has already fired this minute.
+		if (!deps.registry.markScheduledFired(session.id, sub.name, currentTime)) {
 			return;
 		}
-		deps.scheduledFiredKeys.add(firedKey);
 
 		const event = createCueEvent('time.scheduled', sub.name, {
 			schedule_times: sub.schedule_times,

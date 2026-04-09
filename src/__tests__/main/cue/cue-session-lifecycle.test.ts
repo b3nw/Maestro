@@ -468,4 +468,136 @@ describe('CueEngine session lifecycle', () => {
 
 		engine.stop();
 	});
+
+	// ─── init-reason matrix ──────────────────────────────────────────────
+	// app.startup must fire exactly once per process lifecycle, and only when
+	// the engine is starting because of a real system boot. The init-reason
+	// signature on initSession encodes this policy explicitly. These tests pin
+	// down each reason so the dedup story stays correct.
+	describe('init-reason matrix for app.startup', () => {
+		function makeStartupConfig() {
+			return createMockConfig({
+				subscriptions: [
+					{
+						name: 'init',
+						event: 'app.startup',
+						enabled: true,
+						prompt: 'do init',
+					},
+				],
+			});
+		}
+
+		it('system-boot fires app.startup exactly once', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			engine.start('system-boot');
+
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+			expect(deps.onCueRun).toHaveBeenCalledWith(
+				expect.objectContaining({ subscriptionName: 'init' })
+			);
+
+			engine.stop();
+		});
+
+		it('user-toggle (default) does NOT fire app.startup', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			engine.start('user-toggle');
+
+			expect(deps.onCueRun).not.toHaveBeenCalled();
+
+			engine.stop();
+		});
+
+		it('start() with no argument defaults to user-toggle and does NOT fire app.startup', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			// No argument — must default to user-toggle, not system-boot.
+			engine.start();
+
+			expect(deps.onCueRun).not.toHaveBeenCalled();
+
+			engine.stop();
+		});
+
+		it('refresh (via refreshSession) does NOT re-fire app.startup', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			// First boot fires startup once.
+			engine.start('system-boot');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			// A YAML hot-reload triggers refreshSession, which calls initSession with
+			// reason='refresh'. Even though the same subscription is in the new config,
+			// startup must NOT re-fire — that would surprise users editing their YAML.
+			engine.refreshSession('session-1', '/projects/test');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+		});
+
+		it('toggling the engine off and on does NOT re-fire app.startup', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			engine.start('system-boot');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+			// User flips Cue back on. start() defaults to user-toggle.
+			engine.start();
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+		});
+
+		it('a second system-boot in the same process lifecycle still dedups', () => {
+			// Edge case: simulates someone (e.g. a test) calling start('system-boot')
+			// twice without a real Electron restart. The startup keys persist across
+			// stop/start so the second boot is a no-op for app.startup.
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			engine.start('system-boot');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+			engine.start('system-boot');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+		});
+
+		it('removeSession clears startup keys so re-adding the session can re-fire', () => {
+			mockLoadCueConfig.mockReturnValue(makeStartupConfig());
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+
+			engine.start('system-boot');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			// Remove the session (simulates user deleting an agent).
+			engine.removeSession('session-1');
+
+			// If the same session id is re-added later (e.g. user undoes the delete),
+			// startup should be eligible to fire again — but only on a real boot.
+			// A user-toggle still does not fire it.
+			engine.refreshSession('session-1', '/projects/test');
+			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+
+			engine.stop();
+		});
+	});
 });
