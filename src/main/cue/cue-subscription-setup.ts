@@ -93,7 +93,10 @@ function dispatchOrExecuteSubscription(
 		return;
 	}
 
-	deps.executeCueRun(session.id, sub.prompt ?? sub.prompt_file, event, sub.name, sub.output_prompt);
+	// The normalizer (cue-config-normalizer.ts) resolves prompt_file → prompt content
+	// at config load time. sub.prompt is always a string post-normalization (possibly
+	// empty if the file failed to load — surfaced as a warning at init time).
+	deps.executeCueRun(session.id, sub.prompt ?? '', event, sub.name, sub.output_prompt);
 }
 
 export function setupHeartbeatSubscription(

@@ -1,7 +1,7 @@
 import type { MainLogLevel } from '../../shared/logger-types';
 import type { SessionInfo } from '../../shared/types';
 import { describeFilter, matchesFilter } from './cue-filter';
-import { loadCueConfig, watchCueYaml } from './cue-yaml-loader';
+import { loadCueConfigDetailed, watchCueYaml } from './cue-yaml-loader';
 import {
 	setupFileWatcherSubscription,
 	setupGitHubPollerSubscription,
@@ -79,8 +79,21 @@ export function createCueSessionRuntimeService(
 	function initSession(session: SessionInfo): void {
 		if (!deps.enabled()) return;
 
-		const config = loadCueConfig(session.projectRoot);
-		if (!config) {
+		const loadResult = loadCueConfigDetailed(session.projectRoot);
+		if (!loadResult.ok) {
+			// Distinguish missing (silent) from parse / validation failures (loud).
+			if (loadResult.reason === 'parse-error') {
+				deps.onLog(
+					'error',
+					`[CUE] Failed to parse cue.yaml for "${session.name}": ${loadResult.message}`
+				);
+			} else if (loadResult.reason === 'invalid') {
+				deps.onLog(
+					'error',
+					`[CUE] cue.yaml for "${session.name}" is invalid:\n  - ${loadResult.errors.join('\n  - ')}`
+				);
+			}
+
 			if (!pendingYamlWatchers.has(session.id)) {
 				const yamlWatcher = watchCueYaml(session.projectRoot, () => {
 					deps.onRefreshRequested(session.id, session.projectRoot);
@@ -88,6 +101,13 @@ export function createCueSessionRuntimeService(
 				pendingYamlWatchers.set(session.id, yamlWatcher);
 			}
 			return;
+		}
+
+		const config = loadResult.config;
+
+		// Surface non-fatal materialization warnings (e.g. unresolved prompt_file)
+		for (const warning of loadResult.warnings) {
+			deps.onLog('warn', `[CUE] ${warning}`);
 		}
 
 		const state: SessionState = {
@@ -102,23 +122,6 @@ export function createCueSessionRuntimeService(
 		state.yamlWatcher = watchCueYaml(session.projectRoot, () => {
 			deps.onRefreshRequested(session.id, session.projectRoot);
 		});
-
-		for (const sub of config.subscriptions) {
-			if (sub.enabled === false) continue;
-			if (sub.agent_id && sub.agent_id !== session.id) continue;
-			if (sub.prompt_file && !sub.prompt) {
-				deps.onLog(
-					'warn',
-					`[CUE] "${sub.name}" has prompt_file "${sub.prompt_file}" but the file was not found — subscription will fail on trigger`
-				);
-			}
-			if (sub.output_prompt_file && !sub.output_prompt) {
-				deps.onLog(
-					'warn',
-					`[CUE] "${sub.name}" has output_prompt_file "${sub.output_prompt_file}" but the file was not found`
-				);
-			}
-		}
 
 		const setupDeps: SubscriptionSetupDeps = {
 			enabled: deps.enabled,

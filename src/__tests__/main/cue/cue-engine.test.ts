@@ -18,9 +18,16 @@ import type { CueConfig, CueEvent, CueRunResult } from '../../../main/cue/cue-ty
 
 // Mock the yaml loader
 const mockLoadCueConfig = vi.fn<(projectRoot: string) => CueConfig | null>();
+type DetailedResult =
+	| { ok: true; config: CueConfig; warnings: string[] }
+	| { ok: false; reason: 'missing' }
+	| { ok: false; reason: 'parse-error'; message: string }
+	| { ok: false; reason: 'invalid'; errors: string[] };
+const mockLoadCueConfigDetailed = vi.fn<(projectRoot: string) => DetailedResult>();
 const mockWatchCueYaml = vi.fn<(projectRoot: string, onChange: () => void) => () => void>();
 vi.mock('../../../main/cue/cue-yaml-loader', () => ({
 	loadCueConfig: (...args: unknown[]) => mockLoadCueConfig(args[0] as string),
+	loadCueConfigDetailed: (...args: unknown[]) => mockLoadCueConfigDetailed(args[0] as string),
 	watchCueYaml: (...args: unknown[]) => mockWatchCueYaml(args[0] as string, args[1] as () => void),
 }));
 
@@ -80,6 +87,14 @@ describe('CueEngine', () => {
 
 		yamlWatcherCleanup = vi.fn();
 		mockWatchCueYaml.mockReturnValue(yamlWatcherCleanup);
+
+		// Default loadCueConfigDetailed: derive from loadCueConfig for tests that
+		// only configure mockLoadCueConfig. Tests that need to inject warnings or
+		// load failures can override mockLoadCueConfigDetailed directly.
+		mockLoadCueConfigDetailed.mockImplementation((projectRoot: string) => {
+			const config = mockLoadCueConfig(projectRoot);
+			return config ? { ok: true, config, warnings: [] } : { ok: false, reason: 'missing' };
+		});
 
 		fileWatcherCleanup = vi.fn();
 		mockCreateCueFileWatcher.mockReturnValue(fileWatcherCleanup);
@@ -2104,10 +2119,14 @@ describe('CueEngine', () => {
 			engine.stop();
 		});
 
-		it('prefers hydrated prompt content over prompt_file path', async () => {
+		it('uses hydrated prompt content from materialized config', async () => {
 			// Monday at 08:59 — fires at 09:00
 			vi.setSystemTime(new Date('2026-03-09T08:59:00'));
 
+			// As of the Phase 2 cleanup, prompt_file no longer exists on the runtime
+			// CueSubscription contract — the normalizer resolves it into `prompt` at
+			// load time. This test confirms that hydrated content flows through to
+			// onCueRun unchanged.
 			const config = createMockConfig({
 				subscriptions: [
 					{
@@ -2115,7 +2134,6 @@ describe('CueEngine', () => {
 						event: 'time.scheduled',
 						enabled: true,
 						prompt: 'hydrated prompt content',
-						prompt_file: 'check.md',
 						schedule_times: ['09:00'],
 					},
 				],
@@ -2127,7 +2145,6 @@ describe('CueEngine', () => {
 
 			await vi.advanceTimersByTimeAsync(60_000);
 
-			// The hydrated prompt content should be used before falling back to the file path.
 			expect(deps.onCueRun).toHaveBeenCalledWith(
 				expect.objectContaining({
 					prompt: 'hydrated prompt content',
@@ -2897,6 +2914,10 @@ describe('CueEngine', () => {
 	});
 
 	describe('prompt file existence warning (Fix 7)', () => {
+		// The warning now originates inside materializeCueConfig() and flows through
+		// loadCueConfigDetailed().warnings, which session-runtime-service forwards to
+		// the logger. These tests inject the warning directly via the detailed mock to
+		// verify the integration path: loader warnings → engine logger.
 		it('logs warning when prompt_file is set but prompt is empty', () => {
 			const config = createMockConfig({
 				subscriptions: [
@@ -2905,12 +2926,17 @@ describe('CueEngine', () => {
 						event: 'time.heartbeat',
 						enabled: true,
 						prompt: '',
-						prompt_file: 'missing.md',
 						interval_minutes: 60,
 					},
 				],
 			});
-			mockLoadCueConfig.mockReturnValue(config);
+			mockLoadCueConfigDetailed.mockReturnValue({
+				ok: true,
+				config,
+				warnings: [
+					'"missing-file-sub" has prompt_file "missing.md" but the file was not found — subscription will fail on trigger',
+				],
+			});
 			const deps = createMockDeps();
 			const engine = new CueEngine(deps);
 			engine.start();
@@ -2929,12 +2955,16 @@ describe('CueEngine', () => {
 						event: 'time.heartbeat',
 						enabled: true,
 						prompt: 'content from file',
-						prompt_file: 'exists.md',
 						interval_minutes: 60,
 					},
 				],
 			});
-			mockLoadCueConfig.mockReturnValue(config);
+			// No warnings — the loader successfully resolved the prompt file content.
+			mockLoadCueConfigDetailed.mockReturnValue({
+				ok: true,
+				config,
+				warnings: [],
+			});
 			const deps = createMockDeps();
 			const engine = new CueEngine(deps);
 			engine.start();

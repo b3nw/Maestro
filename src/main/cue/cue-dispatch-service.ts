@@ -59,8 +59,10 @@ export function createCueDispatchService(deps: CueDispatchServiceDeps): CueDispa
 							fanOutIndex: i,
 						},
 					};
+					// The normalizer (cue-config-normalizer.ts) resolves prompt_file → prompt
+					// content at config load time. sub.prompt is always a string post-normalization.
 					const perTargetPrompt = sub.fan_out_prompts?.[i];
-					const prompt = perTargetPrompt ?? sub.prompt ?? sub.prompt_file ?? '';
+					const prompt = perTargetPrompt ?? sub.prompt ?? '';
 					deps.executeRun(
 						targetSession.id,
 						prompt,
@@ -75,7 +77,7 @@ export function createCueDispatchService(deps: CueDispatchServiceDeps): CueDispa
 
 			deps.executeRun(
 				ownerSessionId,
-				sub.prompt ?? sub.prompt_file ?? '',
+				sub.prompt ?? '',
 				event,
 				sub.name,
 				sub.output_prompt,
