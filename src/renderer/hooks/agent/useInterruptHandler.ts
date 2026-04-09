@@ -73,8 +73,27 @@ export function useInterruptHandler(deps: UseInterruptHandlerDeps): UseInterrupt
 		}
 
 		try {
-			// Send interrupt signal (Ctrl+C)
-			await (window as any).maestro.process.interrupt(targetSessionId);
+			// Interrupt the primary process and any forced-parallel processes for this tab.
+			// Forced parallel spawns append `-fp-{timestamp}` to the session ID, so we need
+			// to find and interrupt those as well.
+			const interruptPromises: Promise<void>[] = [
+				(window as any).maestro.process.interrupt(targetSessionId),
+			];
+
+			if (currentMode === 'ai') {
+				try {
+					const activeProcesses = await window.maestro.process.getActiveProcesses();
+					const fpPrefix = `${targetSessionId}-fp-`;
+					const fpProcesses = activeProcesses.filter((p) => p.sessionId.startsWith(fpPrefix));
+					for (const fp of fpProcesses) {
+						interruptPromises.push((window as any).maestro.process.interrupt(fp.sessionId));
+					}
+				} catch {
+					// Non-critical — forced parallel lookup failure shouldn't block interrupt
+				}
+			}
+
+			await Promise.allSettled(interruptPromises);
 
 			// Check if there are queued items to process after interrupt
 			const currentSession = sessionsRef.current?.find((s) => s.id === activeSession.id);
@@ -228,7 +247,22 @@ export function useInterruptHandler(deps: UseInterruptHandlerDeps): UseInterrupt
 
 			if (shouldKill) {
 				try {
-					await (window as any).maestro.process.kill(targetSessionId);
+					// Kill primary process and any forced-parallel processes
+					const killPromises: Promise<void>[] = [
+						(window as any).maestro.process.kill(targetSessionId),
+					];
+					if (currentMode === 'ai') {
+						try {
+							const activeProcesses = await window.maestro.process.getActiveProcesses();
+							const fpPrefix = `${targetSessionId}-fp-`;
+							for (const fp of activeProcesses.filter((p) => p.sessionId.startsWith(fpPrefix))) {
+								killPromises.push((window as any).maestro.process.kill(fp.sessionId));
+							}
+						} catch {
+							// Non-critical
+						}
+					}
+					await Promise.allSettled(killPromises);
 
 					const killLog: LogEntry = {
 						id: generateId(),

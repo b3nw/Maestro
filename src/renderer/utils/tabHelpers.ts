@@ -635,9 +635,24 @@ export function closeTab(
 							unifiedTabOrder: finalUnifiedTabOrder,
 						};
 
+	// If the closed tab was busy and no remaining tabs are busy, clean up
+	// session-level busy state. The background process may still be running,
+	// but the UI should not show a busy indicator for a tab that no longer exists.
+	const closedTabWasBusy = tabToClose.state === 'busy';
+	const anyRemainingTabBusy = updatedTabs.some((tab) => tab.state === 'busy');
+	const finalSession =
+		closedTabWasBusy && !anyRemainingTabBusy && updatedSession.busySource === 'ai'
+			? {
+					...updatedSession,
+					state: 'idle' as const,
+					busySource: undefined,
+					thinkingStartTime: undefined,
+				}
+			: updatedSession;
+
 	return {
 		closedTab,
-		session: updatedSession,
+		session: finalSession,
 	};
 }
 

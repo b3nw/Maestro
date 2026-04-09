@@ -497,6 +497,99 @@ describe('tabHelpers', () => {
 			// Should fall back to tab-1 (the live tab to the left), not the stale ref
 			expect(result!.session.activeTabId).toBe('tab-1');
 		});
+
+		it('sets session to idle when closing the last busy tab', () => {
+			const busyTab = createMockTab({ id: 'tab-busy', state: 'busy' });
+			const idleTab = createMockTab({ id: 'tab-idle', state: 'idle' });
+			const session = createMockSession({
+				aiTabs: [busyTab, idleTab],
+				activeTabId: 'tab-busy',
+				state: 'busy',
+				busySource: 'ai',
+				thinkingStartTime: Date.now(),
+			});
+
+			const result = closeTab(session, 'tab-busy');
+
+			expect(result).not.toBeNull();
+			expect(result!.session.state).toBe('idle');
+			expect(result!.session.busySource).toBeUndefined();
+			expect(result!.session.thinkingStartTime).toBeUndefined();
+		});
+
+		it('keeps session busy when another tab is still busy', () => {
+			const busyTab1 = createMockTab({ id: 'tab-busy-1', state: 'busy' });
+			const busyTab2 = createMockTab({ id: 'tab-busy-2', state: 'busy' });
+			const session = createMockSession({
+				aiTabs: [busyTab1, busyTab2],
+				activeTabId: 'tab-busy-1',
+				state: 'busy',
+				busySource: 'ai',
+				thinkingStartTime: Date.now(),
+			});
+
+			const result = closeTab(session, 'tab-busy-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.session.state).toBe('busy');
+			expect(result!.session.busySource).toBe('ai');
+		});
+
+		it('does not change session state when closing an idle tab', () => {
+			const idleTab1 = createMockTab({ id: 'tab-1', state: 'idle' });
+			const idleTab2 = createMockTab({ id: 'tab-2', state: 'idle' });
+			const session = createMockSession({
+				aiTabs: [idleTab1, idleTab2],
+				activeTabId: 'tab-1',
+				state: 'idle',
+			});
+
+			const result = closeTab(session, 'tab-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.session.state).toBe('idle');
+		});
+
+		it('does not clear session busy state when busySource is terminal', () => {
+			const busyTab = createMockTab({ id: 'tab-1', state: 'busy' });
+			const idleTab = createMockTab({ id: 'tab-2', state: 'idle' });
+			const session = createMockSession({
+				aiTabs: [busyTab, idleTab],
+				activeTabId: 'tab-1',
+				state: 'busy',
+				busySource: 'terminal',
+				thinkingStartTime: Date.now(),
+			});
+
+			const result = closeTab(session, 'tab-1');
+
+			expect(result).not.toBeNull();
+			// busySource is 'terminal', so closing an AI tab should NOT clear it
+			expect(result!.session.state).toBe('busy');
+			expect(result!.session.busySource).toBe('terminal');
+		});
+
+		it('clears session busy state when closing busy tab that was the only tab (fresh tab created)', () => {
+			const busyTab = createMockTab({ id: 'tab-only', state: 'busy' });
+			const session = createMockSession({
+				aiTabs: [busyTab],
+				activeTabId: 'tab-only',
+				state: 'busy',
+				busySource: 'ai',
+				thinkingStartTime: Date.now(),
+			});
+
+			const result = closeTab(session, 'tab-only');
+
+			expect(result).not.toBeNull();
+			// A fresh idle tab was created to replace the closed one
+			expect(result!.session.aiTabs).toHaveLength(1);
+			expect(result!.session.aiTabs[0].state).toBe('idle');
+			// Session should be idle since the new tab is idle
+			expect(result!.session.state).toBe('idle');
+			expect(result!.session.busySource).toBeUndefined();
+			expect(result!.session.thinkingStartTime).toBeUndefined();
+		});
 	});
 
 	describe('reopenClosedTab', () => {
