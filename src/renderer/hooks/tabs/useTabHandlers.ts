@@ -930,13 +930,10 @@ export function useTabHandlers(): TabHandlersReturn {
 					} else if (tabRef.type === 'terminal') {
 						updatedSession = closeTerminalTabHelper(updatedSession, tabRef.id);
 					} else if (tabRef.type === 'browser') {
-						updatedSession = {
-							...updatedSession,
-							browserTabs: (updatedSession.browserTabs || []).filter((t) => t.id !== tabRef.id),
-							unifiedTabOrder: updatedSession.unifiedTabOrder.filter(
-								(ref) => !(ref.type === 'browser' && ref.id === tabRef.id)
-							),
-						};
+						const result = closeBrowserTabHelper(updatedSession, tabRef.id);
+						if (result) {
+							updatedSession = result.session;
+						}
 					} else {
 						updatedSession = {
 							...updatedSession,
@@ -1003,13 +1000,10 @@ export function useTabHandlers(): TabHandlersReturn {
 					} else if (tabRef.type === 'terminal') {
 						updatedSession = closeTerminalTabHelper(updatedSession, tabRef.id);
 					} else if (tabRef.type === 'browser') {
-						updatedSession = {
-							...updatedSession,
-							browserTabs: (updatedSession.browserTabs || []).filter((t) => t.id !== tabRef.id),
-							unifiedTabOrder: updatedSession.unifiedTabOrder.filter(
-								(ref) => !(ref.type === 'browser' && ref.id === tabRef.id)
-							),
-						};
+						const result = closeBrowserTabHelper(updatedSession, tabRef.id);
+						if (result) {
+							updatedSession = result.session;
+						}
 					} else {
 						updatedSession = {
 							...updatedSession,
@@ -1085,13 +1079,10 @@ export function useTabHandlers(): TabHandlersReturn {
 					} else if (tabRef.type === 'terminal') {
 						updatedSession = closeTerminalTabHelper(updatedSession, tabRef.id);
 					} else if (tabRef.type === 'browser') {
-						updatedSession = {
-							...updatedSession,
-							browserTabs: (updatedSession.browserTabs || []).filter((t) => t.id !== tabRef.id),
-							unifiedTabOrder: updatedSession.unifiedTabOrder.filter(
-								(ref) => !(ref.type === 'browser' && ref.id === tabRef.id)
-							),
-						};
+						const result = closeBrowserTabHelper(updatedSession, tabRef.id);
+						if (result) {
+							updatedSession = result.session;
+						}
 					} else {
 						updatedSession = {
 							...updatedSession,

@@ -1874,6 +1874,40 @@ describe('useTabHandlers', () => {
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-1')).toBe(true);
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-2')).toBe(false);
 		});
+
+		it('records closed browser tabs in unified history when keeping the active AI tab', () => {
+			const aiTab = createMockAITab({ id: 'ai-1' });
+			const browserTab = createMockBrowserTab({ id: 'browser-1', title: 'Docs' });
+
+			const session = createMockSession({
+				id: 'test-session',
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				browserTabs: [browserTab],
+				unifiedTabOrder: [
+					{ type: 'ai', id: 'ai-1' },
+					{ type: 'browser', id: 'browser-1' },
+				],
+				closedTabHistory: [],
+				unifiedClosedTabHistory: [],
+			});
+			useSessionStore.setState({
+				sessions: [session],
+				activeSessionId: 'test-session',
+			});
+
+			const { result } = renderHook(() => useTabHandlers());
+			act(() => {
+				result.current.handleCloseOtherTabs();
+			});
+
+			const updated = getSession();
+			expect(updated.browserTabs).toHaveLength(0);
+			expect(updated.unifiedClosedTabHistory[0]).toMatchObject({
+				type: 'browser',
+				tab: expect.objectContaining({ id: 'browser-1', title: 'Docs' }),
+			});
+		});
 	});
 
 	// ========================================================================
@@ -1915,6 +1949,44 @@ describe('useTabHandlers', () => {
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-1')).toBe(false);
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-2')).toBe(true);
 		});
+
+		it('records browser tabs closed to the left in unified history', () => {
+			const aiTab = createMockAITab({ id: 'ai-1' });
+			const browserTab = createMockBrowserTab({ id: 'browser-1', title: 'Docs' });
+			const fileTab = createMockFileTab({ id: 'file-1' });
+
+			const session = createMockSession({
+				id: 'test-session',
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				browserTabs: [browserTab],
+				filePreviewTabs: [fileTab],
+				activeFileTabId: 'file-1',
+				unifiedTabOrder: [
+					{ type: 'browser', id: 'browser-1' },
+					{ type: 'ai', id: 'ai-1' },
+					{ type: 'file', id: 'file-1' },
+				],
+				closedTabHistory: [],
+				unifiedClosedTabHistory: [],
+			});
+			useSessionStore.setState({
+				sessions: [session],
+				activeSessionId: 'test-session',
+			});
+
+			const { result } = renderHook(() => useTabHandlers());
+			act(() => {
+				result.current.handleCloseTabsLeft();
+			});
+
+			const updated = getSession();
+			expect(updated.browserTabs).toHaveLength(0);
+			expect(updated.unifiedClosedTabHistory[0]).toMatchObject({
+				type: 'browser',
+				tab: expect.objectContaining({ id: 'browser-1', title: 'Docs' }),
+			});
+		});
 	});
 
 	describe('handleCloseTabsRight with file tabs', () => {
@@ -1951,6 +2023,44 @@ describe('useTabHandlers', () => {
 			// ai-1 and file-2 should be closed (right of active file-1)
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-1')).toBe(true);
 			expect(updated.filePreviewTabs.some((t) => t.id === 'file-2')).toBe(false);
+		});
+
+		it('records browser tabs closed to the right in unified history', () => {
+			const aiTab = createMockAITab({ id: 'ai-1' });
+			const browserTab = createMockBrowserTab({ id: 'browser-1', title: 'Docs' });
+			const fileTab = createMockFileTab({ id: 'file-1' });
+
+			const session = createMockSession({
+				id: 'test-session',
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				browserTabs: [browserTab],
+				filePreviewTabs: [fileTab],
+				activeFileTabId: 'file-1',
+				unifiedTabOrder: [
+					{ type: 'file', id: 'file-1' },
+					{ type: 'ai', id: 'ai-1' },
+					{ type: 'browser', id: 'browser-1' },
+				],
+				closedTabHistory: [],
+				unifiedClosedTabHistory: [],
+			});
+			useSessionStore.setState({
+				sessions: [session],
+				activeSessionId: 'test-session',
+			});
+
+			const { result } = renderHook(() => useTabHandlers());
+			act(() => {
+				result.current.handleCloseTabsRight();
+			});
+
+			const updated = getSession();
+			expect(updated.browserTabs).toHaveLength(0);
+			expect(updated.unifiedClosedTabHistory[0]).toMatchObject({
+				type: 'browser',
+				tab: expect.objectContaining({ id: 'browser-1', title: 'Docs' }),
+			});
 		});
 	});
 

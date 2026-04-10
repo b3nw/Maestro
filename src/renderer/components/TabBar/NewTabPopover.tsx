@@ -68,7 +68,7 @@ export const NewTabPopover = memo(function NewTabPopover({
 		const rect = btn.getBoundingClientRect();
 		setPopoverPos({ top: rect.bottom + 4, left: rect.left });
 		setPopoverOpen((open) => !open);
-	}, [onNewTerminalTab, onNewTab]);
+	}, [onNewBrowserTab, onNewTerminalTab, onNewTab]);
 
 	const closeAndDo = useCallback((action: () => void) => {
 		setPopoverOpen(false);
