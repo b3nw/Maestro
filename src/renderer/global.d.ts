@@ -317,6 +317,7 @@ interface MaestroAPI {
 				cueSessionName?: string;
 				cueSubscriptionName?: string;
 				cueEventType?: string;
+				childProcesses?: Array<{ pid: number; command: string }>;
 			}>
 		>;
 		onData: (callback: (sessionId: string, data: string) => void) => () => void;

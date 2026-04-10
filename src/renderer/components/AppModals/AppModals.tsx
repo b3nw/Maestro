@@ -424,6 +424,7 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 		usageDashboardOpen,
 		confirmModalOpen,
 		quitConfirmModalOpen,
+		activeTerminalTasks,
 		newInstanceModalOpen,
 		editAgentModalOpen,
 		renameSessionModalOpen,
@@ -455,6 +456,9 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 			usageDashboardOpen: s.modals.get('usageDashboard')?.open ?? false,
 			confirmModalOpen: s.modals.get('confirm')?.open ?? false,
 			quitConfirmModalOpen: s.modals.get('quitConfirm')?.open ?? false,
+			activeTerminalTasks:
+				(s.modals.get('quitConfirm')?.data as { activeTerminalTasks?: string[] } | undefined)
+					?.activeTerminalTasks ?? [],
 			newInstanceModalOpen: s.modals.get('newInstance')?.open ?? false,
 			editAgentModalOpen: s.modals.get('editAgent')?.open ?? false,
 			renameSessionModalOpen: s.modals.get('renameInstance')?.open ?? false,
@@ -796,6 +800,7 @@ export const AppModals = memo(function AppModals(props: AppModalsProps) {
 				onConfirmQuit={onConfirmQuit}
 				onCancelQuit={onCancelQuit}
 				activeBatchSessionIds={activeBatchSessionIds}
+				activeTerminalTasks={activeTerminalTasks}
 			/>
 
 			{/* Session Management Modals */}
