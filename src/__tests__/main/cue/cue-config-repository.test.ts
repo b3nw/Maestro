@@ -213,5 +213,26 @@ describe('cue-config-repository', () => {
 
 			expect(mockMkdirSync).not.toHaveBeenCalled();
 		});
+
+		it('throws for an absolute relativePath', () => {
+			expect(() => writeCuePromptFile(PROJECT_ROOT, '/etc/passwd', 'content')).toThrow(
+				'relativePath must be relative'
+			);
+			expect(mockWriteFileSync).not.toHaveBeenCalled();
+		});
+
+		it('throws for a path that resolves outside the prompts directory', () => {
+			expect(() => writeCuePromptFile(PROJECT_ROOT, '.maestro/other/file.md', 'content')).toThrow(
+				'resolves outside the prompts directory'
+			);
+			expect(mockWriteFileSync).not.toHaveBeenCalled();
+		});
+
+		it('throws for a path traversal attempt', () => {
+			expect(() =>
+				writeCuePromptFile(PROJECT_ROOT, '.maestro/prompts/../../etc/passwd', 'content')
+			).toThrow('resolves outside the prompts directory');
+			expect(mockWriteFileSync).not.toHaveBeenCalled();
+		});
 	});
 });
