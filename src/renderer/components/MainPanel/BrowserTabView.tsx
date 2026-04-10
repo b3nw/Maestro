@@ -287,7 +287,6 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 					ref={(element) => {
 						webviewRef.current = element as unknown as ElectronWebviewElement | null;
 					}}
-					allowpopups="false"
 					className="w-full h-full border-0 bg-white"
 					partition={tab.partition}
 					src={tab.url || DEFAULT_BROWSER_TAB_URL}
