@@ -117,7 +117,8 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 	const worktreeConfigKey = useMemo(
 		() =>
 			sessions
-				.map((s) => `${s.id}|${s.worktreeConfig?.basePath}|${s.worktreeConfig?.watchEnabled}`)
+				.filter((s) => s.worktreeConfig?.basePath)
+				.map((s) => `${s.id}|${s.worktreeConfig!.basePath}|${s.worktreeConfig!.watchEnabled}`)
 				.join('\n'),
 		[sessions]
 	);

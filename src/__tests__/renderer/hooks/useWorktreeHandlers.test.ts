@@ -1188,5 +1188,147 @@ describe('Effects', () => {
 			expect(cleanupFn).toHaveBeenCalled();
 			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledWith('parent-1');
 		});
+
+		it('does NOT restart watcher when unrelated sessions are added or removed', () => {
+			const parentWithWatch = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: true },
+			};
+
+			useSessionStore.setState({
+				sessions: [parentWithWatch],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: false,
+			} as any);
+
+			renderHook(() => useWorktreeHandlers());
+
+			// Watcher started once on mount
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledTimes(0);
+
+			// Add an unrelated session (no worktreeConfig)
+			act(() => {
+				useSessionStore.getState().setSessions((prev) => [
+					...prev,
+					{
+						...createChildSession({ id: 'unrelated-agent', parentSessionId: undefined }),
+						worktreeConfig: undefined,
+					},
+				]);
+			});
+
+			// Watcher should NOT have been torn down and restarted
+			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledTimes(0);
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+		});
+
+		it('does NOT restart watcher when worktree child sessions are added', () => {
+			const parentWithWatch = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: true },
+			};
+
+			useSessionStore.setState({
+				sessions: [parentWithWatch],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: false,
+			} as any);
+
+			renderHook(() => useWorktreeHandlers());
+
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledTimes(0);
+
+			// Add a worktree child session (has parentSessionId but no worktreeConfig)
+			act(() => {
+				useSessionStore.getState().setSessions((prev) => [
+					...prev,
+					createChildSession({
+						id: 'new-child',
+						parentSessionId: 'parent-1',
+						worktreeBranch: 'feature-2',
+						cwd: '/projects/worktrees/feature-2',
+					}),
+				]);
+			});
+
+			// Watcher should NOT have been torn down and restarted
+			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledTimes(0);
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+		});
+
+		it('DOES restart watcher when worktreeConfig changes on a parent session', () => {
+			const parentWithWatch = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: true },
+			};
+
+			useSessionStore.setState({
+				sessions: [parentWithWatch],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: false,
+			} as any);
+
+			renderHook(() => useWorktreeHandlers());
+
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+
+			// Change the basePath on the parent session
+			act(() => {
+				useSessionStore
+					.getState()
+					.setSessions((prev) =>
+						prev.map((s) =>
+							s.id === 'parent-1'
+								? { ...s, worktreeConfig: { basePath: '/new/worktrees', watchEnabled: true } }
+								: s
+						)
+					);
+			});
+
+			// Watcher should have been torn down and restarted with new path
+			expect(mockGit.unwatchWorktreeDirectory).toHaveBeenCalledWith('parent-1');
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(2);
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenLastCalledWith('parent-1', '/new/worktrees');
+		});
+
+		it('DOES restart watcher when a new parent session gets worktreeConfig', () => {
+			const parentWithWatch = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: true },
+			};
+
+			useSessionStore.setState({
+				sessions: [parentWithWatch],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: false,
+			} as any);
+
+			renderHook(() => useWorktreeHandlers());
+
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(1);
+
+			// Add a second parent session with its own worktreeConfig
+			act(() => {
+				useSessionStore.getState().setSessions((prev) => [
+					...prev,
+					{
+						...mockParentSession,
+						id: 'parent-2',
+						name: 'Second Parent',
+						cwd: '/projects/other-app',
+						worktreeConfig: { basePath: '/projects/other-worktrees', watchEnabled: true },
+					},
+				]);
+			});
+
+			// Watcher effect should re-run and start watchers for both parents
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledTimes(3); // 1 initial + 2 on re-run
+			expect(mockGit.watchWorktreeDirectory).toHaveBeenCalledWith(
+				'parent-2',
+				'/projects/other-worktrees'
+			);
+		});
 	});
 });
