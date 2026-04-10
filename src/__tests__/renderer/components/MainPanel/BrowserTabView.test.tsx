@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BrowserTabView } from '../../../../renderer/components/MainPanel/BrowserTabView';
 import type { BrowserTab, Theme } from '../../../../renderer/types';
+import { DEFAULT_BROWSER_TAB_URL } from '../../../../renderer/utils/browserTabPersistence';
 
 const mockTheme = {
 	colors: {
@@ -222,5 +223,120 @@ describe('BrowserTabView', () => {
 				})
 			);
 		});
+	});
+
+	it('selects the full committed URL on focus', () => {
+		const onUpdateTab = vi.fn();
+		const selectSpy = vi.spyOn(HTMLInputElement.prototype, 'select');
+
+		render(<BrowserTabView tab={mockTab} theme={mockTheme} onUpdateTab={onUpdateTab} />);
+
+		fireEvent.focus(screen.getByLabelText('Browser URL'));
+
+		expect(selectSpy).toHaveBeenCalled();
+		selectSpy.mockRestore();
+	});
+
+	it('normalizes localhost input on submit', () => {
+		const onUpdateTab = vi.fn();
+
+		render(
+			<BrowserTabView
+				tab={{ ...mockTab, url: DEFAULT_BROWSER_TAB_URL, title: 'New Tab' }}
+				theme={mockTheme}
+				onUpdateTab={onUpdateTab}
+			/>
+		);
+
+		const input = screen.getByLabelText('Browser URL');
+		fireEvent.change(input, { target: { value: 'localhost:5173/docs' } });
+		fireEvent.submit(input.closest('form')!);
+
+		expect(onUpdateTab).toHaveBeenCalledWith(
+			'browser-1',
+			expect.objectContaining({
+				url: 'http://localhost:5173/docs',
+				title: 'localhost:5173',
+				isLoading: true,
+			})
+		);
+	});
+
+	it('normalizes search-like text into a search URL on submit', () => {
+		const onUpdateTab = vi.fn();
+
+		render(<BrowserTabView tab={mockTab} theme={mockTheme} onUpdateTab={onUpdateTab} />);
+
+		const input = screen.getByLabelText('Browser URL');
+		fireEvent.change(input, { target: { value: 'maestro browser tabs' } });
+		fireEvent.submit(input.closest('form')!);
+
+		expect(onUpdateTab).toHaveBeenCalledWith(
+			'browser-1',
+			expect.objectContaining({
+				url: 'https://www.google.com/search?q=maestro%20browser%20tabs',
+				title: 'www.google.com',
+				isLoading: true,
+			})
+		);
+	});
+
+	it('shows an inline error for blocked protocols without mutating tab state', async () => {
+		const onUpdateTab = vi.fn();
+
+		render(<BrowserTabView tab={mockTab} theme={mockTheme} onUpdateTab={onUpdateTab} />);
+
+		const input = screen.getByLabelText('Browser URL');
+		fireEvent.change(input, { target: { value: 'data:text/plain,hello' } });
+		fireEvent.submit(input.closest('form')!);
+
+		expect(onUpdateTab).not.toHaveBeenCalled();
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'Protocol not allowed in browser tabs: data:'
+		);
+		expect(input).toHaveValue('data:text/plain,hello');
+	});
+
+	it('keeps typed input separate from navigation updates until submitted', async () => {
+		const onUpdateTab = vi.fn();
+
+		render(<BrowserTabView tab={mockTab} theme={mockTheme} onUpdateTab={onUpdateTab} />);
+
+		const webview = getWebview();
+		webview.canGoBack = vi.fn(() => false);
+		webview.canGoForward = vi.fn(() => false);
+		webview.getURL = vi.fn(() => 'https://example.com');
+		webview.getTitle = vi.fn(() => 'Example');
+		webview.isLoading = vi.fn(() => false);
+		webview.getWebContentsId = vi.fn(() => 88);
+
+		await act(async () => {
+			webview.dispatchEvent(new Event('dom-ready'));
+		});
+
+		const input = screen.getByLabelText('Browser URL');
+		fireEvent.focus(input);
+		fireEvent.change(input, { target: { value: 'docs.runmaestro.ai' } });
+
+		await act(async () => {
+			webview.dispatchEvent(
+				Object.assign(new Event('did-navigate'), {
+					url: 'https://example.com/redirected',
+				})
+			);
+		});
+
+		expect(input).toHaveValue('docs.runmaestro.ai');
+
+		fireEvent.submit(input.closest('form')!);
+
+		expect(onUpdateTab).toHaveBeenCalledWith(
+			'browser-1',
+			expect.objectContaining({
+				url: 'https://docs.runmaestro.ai/',
+				title: 'docs.runmaestro.ai',
+				isLoading: true,
+			})
+		);
 	});
 });

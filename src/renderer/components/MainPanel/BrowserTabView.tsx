@@ -5,7 +5,7 @@ import {
 	DEFAULT_BROWSER_TAB_TITLE,
 	DEFAULT_BROWSER_TAB_URL,
 	getBrowserTabTitle,
-	normalizeBrowserTabUrl,
+	resolveBrowserTabNavigationTarget,
 } from '../../utils/browserTabPersistence';
 
 type ElectronWebviewElement = HTMLElement & {
@@ -54,14 +54,18 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 	const hostRef = useRef<HTMLDivElement | null>(null);
 	const isDomReadyRef = useRef(false);
 	const latestTabRef = useRef(tab);
+	const isAddressFocusedRef = useRef(false);
 	const [addressValue, setAddressValue] = useState(tab.url);
+	const [addressError, setAddressError] = useState<string | null>(null);
 
 	useEffect(() => {
 		latestTabRef.current = tab;
 	}, [tab]);
 
 	useEffect(() => {
-		setAddressValue(tab.url);
+		if (!isAddressFocusedRef.current) {
+			setAddressValue(tab.url);
+		}
 	}, [tab.id, tab.url]);
 
 	useEffect(() => {
@@ -91,7 +95,10 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 			const nextState = readWebviewState();
 			if (!nextState) return;
 
-			setAddressValue(nextState.url || DEFAULT_BROWSER_TAB_URL);
+			if (!isAddressFocusedRef.current) {
+				setAddressValue(nextState.url || DEFAULT_BROWSER_TAB_URL);
+			}
+			setAddressError(null);
 			updateTabState(nextState);
 		};
 
@@ -106,7 +113,10 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 				webview.getURL?.() ||
 				latestTabRef.current.url ||
 				DEFAULT_BROWSER_TAB_URL;
-			setAddressValue(nextUrl);
+			if (!isAddressFocusedRef.current) {
+				setAddressValue(nextUrl);
+			}
+			setAddressError(null);
 			updateTabState({
 				url: nextUrl,
 				title: getBrowserTabTitle(nextUrl, latestTabRef.current.title),
@@ -120,7 +130,10 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 				webview.getURL?.() ||
 				latestTabRef.current.url ||
 				DEFAULT_BROWSER_TAB_URL;
-			setAddressValue(nextUrl);
+			if (!isAddressFocusedRef.current) {
+				setAddressValue(nextUrl);
+			}
+			setAddressError(null);
 			updateTabState({
 				url: nextUrl,
 				title: getBrowserTabTitle(nextUrl),
@@ -148,7 +161,10 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 				webview.getURL?.() ||
 				latestTabRef.current.url ||
 				DEFAULT_BROWSER_TAB_URL;
-			setAddressValue(nextUrl);
+			if (!isAddressFocusedRef.current) {
+				setAddressValue(nextUrl);
+			}
+			setAddressError(null);
 			updateTabState({
 				url: nextUrl,
 				title: getBrowserTabTitle(nextUrl),
@@ -215,14 +231,21 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 
 	const navigateToAddress = useCallback(
 		(rawValue: string) => {
-			const nextUrl = normalizeBrowserTabUrl(rawValue);
+			const result = resolveBrowserTabNavigationTarget(rawValue);
+			if (result.kind === 'error') {
+				setAddressError(result.message);
+				return;
+			}
+
+			const nextUrl = result.url;
 			setAddressValue(nextUrl);
+			setAddressError(null);
 			onUpdateTab(tab.id, {
 				url: nextUrl,
-				title: getBrowserTabTitle(
-					nextUrl,
-					nextUrl === DEFAULT_BROWSER_TAB_URL ? DEFAULT_BROWSER_TAB_TITLE : tab.title
-				),
+				title:
+					nextUrl === DEFAULT_BROWSER_TAB_URL
+						? DEFAULT_BROWSER_TAB_TITLE
+						: getBrowserTabTitle(nextUrl),
 				isLoading: nextUrl !== DEFAULT_BROWSER_TAB_URL,
 			});
 
@@ -241,6 +264,15 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 		},
 		[addressValue, navigateToAddress]
 	);
+
+	const handleAddressFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+		isAddressFocusedRef.current = true;
+		event.currentTarget.select();
+	}, []);
+
+	const handleAddressBlur = useCallback(() => {
+		isAddressFocusedRef.current = false;
+	}, []);
 
 	const handleBack = useCallback(() => {
 		const webview = webviewRef.current;
@@ -313,26 +345,39 @@ export const BrowserTabView = React.memo(function BrowserTabView({
 				</button>
 				<form className="flex-1 min-w-0" onSubmit={handleSubmit}>
 					<label className="sr-only" htmlFor={`browser-tab-address-${tab.id}`}>
-						Address
+						Browser URL
 					</label>
-					<div
-						className="flex items-center gap-2 rounded-md border px-3 py-1.5"
-						style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border }}
-					>
-						{tab.favicon ? (
-							<img alt="" className="w-4 h-4 shrink-0" src={tab.favicon} />
-						) : (
-							<Globe className="w-4 h-4 shrink-0" style={{ color: theme.colors.textDim }} />
-						)}
-						<input
-							id={`browser-tab-address-${tab.id}`}
-							value={addressValue}
-							onChange={(event) => setAddressValue(event.target.value)}
-							onBlur={() => setAddressValue(tab.url)}
-							className="w-full bg-transparent outline-none text-sm"
-							style={{ color: theme.colors.textMain }}
-							placeholder="Enter a URL"
-						/>
+					<div className="flex flex-col gap-1">
+						<div
+							className="flex items-center gap-2 rounded-md border px-3 py-1.5"
+							style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border }}
+						>
+							{tab.favicon ? (
+								<img alt="" className="w-4 h-4 shrink-0" src={tab.favicon} />
+							) : (
+								<Globe className="w-4 h-4 shrink-0" style={{ color: theme.colors.textDim }} />
+							)}
+							<input
+								id={`browser-tab-address-${tab.id}`}
+								aria-label="Browser URL"
+								aria-invalid={addressError ? 'true' : 'false'}
+								value={addressValue}
+								onChange={(event) => {
+									setAddressValue(event.target.value);
+									if (addressError) setAddressError(null);
+								}}
+								onFocus={handleAddressFocus}
+								onBlur={handleAddressBlur}
+								className="w-full bg-transparent outline-none text-sm"
+								style={{ color: theme.colors.textMain }}
+								placeholder="Enter a URL or search term"
+							/>
+						</div>
+						{addressError ? (
+							<p role="alert" className="px-1 text-xs" style={{ color: '#f87171' }}>
+								{addressError}
+							</p>
+						) : null}
 					</div>
 				</form>
 				<button
