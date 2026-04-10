@@ -380,6 +380,7 @@ export function useAppRemoteEventListeners(deps: UseAppRemoteEventListenersDeps)
 				name,
 				toolType: toolType as ToolType,
 				state: 'idle',
+				createdAt: Date.now(),
 				cwd,
 				fullPath: cwd,
 				projectRoot: cwd,
