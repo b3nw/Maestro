@@ -590,11 +590,20 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 			(s) => s.worktreeConfig?.basePath && s.worktreeConfig?.watchEnabled
 		);
 
+		// TODO: Remove debug logging after worktree detection is confirmed working
+		console.warn(
+			`[WT-DEBUG] Effect 2 running. watchableSessions=${watchableSessions.length}, key=${worktreeConfigKey}`
+		);
+		for (const s of watchableSessions) {
+			console.warn(`[WT-DEBUG]   → will watch: ${s.id} at ${s.worktreeConfig!.basePath}`);
+		}
+
 		// Start chokidar watchers, logging failures so they don't go silent
 		for (const session of watchableSessions) {
 			window.maestro.git
 				.watchWorktreeDirectory(session.id, session.worktreeConfig!.basePath)
 				.then((result) => {
+					console.warn(`[WT-DEBUG] watchWorktreeDirectory result:`, result);
 					if (!result.success) {
 						console.error(
 							`[WorktreeWatcher] Failed to start watcher for ${session.worktreeConfig!.basePath}:`,
@@ -610,15 +619,18 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 		// Set up listener for discovered worktrees (from chokidar)
 		const cleanupListener = window.maestro.git.onWorktreeDiscovered(async (data) => {
 			const { sessionId, worktree } = data;
+			console.warn(`[WT-DEBUG] onWorktreeDiscovered fired:`, { sessionId, worktree });
 
 			if (
 				recentlyCreatedWorktreePathsRef.current.has(normalizePath(worktree.path)) ||
 				isRecentlyCreatedWorktreePath(worktree.path)
 			) {
+				console.warn(`[WT-DEBUG] SKIPPED: recently created path`);
 				return;
 			}
 
 			if (isSkippableBranch(worktree.branch)) {
+				console.warn(`[WT-DEBUG] SKIPPED: skippable branch ${worktree.branch}`);
 				return;
 			}
 

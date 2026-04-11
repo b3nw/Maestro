@@ -1166,6 +1166,11 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 		createIpcHandler(
 			handlerOpts('watchWorktreeDirectory'),
 			async (sessionId: string, worktreePath: string, sshRemoteId?: string) => {
+				// TODO: Remove debug logging after worktree detection is confirmed working
+				logger.warn(
+					`[WT-DEBUG] watchWorktreeDirectory called: session=${sessionId} path=${worktreePath} ssh=${sshRemoteId}`
+				);
+
 				// SSH remote: file watching is not supported
 				// Return success with isRemote flag so UI knows to poll instead
 				if (sshRemoteId) {
@@ -1209,6 +1214,8 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 
 					// Handler for directory additions
 					watcher.on('addDir', async (dirPath: string) => {
+						// TODO: Remove debug logging after worktree detection is confirmed working
+						logger.warn(`[WT-DEBUG] addDir event: ${dirPath}`);
 						// Skip the root directory itself
 						if (dirPath === worktreePath) return;
 
@@ -1228,7 +1235,10 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 								dirPath
 							);
 							if (isInsideWorkTree.exitCode !== 0) {
-								return; // Not a git repo
+								logger.warn(
+									`[WT-DEBUG] REJECTED ${dirPath}: not inside work tree (exit=${isInsideWorkTree.exitCode} stderr=${isInsideWorkTree.stderr})`
+								);
+								return;
 							}
 
 							// Verify this IS a worktree/repo root, not a subdirectory inside one
@@ -1238,10 +1248,16 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 								dirPath
 							);
 							if (toplevelResult.exitCode !== 0) {
-								return; // Git command failed — skip
+								logger.warn(
+									`[WT-DEBUG] REJECTED ${dirPath}: show-toplevel failed (exit=${toplevelResult.exitCode})`
+								);
+								return;
 							}
 							if (path.resolve(dirPath) !== path.resolve(toplevelResult.stdout.trim())) {
-								return; // Subdirectory inside a repo, not a worktree root
+								logger.warn(
+									`[WT-DEBUG] REJECTED ${dirPath}: not repo root (resolved=${path.resolve(dirPath)} toplevel=${path.resolve(toplevelResult.stdout.trim())})`
+								);
+								return;
 							}
 
 							// Get branch name
@@ -1254,8 +1270,13 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 
 							// Skip main/master/HEAD branches
 							if (branch === 'main' || branch === 'master' || branch === 'HEAD') {
+								logger.warn(`[WT-DEBUG] REJECTED ${dirPath}: skippable branch ${branch}`);
 								return;
 							}
+
+							logger.warn(
+								`[WT-DEBUG] ACCEPTED ${dirPath}: branch=${branch}, emitting worktree:discovered`
+							);
 
 							// Emit event to renderer
 							const windows = BrowserWindow.getAllWindows();
@@ -1302,6 +1323,10 @@ export function registerGitHandlers(_deps: GitHandlerDependencies): void {
 	ipcMain.handle(
 		'git:unwatchWorktreeDirectory',
 		createIpcHandler(handlerOpts('unwatchWorktreeDirectory'), async (sessionId: string) => {
+			// TODO: Remove debug logging after worktree detection is confirmed working
+			logger.warn(
+				`[WT-DEBUG] unwatchWorktreeDirectory called: session=${sessionId} hasWatcher=${worktreeWatchers.has(sessionId)}`
+			);
 			const watcher = worktreeWatchers.get(sessionId);
 			if (watcher) {
 				// Delete from map BEFORE awaiting close to prevent a race condition:
