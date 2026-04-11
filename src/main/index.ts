@@ -65,6 +65,7 @@ import {
 	registerCueHandlers,
 	registerWakatimeHandlers,
 	registerFeedbackHandlers,
+	registerPromptsHandlers,
 	setupLoggerEventForwarding,
 	cleanupAllGroomingSessions,
 	getActiveGroomingSessionCount,
@@ -844,6 +845,9 @@ function setupIpcHandlers() {
 
 	// Register BMAD handlers (no dependencies needed)
 	registerBmadHandlers();
+
+	// Register Core Prompts handlers (no dependencies needed)
+	registerPromptsHandlers();
 
 	// Register Context Merge handlers for session context transfer and grooming
 	registerContextHandlers({
