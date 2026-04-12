@@ -1177,6 +1177,40 @@ describe('useQuickActionsHandlers', () => {
 
 			expect(deps.handleUnifiedTabReorder).not.toHaveBeenCalled();
 		});
+
+		it('reorders active browser tab to index 0', () => {
+			const tab1 = createTab({ id: 'tab-1' });
+			const session = createSession({
+				activeTabId: 'tab-1',
+				aiTabs: [tab1],
+				activeBrowserTabId: 'browser-1',
+				browserTabs: [
+					{
+						id: 'browser-1',
+						url: 'https://example.com',
+						title: 'Example',
+						createdAt: Date.now(),
+						canGoBack: false,
+						canGoForward: false,
+						isLoading: false,
+					},
+				],
+				unifiedTabOrder: [
+					{ type: 'ai' as const, id: 'tab-1' },
+					{ type: 'browser' as const, id: 'browser-1' },
+				],
+			});
+			useSessionStore.setState({ sessions: [session], activeSessionId: 'sess-1' });
+
+			const deps = createDeps();
+			const { result } = renderHook(() => useQuickActionsHandlers(deps));
+
+			act(() => {
+				result.current.handleQuickActionsMoveTabToFirst();
+			});
+
+			expect(deps.handleUnifiedTabReorder).toHaveBeenCalledWith(1, 0);
+		});
 	});
 
 	describe('handleQuickActionsMoveTabToLast', () => {
@@ -1222,6 +1256,42 @@ describe('useQuickActionsHandlers', () => {
 			});
 
 			expect(deps.handleUnifiedTabReorder).not.toHaveBeenCalled();
+		});
+
+		it('reorders active browser tab to last index', () => {
+			const tab1 = createTab({ id: 'tab-1' });
+			const tab2 = createTab({ id: 'tab-2' });
+			const session = createSession({
+				activeTabId: 'tab-1',
+				aiTabs: [tab1, tab2],
+				activeBrowserTabId: 'browser-1',
+				browserTabs: [
+					{
+						id: 'browser-1',
+						url: 'https://example.com',
+						title: 'Example',
+						createdAt: Date.now(),
+						canGoBack: false,
+						canGoForward: false,
+						isLoading: false,
+					},
+				],
+				unifiedTabOrder: [
+					{ type: 'browser' as const, id: 'browser-1' },
+					{ type: 'ai' as const, id: 'tab-1' },
+					{ type: 'ai' as const, id: 'tab-2' },
+				],
+			});
+			useSessionStore.setState({ sessions: [session], activeSessionId: 'sess-1' });
+
+			const deps = createDeps();
+			const { result } = renderHook(() => useQuickActionsHandlers(deps));
+
+			act(() => {
+				result.current.handleQuickActionsMoveTabToLast();
+			});
+
+			expect(deps.handleUnifiedTabReorder).toHaveBeenCalledWith(0, 2);
 		});
 	});
 

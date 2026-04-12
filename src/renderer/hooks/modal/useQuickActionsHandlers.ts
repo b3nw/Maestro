@@ -89,13 +89,16 @@ export interface UseQuickActionsHandlersReturn {
 // Hook implementation
 // ============================================================================
 
-/** Returns the UnifiedTabRef for the currently active tab (AI, file, or terminal). */
+/** Returns the UnifiedTabRef for the currently active tab (AI, file, terminal, or browser). */
 function getActiveUnifiedRef(session: Session): UnifiedTabRef | null {
 	if (session.inputMode === 'terminal' && session.activeTerminalTabId) {
 		return { type: 'terminal', id: session.activeTerminalTabId };
 	}
 	if (session.activeFileTabId) {
 		return { type: 'file', id: session.activeFileTabId };
+	}
+	if (session.activeBrowserTabId) {
+		return { type: 'browser', id: session.activeBrowserTabId };
 	}
 	if (session.activeTabId) {
 		return { type: 'ai', id: session.activeTabId };
