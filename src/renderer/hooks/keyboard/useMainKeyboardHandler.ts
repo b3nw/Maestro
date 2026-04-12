@@ -690,6 +690,16 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 					ctx.mainPanelRef?.current?.focusBrowserAddressBar();
 					trackShortcut('focusBrowserAddress');
 				}
+				// Cmd+R: Reload active browser tab (when a browser tab is active)
+				if (
+					ctx.isTabShortcut(e, 'toggleReadOnlyMode') &&
+					ctx.activeSession?.activeBrowserTabId &&
+					!e.shiftKey
+				) {
+					e.preventDefault();
+					ctx.mainPanelRef?.current?.reloadBrowserTab();
+					return;
+				}
 				// Cmd+W: Close the active tab (AI, file, browser, or terminal) via unified handler
 				if (ctx.isTabShortcut(e, 'closeTab')) {
 					e.preventDefault();

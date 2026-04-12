@@ -29,6 +29,10 @@ export interface MainPanelHandle {
 	focusActiveTerminal: () => void;
 	/** Open the terminal search overlay */
 	openTerminalSearch: () => void;
+	/** Focus the browser address bar in the active browser tab */
+	focusBrowserAddressBar: () => void;
+	/** Reload the active browser tab (or stop loading if in progress) */
+	reloadBrowserTab: () => void;
 }
 
 export interface MainPanelProps {

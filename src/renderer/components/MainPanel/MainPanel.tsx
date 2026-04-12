@@ -337,6 +337,25 @@ export const MainPanel = React.memo(
 						}
 					}
 				},
+				reloadBrowserTab: () => {
+					if (activeSession?.activeBrowserTabId) {
+						const host = document.querySelector('[data-testid="browser-tab-host"]');
+						const webview = host?.querySelector('webview') as
+							| (HTMLElement & { reload: () => void; stop: () => void; isLoading: () => boolean })
+							| null;
+						if (webview) {
+							try {
+								if (webview.isLoading()) {
+									webview.stop();
+								} else {
+									webview.reload();
+								}
+							} catch {
+								// webview not ready
+							}
+						}
+					}
+				},
 				openTerminalSearch: () => {
 					setTerminalSearchOpen(true);
 				},
