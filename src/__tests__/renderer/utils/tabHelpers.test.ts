@@ -66,10 +66,7 @@ import type {
 	ClosedTabEntry,
 	FilePreviewTab,
 } from '../../../renderer/types';
-import {
-	createMockAITab as createMockTab,
-	createMockFileTab,
-} from '../../helpers/mockTab';
+import { createMockAITab as createMockTab, createMockFileTab } from '../../helpers/mockTab';
 
 // Mock the generateId function to return predictable IDs
 vi.mock('../../../renderer/utils/ids', () => ({
@@ -116,7 +113,6 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
 		...overrides,
 	};
 }
-
 
 function createMockBrowserTab(overrides: Record<string, unknown> = {}) {
 	return {
