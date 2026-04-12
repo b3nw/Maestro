@@ -1143,6 +1143,89 @@ describe('Effects', () => {
 			expect(worktreeSessions.some((s) => s.id === 'existing-startup')).toBe(true);
 			expect(worktreeSessions.some((s) => s.worktreeBranch === 'new-branch')).toBe(true);
 		});
+		it('removes stale child sessions whose worktree no longer exists on disk', async () => {
+			vi.useFakeTimers();
+
+			const staleChild = createChildSession({
+				id: 'stale-child',
+				cwd: '/projects/worktrees/deleted-branch',
+				worktreeBranch: 'deleted-branch',
+				parentSessionId: 'parent-1',
+			});
+
+			const validChild = createChildSession({
+				id: 'valid-child',
+				cwd: '/projects/worktrees/valid-branch',
+				worktreeBranch: 'valid-branch',
+				parentSessionId: 'parent-1',
+			});
+
+			const parentWithConfig = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: false },
+			};
+
+			mockGit.scanWorktreeDirectory.mockResolvedValue({
+				gitSubdirs: [
+					{
+						path: '/projects/worktrees/valid-branch',
+						branch: 'valid-branch',
+						name: 'valid-branch',
+					},
+				],
+			});
+
+			useSessionStore.setState({
+				sessions: [parentWithConfig, staleChild, validChild],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: true,
+			} as any);
+
+			renderHook(() => useWorktreeHandlers());
+
+			await act(async () => {
+				await vi.runAllTimersAsync();
+			});
+
+			const sessions = useSessionStore.getState().sessions;
+			expect(sessions.some((s) => s.id === 'stale-child')).toBe(false);
+			expect(sessions.some((s) => s.id === 'valid-child')).toBe(true);
+			expect(notifyToast).toHaveBeenCalledWith(
+				expect.objectContaining({ type: 'info', title: 'Worktree Removed' })
+			);
+		});
+
+		it('exposes refreshWorktreeState that can be called manually', async () => {
+			const parentWithConfig = {
+				...mockParentSession,
+				worktreeConfig: { basePath: '/projects/worktrees', watchEnabled: false },
+			};
+
+			mockGit.scanWorktreeDirectory.mockResolvedValue({
+				gitSubdirs: [
+					{
+						path: '/projects/worktrees/manual-branch',
+						branch: 'manual-branch',
+						name: 'manual-branch',
+					},
+				],
+			});
+
+			useSessionStore.setState({
+				sessions: [parentWithConfig],
+				activeSessionId: 'parent-1',
+				sessionsLoaded: false,
+			} as any);
+
+			const { result } = renderHook(() => useWorktreeHandlers());
+
+			await act(async () => {
+				await result.current.refreshWorktreeState();
+			});
+
+			const sessions = useSessionStore.getState().sessions;
+			expect(sessions.some((s) => s.worktreeBranch === 'manual-branch')).toBe(true);
+		});
 	});
 
 	describe('File watcher effect', () => {

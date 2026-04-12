@@ -45,6 +45,7 @@ export interface WorktreeHandlersReturn {
 	handleCloseDeleteWorktreeModal: () => void;
 	handleConfirmDeleteWorktree: () => void;
 	handleConfirmAndDeleteWorktreeOnDisk: () => Promise<void>;
+	refreshWorktreeState: () => Promise<void>;
 }
 
 // ============================================================================
@@ -491,8 +492,9 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 	// Effects
 	// ---------------------------------------------------------------------------
 
-	// Shared scan logic: discovers new worktrees in configured basePath directories
-	// and adds them as child sessions. Used by both startup scan and visibility-change rescan.
+	// Shared scan logic: discovers new worktrees in configured basePath directories,
+	// adds them as child sessions, and removes child sessions whose worktree directories
+	// no longer exist on disk. Used by startup scan, visibility-change rescan, and manual refresh.
 	const scanWorktreeConfigs = useCallback(async () => {
 		const currentSessions = useSessionStore.getState().sessions;
 		const { defaultSaveToHistory: savToHist, defaultShowThinking: showThink } =
@@ -505,6 +507,7 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 		if (sessionsWithWorktreeConfig.length === 0) return;
 
 		const newWorktreeSessions: Session[] = [];
+		const staleSessionIds: string[] = [];
 
 		for (const parentSession of sessionsWithWorktreeConfig) {
 			try {
@@ -515,6 +518,7 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 				);
 				const { gitSubdirs } = scanResult;
 
+				// Detect additions
 				for (const subdir of gitSubdirs) {
 					if (isSkippableBranch(subdir.branch)) continue;
 
@@ -547,6 +551,16 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 						})
 					);
 				}
+
+				// Detect removals: child sessions whose cwd is no longer in scan results
+				const diskPaths = new Set(gitSubdirs.map((d) => normalizePath(d.path)));
+				const latestSessions = useSessionStore.getState().sessions;
+				const childSessions = latestSessions.filter((s) => s.parentSessionId === parentSession.id);
+				for (const child of childSessions) {
+					if (!diskPaths.has(normalizePath(child.cwd))) {
+						staleSessionIds.push(child.id);
+					}
+				}
 			} catch (err) {
 				console.error(
 					`[WorktreeScan] Error scanning ${parentSession.worktreeConfig!.basePath}:`,
@@ -569,6 +583,21 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 				.setSessions((prev) =>
 					prev.map((s) => (parentIds.has(s.id) ? { ...s, worktreesExpanded: true } : s))
 				);
+		}
+
+		if (staleSessionIds.length > 0) {
+			const staleSet = new Set(staleSessionIds);
+			useSessionStore.getState().setSessions((prev) => {
+				const removed = prev.filter((s) => staleSet.has(s.id));
+				for (const s of removed) {
+					notifyToast({
+						type: 'info',
+						title: 'Worktree Removed',
+						message: s.worktreeBranch || s.name,
+					});
+				}
+				return prev.filter((s) => !staleSet.has(s.id));
+			});
 		}
 	}, []);
 
@@ -874,5 +903,6 @@ export function useWorktreeHandlers(): WorktreeHandlersReturn {
 		handleCloseDeleteWorktreeModal,
 		handleConfirmDeleteWorktree,
 		handleConfirmAndDeleteWorktreeOnDisk,
+		refreshWorktreeState: scanWorktreeConfigs,
 	};
 }

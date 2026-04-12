@@ -92,6 +92,7 @@ function createDeps(
 ): UseQuickActionsHandlersDeps {
 	return {
 		refreshGitFileState: vi.fn().mockResolvedValue(undefined),
+		refreshWorktreeState: vi.fn().mockResolvedValue(undefined),
 		mainPanelRef: { current: { refreshGitInfo: vi.fn().mockResolvedValue(undefined) } as any },
 		rightPanelRef: { current: { openAutoRunResetTasksModal: vi.fn() } as any },
 		handleSummarizeAndContinue: vi.fn(),
@@ -674,6 +675,33 @@ describe('useQuickActionsHandlers', () => {
 			).resolves.not.toThrow();
 
 			expect(deps.refreshGitFileState).toHaveBeenCalledWith('sess-1');
+		});
+
+		it('calls refreshWorktreeState alongside refreshGitFileState', async () => {
+			const session = createSession({ id: 'sess-1' });
+			useSessionStore.setState({ sessions: [session], activeSessionId: 'sess-1' });
+
+			const deps = createDeps();
+			const { result } = renderHook(() => useQuickActionsHandlers(deps));
+
+			await act(async () => {
+				await result.current.handleQuickActionsRefreshGitFileState();
+			});
+
+			expect(deps.refreshWorktreeState).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not call refreshWorktreeState when there is no active session', async () => {
+			useSessionStore.setState({ sessions: [], activeSessionId: '' });
+
+			const deps = createDeps();
+			const { result } = renderHook(() => useQuickActionsHandlers(deps));
+
+			await act(async () => {
+				await result.current.handleQuickActionsRefreshGitFileState();
+			});
+
+			expect(deps.refreshWorktreeState).not.toHaveBeenCalled();
 		});
 	});
 
