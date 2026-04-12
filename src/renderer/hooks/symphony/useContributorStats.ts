@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ContributorStats, CompletedContribution } from '../../../shared/symphony-types';
+import { formatDurationCompact as formatDuration } from '../../../shared/formatters';
 
 // ============================================================================
 // Types
@@ -144,14 +145,6 @@ function formatCost(cost: number): string {
 	return `$${cost.toFixed(2)}`;
 }
 
-function formatDuration(ms: number): string {
-	const hours = Math.floor(ms / (1000 * 60 * 60));
-	const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-	if (hours > 0) {
-		return `${hours}h ${minutes}m`;
-	}
-	return `${minutes}m`;
-}
 
 // ============================================================================
 // Hook Implementation

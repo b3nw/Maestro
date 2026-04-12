@@ -24,11 +24,10 @@ export const perfMetrics = new PerformanceMetrics(
 );
 
 /**
- * Generate a unique ID for database entries
+ * Generate a unique ID for database entries.
+ * Re-exports generateUUID from shared/uuid.ts.
  */
-export function generateId(): string {
-	return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}
+export { generateUUID as generateId } from '../../shared/uuid';
 
 /**
  * Get timestamp for start of time range

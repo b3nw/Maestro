@@ -41,6 +41,7 @@ import {
 	REMARK_GFM_PLUGINS,
 	createWizardBubbleMarkdownComponents,
 } from '../../../utils/markdownConfig';
+import { formatTimestamp } from '../../../../shared/formatters';
 
 interface ConversationScreenProps {
 	theme: Theme;
@@ -50,13 +51,6 @@ interface ConversationScreenProps {
 	setShowThinking: (value: boolean | ((prev: boolean) => boolean)) => void;
 }
 
-/**
- * Format timestamp for display
- */
-function formatTimestamp(timestamp: number): string {
-	const date = new Date(timestamp);
-	return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 /**
  * Patterns that indicate the AI said it will do something asynchronously.
@@ -204,7 +198,7 @@ function MessageBubble({
 					className="text-xs mt-1 text-right opacity-60"
 					style={{ color: isUser ? theme.colors.accentForeground : theme.colors.textDim }}
 				>
-					{formatTimestamp(message.timestamp)}
+					{formatTimestamp(message.timestamp, 'time')}
 				</div>
 			</div>
 		</div>

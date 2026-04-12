@@ -26,6 +26,7 @@ import type { LastResponsePreview } from '../hooks/useSessions';
 import { triggerHaptic, HAPTIC_PATTERNS } from './constants';
 import { webLogger } from '../utils/logger';
 import { stripAnsiCodes } from '../../shared/stringUtils';
+import { formatTimestamp } from '../../shared/formatters';
 
 /**
  * Represents a response item that can be navigated to
@@ -63,18 +64,6 @@ export interface ResponseViewerProps {
 	sessionName?: string;
 }
 
-/**
- * Format timestamp to human-readable string
- */
-function formatTimestamp(timestamp: number): string {
-	const date = new Date(timestamp);
-	return date.toLocaleString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit',
-	});
-}
 
 /**
  * Language mapping for common file extensions and language identifiers
@@ -696,7 +685,7 @@ export function ResponseViewer({
 								{activeSessionName}
 							</span>
 						)}
-						<span style={{ opacity: 0.7 }}>{formatTimestamp(displayResponse.timestamp)}</span>
+						<span style={{ opacity: 0.7 }}>{formatTimestamp(displayResponse.timestamp, 'datetime')}</span>
 					</div>
 				</div>
 
