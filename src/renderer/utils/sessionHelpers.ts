@@ -145,7 +145,7 @@ export async function buildSpawnConfigForAgent(
 	}
 
 	// Use the agent's path (resolved location) or command
-	const command = agentConfig.path || agentConfig.command;
+	const command = agentConfig.path || agentConfig.command || '';
 
 	// Determine whether to send the prompt via stdin on Windows to avoid
 	// exceeding the command line length limit (~8KB cmd.exe).

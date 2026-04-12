@@ -6,12 +6,50 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+<<<<<<< HEAD
 import type { ToolType } from '../../types';
 import type { AgentCapabilities } from '../../../shared/types';
 import { DEFAULT_CAPABILITIES } from '../../../shared/types';
 
 export type { AgentCapabilities };
 export { DEFAULT_CAPABILITIES };
+=======
+import type { ToolType, AgentCapabilities } from '../../types';
+
+// Re-export for consumers that import from this module
+export type { AgentCapabilities } from '../../types';
+
+/**
+ * Default capabilities - safe defaults for unknown agents.
+ * All capabilities disabled by default (conservative approach).
+ */
+export const DEFAULT_CAPABILITIES: AgentCapabilities = {
+	supportsResume: false,
+	supportsReadOnlyMode: false,
+	supportsJsonOutput: false,
+	supportsSessionId: false,
+	supportsImageInput: false,
+	supportsImageInputOnResume: false,
+	supportsSlashCommands: false,
+	supportsSessionStorage: false,
+	supportsCostTracking: false,
+	supportsUsageStats: false,
+	supportsBatchMode: false,
+	requiresPromptToStart: false,
+	supportsStreaming: false,
+	supportsResultMessages: false,
+	supportsModelSelection: false,
+	supportsStreamJsonInput: false,
+	supportsThinkingDisplay: false,
+	supportsContextMerge: false,
+	supportsContextExport: false,
+	supportsWizard: false,
+	supportsGroupChatModeration: false,
+	usesJsonLineOutput: false,
+	usesCombinedContextWindow: false,
+	supportsAppendSystemPrompt: false,
+};
+>>>>>>> 55862d5ce (refactor: consolidate duplicated type definitions (Phase 05))
 
 /**
  * Return type for useAgentCapabilities hook.

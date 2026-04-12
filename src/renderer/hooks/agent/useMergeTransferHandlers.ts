@@ -452,7 +452,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 					if (!agent) throw new Error(`${targetSession.toolType} agent not found`);
 
 					const baseArgs = agent.args ?? [];
-					const commandToUse = agent.path || agent.command;
+					const commandToUse = agent.path || agent.command || '';
 
 					// Determine whether to send the prompt via stdin on Windows to avoid
 					// exceeding the command line length limit. Context transfer prompts

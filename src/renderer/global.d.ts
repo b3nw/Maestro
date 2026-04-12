@@ -78,33 +78,20 @@ interface ProcessConfig {
 	sendPromptViaStdinRaw?: boolean; // If true, send the prompt via stdin as raw text instead of command line
 }
 
-interface AgentConfigOption {
-	key: string;
-	type: 'checkbox' | 'text' | 'number' | 'select';
-	label: string;
-	description: string;
-	default: any;
-	options?: string[];
-}
-
+type AgentConfigOption = import('../shared/types').AgentConfigOption;
 type AgentCapabilities = import('../shared/types').AgentCapabilities;
+type AgentConfig = import('../shared/types').AgentConfig;
 
-interface AgentConfig {
-	id: string;
-	name: string;
-	binaryName?: string;
-	available: boolean;
-	path?: string;
-	customPath?: string;
-	command: string;
-	args?: string[];
-	hidden?: boolean;
-	configOptions?: AgentConfigOption[];
-	yoloModeArgs?: string[];
-	readOnlyCliEnforced?: boolean;
-	capabilities?: AgentCapabilities;
-}
+<<<<<<< HEAD
+type AgentCapabilities = import('../shared/types').AgentCapabilities;
+=======
+type DirectoryEntry = import('../shared/types').DirectoryEntry;
+type ShellInfo = import('../shared/types').ShellInfo;
+>>>>>>> 55862d5ce (refactor: consolidate duplicated type definitions (Phase 05))
 
+type UsageStats = import('../shared/types').UsageStats;
+
+<<<<<<< HEAD
 interface DirectoryEntry {
 	name: string;
 	isDirectory: boolean;
@@ -130,6 +117,9 @@ interface UsageStats {
 }
 
 type HistoryEntryType = 'AUTO' | 'USER' | 'CUE';
+=======
+type HistoryEntryType = import('../shared/types').HistoryEntryType;
+>>>>>>> 55862d5ce (refactor: consolidate duplicated type definitions (Phase 05))
 
 /**
  * Result type for reading session messages from agent storage.

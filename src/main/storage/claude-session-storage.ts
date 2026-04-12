@@ -32,27 +32,18 @@ import type {
 	SessionMessage,
 } from '../agents';
 import type { ToolType, SshRemoteConfig } from '../../shared/types';
+import type { ClaudeSessionOrigin, ClaudeSessionOriginInfo, ClaudeSessionOriginsData } from '../stores/types';
+export type { ClaudeSessionOriginsData } from '../stores/types';
+
+/**
+ * Origin data structure stored in electron-store
+ */
+type StoredOriginData = ClaudeSessionOrigin | ClaudeSessionOriginInfo;
 import { BaseSessionStorage } from './base-session-storage';
 import type { SearchableMessage } from './base-session-storage';
 
 const LOG_CONTEXT = '[ClaudeSessionStorage]';
 const MAX_SESSION_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
-
-/**
- * Origin data structure stored in electron-store
- */
-type StoredOriginData =
-	| AgentSessionOrigin
-	| {
-			origin: AgentSessionOrigin;
-			sessionName?: string;
-			starred?: boolean;
-			contextUsage?: number;
-	  };
-
-export interface ClaudeSessionOriginsData {
-	origins: Record<string, Record<string, StoredOriginData>>;
-}
 
 /**
  * Extract semantic text from message content.

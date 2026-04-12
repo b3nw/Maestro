@@ -418,7 +418,7 @@ export function useAgentExecution(deps: UseAgentExecutionDeps): UseAgentExecutio
 
 					// Spawn the agent for batch processing
 					// Use effectiveCwd which may be a worktree path for parallel execution
-					const commandToUse = agent.path || agent.command;
+					const commandToUse = agent.path || agent.command || '';
 					const { sendPromptViaStdin, sendPromptViaStdinRaw } = getStdinFlags({
 						isSshSession: !!session.sshRemoteId || !!session.sessionSshRemoteConfig?.enabled,
 						supportsStreamJsonInput: agent.capabilities?.supportsStreamJsonInput ?? false,
@@ -589,7 +589,7 @@ export function useAgentExecution(deps: UseAgentExecutionDeps): UseAgentExecutio
 							effectiveSessionSshRemoteConfig = mainSession.sessionSshRemoteConfig;
 						}
 					}
-					const commandToUse = sessionConfig?.customPath || agent.path || agent.command;
+					const commandToUse = sessionConfig?.customPath || agent.path || agent.command || '';
 					const { sendPromptViaStdin, sendPromptViaStdinRaw } = getStdinFlags({
 						isSshSession: !!effectiveSessionSshRemoteConfig?.enabled,
 						supportsStreamJsonInput: agent.capabilities?.supportsStreamJsonInput ?? false,
