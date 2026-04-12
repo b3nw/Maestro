@@ -24,7 +24,7 @@ export const NudgeMessageField = React.memo(function NudgeMessageField({
 					value={value}
 					onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
 					placeholder="Instructions appended to every message you send..."
-					className="w-full p-3 pb-8 rounded border bg-transparent outline-none resize-none text-sm"
+					className="w-full p-3 pb-8 rounded border bg-transparent outline-none resize-y text-sm"
 					style={{
 						borderColor: theme.colors.border,
 						color: theme.colors.textMain,
