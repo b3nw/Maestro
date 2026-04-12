@@ -420,18 +420,17 @@ app.whenReady().then(async () => {
 					'Startup'
 				);
 			}
+			store.set(migratedKey, true);
 		} catch (err) {
 			await captureException(err instanceof Error ? err : new Error(String(err)), {
 				migratedKey,
 				standingInstructionsSlice: standingInstructions.slice(0, 200),
 			});
 			logger.warn(
-				'Failed to persist migrated moderator standing instructions, continuing startup',
+				'Failed to persist migrated moderator standing instructions, will retry next launch',
 				'Startup'
 			);
 		}
-
-		store.set(migratedKey, true);
 	}
 
 	// Load custom agent paths from settings
