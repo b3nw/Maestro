@@ -13,7 +13,7 @@
 import * as crypto from 'crypto';
 import type { MainLogLevel } from '../../shared/logger-types';
 import type { CueEvent, CueRunResult, CueSettings, CueSubscription } from './cue-types';
-import { recordCueEvent, updateCueEventStatus } from './cue-db';
+import { updateCueEventStatus, safeRecordCueEvent, safeUpdateCueEventStatus } from './cue-db';
 import { SOURCE_OUTPUT_MAX_CHARS } from './cue-fan-in-tracker';
 import { captureException } from '../utils/sentry';
 
@@ -184,19 +184,15 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 		activeRuns.set(runId, { result, abortController, phase: 'running' });
 		deps.onPreventSleep?.(`cue:run:${runId}`);
 		const timeoutMs = (settings?.timeout_minutes ?? 30) * 60 * 1000;
-		try {
-			recordCueEvent({
-				id: runId,
-				type: event.type,
-				triggerName: event.triggerName,
-				sessionId,
-				subscriptionName,
-				status: 'running',
-				payload: JSON.stringify(event.payload),
-			});
-		} catch {
-			// Non-fatal if DB is unavailable
-		}
+		safeRecordCueEvent({
+			id: runId,
+			type: event.type,
+			triggerName: event.triggerName,
+			sessionId,
+			subscriptionName,
+			status: 'running',
+			payload: JSON.stringify(event.payload),
+		});
 		deps.onLog('cue', `[CUE] Run started: ${subscriptionName}`, {
 			type: 'runStarted',
 			runId,
@@ -239,19 +235,15 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					},
 				};
 
-				try {
-					recordCueEvent({
-						id: outputRunId,
-						type: event.type,
-						triggerName: event.triggerName,
-						sessionId,
-						subscriptionName: `${subscriptionName}:output`,
-						status: 'running',
-						payload: JSON.stringify(outputEvent.payload),
-					});
-				} catch {
-					// Non-fatal if DB is unavailable
-				}
+				safeRecordCueEvent({
+					id: outputRunId,
+					type: event.type,
+					triggerName: event.triggerName,
+					sessionId,
+					subscriptionName: `${subscriptionName}:output`,
+					status: 'running',
+					payload: JSON.stringify(outputEvent.payload),
+				});
 
 				// Track the output prompt's process ID so stopRun can kill it
 				const run = activeRuns.get(runId);
@@ -267,11 +259,7 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					timeoutMs,
 				});
 
-				try {
-					updateCueEventStatus(outputRunId, outputResult.status);
-				} catch {
-					// Non-fatal if DB is unavailable
-				}
+				safeUpdateCueEventStatus(outputRunId, outputResult.status);
 
 				if (!activeRuns.has(runId)) {
 					return;

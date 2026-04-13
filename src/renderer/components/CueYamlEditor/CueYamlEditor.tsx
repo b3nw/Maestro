@@ -20,6 +20,7 @@ import { PatternPicker } from './PatternPicker';
 import { PatternPreviewModal } from './PatternPreviewModal';
 import { CueAiChat } from './CueAiChat';
 import { YamlTextEditor } from './YamlTextEditor';
+import { cueService } from '../../services/cue';
 
 interface CueYamlEditorProps {
 	isOpen: boolean;
@@ -59,13 +60,13 @@ export function CueYamlEditor({
 		async function loadYaml() {
 			setLoading(true);
 			try {
-				const content = await window.maestro.cue.readYaml(projectRoot);
+				const content = await cueService.readYaml(projectRoot);
 				if (cancelled) return;
 				const initial = content ?? CUE_YAML_TEMPLATE;
 				setYamlContent(initial);
 				setOriginalContent(initial);
 				try {
-					const validationResult = await window.maestro.cue.validateYaml(initial);
+					const validationResult = await cueService.validateYaml(initial);
 					if (!cancelled) {
 						setIsValid(validationResult.valid);
 						setValidationErrors(validationResult.errors);
@@ -95,7 +96,7 @@ export function CueYamlEditor({
 		}
 		validateTimerRef.current = setTimeout(async () => {
 			try {
-				const result = await window.maestro.cue.validateYaml(content);
+				const result = await cueService.validateYaml(content);
 				setIsValid(result.valid);
 				setValidationErrors(result.errors);
 			} catch {
@@ -124,8 +125,8 @@ export function CueYamlEditor({
 
 	const handleSave = useCallback(async () => {
 		if (!isValid) return;
-		await window.maestro.cue.writeYaml(projectRoot, yamlContent);
-		await window.maestro.cue.refreshSession(sessionId, projectRoot);
+		await cueService.writeYaml(projectRoot, yamlContent);
+		await cueService.refreshSession(sessionId, projectRoot);
 		onClose();
 	}, [isValid, projectRoot, yamlContent, sessionId, onClose]);
 
@@ -134,12 +135,12 @@ export function CueYamlEditor({
 
 	const refreshYamlFromDisk = useCallback(async () => {
 		try {
-			const content = await window.maestro.cue.readYaml(projectRoot);
+			const content = await cueService.readYaml(projectRoot);
 			if (content) {
 				setYamlContent(content);
 				setOriginalContent(content);
 				try {
-					const result = await window.maestro.cue.validateYaml(content);
+					const result = await cueService.validateYaml(content);
 					setIsValid(result.valid);
 					setValidationErrors(result.errors);
 				} catch {

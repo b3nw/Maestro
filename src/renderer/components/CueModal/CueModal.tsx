@@ -33,6 +33,8 @@ import { ActivityLog } from './ActivityLog';
 import { buildSubscriptionPipelineMap } from './cueModalUtils';
 import { notifyToast } from '../../stores/notificationStore';
 import { captureException } from '../../utils/sentry';
+import { cueService } from '../../services/cue';
+import { useCueDirtyStore } from '../../stores/cueDirtyStore';
 
 type CueModalTab = 'dashboard' | 'pipeline';
 
@@ -130,7 +132,7 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 					setShowHelp(false);
 					return;
 				}
-				if (pipelineDirtyRef.current) {
+				if (useCueDirtyStore.getState().pipelineDirty) {
 					getModalActions().showConfirmation(
 						'You have unsaved changes in the pipeline editor. Discard and close?',
 						() => onCloseRef.current()
@@ -160,7 +162,7 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 	useEffect(() => {
 		let cancelled = false;
 		setGraphError(null);
-		window.maestro.cue
+		cueService
 			.getGraphData()
 			.then((data: CueGraphSession[]) => {
 				if (!cancelled) setGraphSessions(data);
@@ -192,10 +194,12 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 	const showHelpRef = useRef(false);
 	showHelpRef.current = showHelp;
 
-	// Pipeline dirty state (unsaved changes)
-	const [pipelineDirty, setPipelineDirty] = useState(false);
-	const pipelineDirtyRef = useRef(false);
-	pipelineDirtyRef.current = pipelineDirty;
+	// Reset pipeline dirty state when the modal unmounts
+	useEffect(() => {
+		return () => {
+			useCueDirtyStore.getState().resetAll();
+		};
+	}, []);
 
 	const handleEditYaml = useCallback((session: CueSessionStatus) => {
 		getModalActions().openCueYamlEditor(session.sessionId, session.projectRoot);
@@ -211,7 +215,7 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 				`Remove Cue configuration for "${session.sessionName}"?\n\nThis will delete the cue.yaml file from this project. This cannot be undone.`,
 				async () => {
 					try {
-						await window.maestro.cue.deleteYaml(session.projectRoot);
+						await cueService.deleteYaml(session.projectRoot);
 					} catch (err) {
 						captureException(err, {
 							extra: { context: 'handleRemoveCue', projectRoot: session.projectRoot },
@@ -243,7 +247,7 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 
 	// Close with unsaved changes confirmation
 	const handleCloseWithConfirm = useCallback(() => {
-		if (pipelineDirtyRef.current) {
+		if (useCueDirtyStore.getState().pipelineDirty) {
 			getModalActions().showConfirmation(
 				'You have unsaved changes in the pipeline editor. Discard and close?',
 				() => onClose()
@@ -532,7 +536,6 @@ export function CueModal({ theme, onClose, cueShortcutKeys }: CueModalProps) {
 								graphSessions={graphSessions}
 								onSwitchToSession={handleSwitchToSession}
 								onClose={onClose}
-								onDirtyChange={setPipelineDirty}
 								theme={theme}
 								activeRuns={activeRuns}
 								onTriggerPipeline={triggerSubscription}

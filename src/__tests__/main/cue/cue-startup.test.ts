@@ -62,6 +62,8 @@ vi.mock('../../../main/cue/cue-db', () => ({
 	updateCueEventStatus: vi.fn(),
 	updateHeartbeat: vi.fn(),
 	getLastHeartbeat: vi.fn(() => null),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 // Mock reconciler

@@ -25,6 +25,9 @@ import { DEFAULT_CUE_SETTINGS } from '../../../shared/cue';
 import { usePipelineLayout } from './usePipelineLayout';
 import { captureException } from '../../utils/sentry';
 import { getModalActions } from '../../stores/modalStore';
+import { cueService } from '../../services/cue';
+import { useCueDirtyStore } from '../../stores/cueDirtyStore';
+import { notifyToast } from '../../stores/notificationStore';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -58,7 +61,13 @@ export function validatePipelines(pipelines: CuePipeline[]): string[] {
 		const triggers = pipeline.nodes.filter((n) => n.type === 'trigger');
 		const agents = pipeline.nodes.filter((n) => n.type === 'agent');
 
-		if (triggers.length === 0 && agents.length === 0) continue; // Empty pipeline, skip
+		// Completely empty pipelines cannot be persisted (no subscriptions in YAML).
+		// Silent-skipping them here led to saves that appeared to succeed but
+		// wrote nothing to disk — flag them so the user gets clear feedback.
+		if (triggers.length === 0 && agents.length === 0) {
+			errors.push(`"${pipeline.name}": add a trigger and an agent before saving`);
+			continue;
+		}
 
 		if (triggers.length === 0) {
 			errors.push(`"${pipeline.name}": needs at least one trigger`);
@@ -141,7 +150,6 @@ export interface UsePipelineStateParams {
 	sessions: SessionInfo[];
 	graphSessions: CueGraphSession[];
 	activeRuns?: ActiveRunInfo[];
-	onDirtyChange?: (isDirty: boolean) => void;
 	reactFlowInstance: ReactFlowInstance;
 	// From usePipelineSelection (wired by shell):
 	selectedNodePipelineId: string | null;
@@ -188,7 +196,6 @@ export function usePipelineState({
 	sessions,
 	graphSessions,
 	activeRuns,
-	onDirtyChange,
 	reactFlowInstance,
 	selectedNodePipelineId,
 	selectedEdgePipelineId,
@@ -227,7 +234,7 @@ export function usePipelineState({
 
 	// Load global Cue settings from engine
 	useEffect(() => {
-		window.maestro.cue
+		cueService
 			.getSettings()
 			.then((settings) => setCueSettings(settings))
 			.catch((err: unknown) => {
@@ -244,73 +251,162 @@ export function usePipelineState({
 		}
 	}, [pipelineState.pipelines]);
 
-	// Notify parent of dirty state changes
+	// Push dirty state into the shared store so CueModal can read it without prop-drilling
 	useEffect(() => {
-		onDirtyChange?.(isDirty);
-	}, [isDirty, onDirtyChange]);
+		useCueDirtyStore.getState().setPipelineDirty(isDirty);
+	}, [isDirty]);
 
 	const handleSave = useCallback(async () => {
-		// Validate before save
+		// Validate graph shape first
 		const errors = validatePipelines(pipelineState.pipelines);
 
-		// Find unique project roots from sessions involved in pipelines
-		const sessionNames = new Set<string>();
+		// Build session lookup maps. Prefer sessionId since agents can be
+		// renamed, but fall back to sessionName for pipelines loaded from older
+		// YAML that referenced agents purely by name.
+		const sessionsById = new Map<string, SessionInfo>();
+		const sessionsByName = new Map<string, SessionInfo>();
+		for (const s of sessions) {
+			sessionsById.set(s.id, s);
+			if (!sessionsByName.has(s.name)) sessionsByName.set(s.name, s);
+		}
+
+		const resolveRoot = (agent: AgentNodeData): string | null => {
+			const byId = sessionsById.get(agent.sessionId);
+			if (byId?.projectRoot) return byId.projectRoot;
+			const byName = sessionsByName.get(agent.sessionName);
+			if (byName?.projectRoot) return byName.projectRoot;
+			return null;
+		};
+
+		// Partition pipelines by project root. A pipeline must live in exactly
+		// one root — cross-root pipelines are rejected so each .maestro/cue.yaml
+		// remains the sole owner of its pipelines (prevents the historical
+		// mirroring / deleted-pipeline-reappears class of bugs).
+		const pipelinesByRoot = new Map<string, CuePipeline[]>();
+		const unresolvedPipelines: string[] = [];
+
 		for (const pipeline of pipelineState.pipelines) {
-			for (const node of pipeline.nodes) {
-				if (node.type === 'agent') {
-					sessionNames.add((node.data as AgentNodeData).sessionName);
+			const agents = pipeline.nodes.filter((n) => n.type === 'agent');
+			if (agents.length === 0) continue; // validatePipelines already flagged this
+
+			const roots = new Set<string>();
+			let missingRoot = false;
+			for (const agent of agents) {
+				const root = resolveRoot(agent.data as AgentNodeData);
+				if (!root) {
+					missingRoot = true;
+					continue;
 				}
+				roots.add(root);
 			}
+
+			if (roots.size === 0) {
+				unresolvedPipelines.push(pipeline.name);
+				continue;
+			}
+			if (roots.size > 1) {
+				errors.push(
+					`"${pipeline.name}": agents span multiple project roots (${[...roots].join(', ')}) — a Cue pipeline must live in a single project.`
+				);
+				continue;
+			}
+			if (missingRoot) {
+				errors.push(
+					`"${pipeline.name}": one or more agents have no resolvable project root — assign a working directory to the agent(s).`
+				);
+				continue;
+			}
+
+			const root = [...roots][0];
+			const existing = pipelinesByRoot.get(root) ?? [];
+			existing.push(pipeline);
+			pipelinesByRoot.set(root, existing);
 		}
 
-		const projectRoots = new Set<string>();
-		for (const session of sessions) {
-			if (session.projectRoot && sessionNames.has(session.name)) {
-				projectRoots.add(session.projectRoot);
-			}
+		if (unresolvedPipelines.length > 0) {
+			errors.push(
+				`No project root found for pipeline(s): ${unresolvedPipelines.join(', ')} — agents need a working directory.`
+			);
 		}
 
-		// If no specific project roots found, use first session's project root
-		if (projectRoots.size === 0 && sessions.length > 0) {
-			const firstWithRoot = sessions.find((s) => s.projectRoot);
-			if (firstWithRoot?.projectRoot) {
-				projectRoots.add(firstWithRoot.projectRoot);
-			}
-		}
-
-		// No project root means we can't write YAML
-		if (projectRoots.size === 0) {
-			errors.push('No project root found — agents must have a working directory to save YAML');
+		// Safety net: if the editor has pipelines but nothing will be written and
+		// no previously-saved root needs clearing, the save would silently succeed
+		// with no effect. Surface that rather than masking it as "Saved".
+		if (pipelineState.pipelines.length > 0 && pipelinesByRoot.size === 0 && errors.length === 0) {
+			errors.push(
+				'Nothing to save — pipelines are empty. Add a trigger and an agent, then try again.'
+			);
 		}
 
 		setValidationErrors(errors);
 		if (errors.length > 0) return;
 
+		// Compute which roots were previously saved so we can clear any that
+		// dropped out of the current set (e.g. the last pipeline in a root was
+		// deleted). Without this, stale YAML files linger at abandoned roots
+		// and reappear on reload.
+		const previousRoots = new Set<string>();
+		if (savedStateRef.current) {
+			try {
+				const prev = JSON.parse(savedStateRef.current) as CuePipeline[];
+				for (const pipeline of prev) {
+					for (const node of pipeline.nodes) {
+						if (node.type !== 'agent') continue;
+						const root = resolveRoot(node.data as AgentNodeData);
+						if (root) previousRoots.add(root);
+					}
+				}
+			} catch {
+				// Corrupt ref — ignore, we'll only touch current roots this save.
+			}
+		}
+
 		setSaveStatus('saving');
 		try {
-			const { yaml: yamlContent, promptFiles } = pipelinesToYaml(
-				pipelineState.pipelines,
-				cueSettings
-			);
+			const currentRoots = new Set(pipelinesByRoot.keys());
+			const touchedRoots = new Set<string>([...currentRoots, ...previousRoots]);
+			let totalPipelinesWritten = 0;
+			let rootsCleared = 0;
 
-			// Convert prompt files Map to plain object for IPC
-			const promptFilesObj: Record<string, string> = {};
-			for (const [filePath, content] of promptFiles) {
-				promptFilesObj[filePath] = content;
+			// Write each root's YAML with only that root's pipelines.
+			for (const root of currentRoots) {
+				const rootPipelines = pipelinesByRoot.get(root)!;
+				const { yaml: yamlContent, promptFiles } = pipelinesToYaml(rootPipelines, cueSettings);
+				const promptFilesObj: Record<string, string> = {};
+				for (const [filePath, content] of promptFiles) {
+					promptFilesObj[filePath] = content;
+				}
+				await cueService.writeYaml(root, yamlContent, promptFilesObj);
+
+				// Write-back verification: read the YAML we just wrote and
+				// confirm our content is on disk. Guards against any silent
+				// IPC failure path — if disk doesn't match memory, we throw
+				// so the user sees an error instead of a fake "Saved".
+				const onDisk = await cueService.readYaml(root);
+				if (onDisk === null) {
+					throw new Error(`writeYaml to "${root}" did not persist: no file on disk`);
+				}
+				if (onDisk !== yamlContent) {
+					throw new Error(
+						`writeYaml to "${root}" did not persist the expected content (${onDisk.length} bytes on disk vs ${yamlContent.length} expected)`
+					);
+				}
+				totalPipelinesWritten += rootPipelines.length;
 			}
 
-			// Write YAML + prompt files and refresh sessions
-			for (const root of projectRoots) {
-				await window.maestro.cue.writeYaml(root, yamlContent, promptFilesObj);
+			// Clear any root whose pipelines were all removed this save.
+			for (const root of previousRoots) {
+				if (currentRoots.has(root)) continue;
+				const { yaml: emptyYaml } = pipelinesToYaml([], cueSettings);
+				await cueService.writeYaml(root, emptyYaml, {});
+				rootsCleared++;
 			}
 
-			// Refresh all sessions involved
+			// Refresh every session whose project root was touched so the engine
+			// reloads the freshly written YAML into its in-memory registry.
 			for (const session of sessions) {
-				if (
-					session.projectRoot &&
-					(projectRoots.has(session.projectRoot) || sessionNames.has(session.name))
-				) {
-					await window.maestro.cue.refreshSession(session.id, session.projectRoot);
+				if (session.projectRoot && touchedRoots.has(session.projectRoot)) {
+					await cueService.refreshSession(session.id, session.projectRoot);
 				}
 			}
 
@@ -319,16 +415,39 @@ export function usePipelineState({
 			setSaveStatus('success');
 			persistLayout();
 			setTimeout(() => setSaveStatus('idle'), 2000);
+
+			// Explicit confirmation so the user cannot miss the brief in-button
+			// status flash — "didn't save" used to happen when the 2-second
+			// success indicator was blinked past without the user noticing.
+			const rootLabel = currentRoots.size === 1 ? 'project' : 'projects';
+			const pipelineLabel = totalPipelinesWritten === 1 ? 'pipeline' : 'pipelines';
+			const clearedSuffix =
+				rootsCleared > 0
+					? ` (cleared ${rootsCleared} empty ${rootsCleared === 1 ? 'project' : 'projects'})`
+					: '';
+			notifyToast({
+				type: 'success',
+				title: 'Cue pipelines saved',
+				message: `Saved ${totalPipelinesWritten} ${pipelineLabel} to ${currentRoots.size} ${rootLabel}${clearedSuffix}.`,
+			});
 		} catch (err: unknown) {
 			captureException(err, { extra: { operation: 'cue.pipelineSave' } });
 			setSaveStatus('error');
 			setTimeout(() => setSaveStatus('idle'), 3000);
+			// Keep isDirty = true so the user knows their changes are still
+			// unsaved (do NOT update savedStateRef on failure).
+			const message = err instanceof Error ? err.message : String(err);
+			notifyToast({
+				type: 'error',
+				title: 'Cue save failed',
+				message: `Your changes were NOT saved. ${message}`,
+			});
 		}
-	}, [pipelineState.pipelines, sessions, cueSettings, persistLayout]);
+	}, [pipelineState.pipelines, sessions, cueSettings, persistLayout, savedStateRef]);
 
 	const handleDiscard = useCallback(async () => {
 		try {
-			const data = await window.maestro.cue.getGraphData();
+			const data = await cueService.getGraphData();
 			if (data && data.length > 0) {
 				const pipelines = graphSessionsToPipelines(data, sessions);
 				setPipelineState({

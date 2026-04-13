@@ -192,6 +192,36 @@ export function updateCueEventStatus(id: string, status: string): void {
 }
 
 /**
+ * Safe wrapper: records a Cue event; logs warn on failure instead of throwing.
+ * Non-fatal — callers must not rely on successful persistence.
+ */
+export function safeRecordCueEvent(event: Parameters<typeof recordCueEvent>[0]): void {
+	try {
+		recordCueEvent(event);
+	} catch (err) {
+		log(
+			'warn',
+			`Failed to record Cue event (id=${event.id}): ${err instanceof Error ? err.message : String(err)}`
+		);
+	}
+}
+
+/**
+ * Safe wrapper: updates Cue event status; logs warn on failure instead of throwing.
+ * Non-fatal — callers must not rely on successful persistence.
+ */
+export function safeUpdateCueEventStatus(id: string, status: string): void {
+	try {
+		updateCueEventStatus(id, status);
+	} catch (err) {
+		log(
+			'warn',
+			`Failed to update Cue event status (id=${id}, status=${status}): ${err instanceof Error ? err.message : String(err)}`
+		);
+	}
+}
+
+/**
  * Retrieve recent Cue events created after a given timestamp.
  */
 export function getRecentCueEvents(since: number, limit?: number): CueEventRecord[] {

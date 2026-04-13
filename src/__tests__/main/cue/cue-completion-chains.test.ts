@@ -44,6 +44,8 @@ vi.mock('../../../main/cue/cue-db', () => ({
 	pruneCueEvents: vi.fn(),
 	recordCueEvent: vi.fn(),
 	updateCueEventStatus: vi.fn(),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 // Mock reconciler (not exercised in these tests, but avoids heavy imports)

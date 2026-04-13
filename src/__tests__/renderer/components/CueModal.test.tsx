@@ -11,7 +11,8 @@
  * - Unsaved changes confirmation on close
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useCueDirtyStore } from '../../../renderer/stores/cueDirtyStore';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CueModal } from '../../../renderer/components/CueModal';
 import type { Theme } from '../../../renderer/types';
@@ -41,12 +42,8 @@ vi.mock('../../../renderer/components/CueYamlEditor', () => ({
 		isOpen ? <div data-testid="cue-yaml-editor">YAML Editor Mock</div> : null,
 }));
 
-// Capture the onDirtyChange callback from CuePipelineEditor
-let capturedOnDirtyChange: ((isDirty: boolean) => void) | undefined;
-
 vi.mock('../../../renderer/components/CuePipelineEditor', () => ({
-	CuePipelineEditor: ({ onDirtyChange }: { onDirtyChange?: (isDirty: boolean) => void }) => {
-		capturedOnDirtyChange = onDirtyChange;
+	CuePipelineEditor: () => {
 		return <div data-testid="cue-pipeline-editor">Pipeline Editor Mock</div>;
 	},
 }));
@@ -193,10 +190,13 @@ const mockFailedRun = {
 describe('CueModal', () => {
 	const mockOnClose = vi.fn();
 
+	afterEach(() => {
+		useCueDirtyStore.setState({ pipelineDirty: false, yamlDirty: false });
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockUseCueReturn = { ...defaultUseCueReturn };
-		capturedOnDirtyChange = undefined;
 	});
 
 	describe('rendering', () => {
@@ -505,9 +505,8 @@ describe('CueModal', () => {
 			render(<CueModal theme={mockTheme} onClose={mockOnClose} />);
 
 			// Simulate pipeline becoming dirty
-			expect(capturedOnDirtyChange).toBeDefined();
 			act(() => {
-				capturedOnDirtyChange!(true);
+				useCueDirtyStore.getState().setPipelineDirty(true);
 			});
 
 			// Trigger escape (which goes through the same dirty check)
@@ -532,7 +531,7 @@ describe('CueModal', () => {
 
 			// Simulate pipeline becoming dirty
 			act(() => {
-				capturedOnDirtyChange!(true);
+				useCueDirtyStore.getState().setPipelineDirty(true);
 			});
 
 			// Trigger escape
@@ -548,10 +547,10 @@ describe('CueModal', () => {
 
 			// Simulate pipeline becoming dirty then saved
 			act(() => {
-				capturedOnDirtyChange!(true);
+				useCueDirtyStore.getState().setPipelineDirty(true);
 			});
 			act(() => {
-				capturedOnDirtyChange!(false);
+				useCueDirtyStore.getState().setPipelineDirty(false);
 			});
 
 			// Trigger escape
@@ -669,7 +668,7 @@ describe('CueModal', () => {
 
 			// Simulate dirty pipeline
 			act(() => {
-				capturedOnDirtyChange!(true);
+				useCueDirtyStore.getState().setPipelineDirty(true);
 			});
 
 			// Trigger escape
@@ -685,7 +684,7 @@ describe('CueModal', () => {
 
 			// Make pipeline dirty
 			act(() => {
-				capturedOnDirtyChange!(true);
+				useCueDirtyStore.getState().setPipelineDirty(true);
 			});
 
 			// Enter help view

@@ -52,11 +52,19 @@ export interface CueFanInTracker {
 	): void;
 	clearForSession(sessionId: string): void;
 	reset(): void;
+	/** Returns all active tracker keys (for cleanup inspection). */
+	getActiveTrackerKeys(): string[];
+	/** Returns the ms timestamp when the first completion arrived for a tracker, or undefined if not found. */
+	getTrackerCreatedAt(key: string): number | undefined;
+	/** Force-expire a tracker by key without dispatching or waiting for timeout. Used by the cleanup service. */
+	expireTracker(key: string): void;
 }
 
 export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 	const fanInTrackers = new Map<string, Map<string, FanInSourceCompletion>>();
 	const fanInTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	/** Tracks when the first completion arrived for each tracker key (for cleanup staleness checks). */
+	const fanInCreatedAt = new Map<string, number>();
 
 	/**
 	 * Resolve a user-authored `sources` list (names or IDs, possibly mixed) to a
@@ -114,6 +122,7 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 			// Fire with partial data
 			const completions = [...tracker.values()];
 			fanInTrackers.delete(key);
+			fanInCreatedAt.delete(key);
 
 			const event = createCueEvent('agent.completed', sub.name, {
 				completedSessions: completions.map((c) => c.sessionId),
@@ -139,6 +148,7 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 		} else {
 			// 'break' mode — log failure and clear
 			fanInTrackers.delete(key);
+			fanInCreatedAt.delete(key);
 			deps.onLog(
 				'cue',
 				`[CUE] Fan-in "${sub.name}" timed out (break mode) — ${completedNames.length}/${totalSources} completed, waiting for: ${timedOutSources.join(', ')}`
@@ -173,6 +183,7 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 
 			// Start timeout timer on first source completion
 			if (tracker.size === 1 && !fanInTimers.has(key)) {
+				fanInCreatedAt.set(key, Date.now());
 				const timeoutMs =
 					(sub.fan_in_timeout_minutes ?? settings.timeout_minutes ?? 30) * 60 * 1000;
 				const timer = setTimeout(() => {
@@ -229,6 +240,7 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 			for (const key of [...fanInTrackers.keys()]) {
 				if (key.startsWith(`${sessionId}:`)) {
 					fanInTrackers.delete(key);
+					fanInCreatedAt.delete(key);
 					const timer = fanInTimers.get(key);
 					if (timer) {
 						clearTimeout(timer);
@@ -244,6 +256,25 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 			}
 			fanInTrackers.clear();
 			fanInTimers.clear();
+			fanInCreatedAt.clear();
+		},
+
+		getActiveTrackerKeys(): string[] {
+			return [...fanInTrackers.keys()];
+		},
+
+		getTrackerCreatedAt(key: string): number | undefined {
+			return fanInCreatedAt.get(key);
+		},
+
+		expireTracker(key: string): void {
+			fanInTrackers.delete(key);
+			fanInCreatedAt.delete(key);
+			const timer = fanInTimers.get(key);
+			if (timer) {
+				clearTimeout(timer);
+				fanInTimers.delete(key);
+			}
 		},
 	};
 }

@@ -15,6 +15,8 @@ import type { CueEvent, CueRunResult, CueSettings } from '../../../main/cue/cue-
 vi.mock('../../../main/cue/cue-db', () => ({
 	recordCueEvent: vi.fn(),
 	updateCueEventStatus: vi.fn(),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 const mockCaptureException = vi.fn();

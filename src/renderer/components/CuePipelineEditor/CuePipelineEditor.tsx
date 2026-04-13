@@ -50,7 +50,6 @@ export interface CuePipelineEditorProps {
 	graphSessions: CueGraphSession[];
 	onSwitchToSession: (id: string) => void;
 	onClose: () => void;
-	onDirtyChange?: (isDirty: boolean) => void;
 	theme: Theme;
 	activeRuns?: ActiveRunInfo[];
 	/** Callback to manually trigger a pipeline by name */
@@ -72,7 +71,6 @@ function CuePipelineEditorInner({
 	groups,
 	graphSessions,
 	onSwitchToSession,
-	onDirtyChange,
 	theme,
 	activeRuns: activeRunsProp,
 	onTriggerPipeline,
@@ -93,7 +91,6 @@ function CuePipelineEditorInner({
 		sessions,
 		graphSessions,
 		activeRuns: activeRunsProp,
-		onDirtyChange,
 		reactFlowInstance,
 		selectedNodePipelineId: selectionRef.current.selectedNodePipelineId,
 		selectedEdgePipelineId: selectionRef.current.selectedEdgePipelineId,

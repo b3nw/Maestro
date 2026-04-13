@@ -19,7 +19,7 @@ export interface CueHeartbeat {
 	stop(): void;
 }
 
-export function createCueHeartbeat(): CueHeartbeat {
+export function createCueHeartbeat(onTick?: () => void): CueHeartbeat {
 	let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 	function startHeartbeat(): void {
@@ -35,6 +35,7 @@ export function createCueHeartbeat(): CueHeartbeat {
 			} catch {
 				// Non-fatal
 			}
+			onTick?.();
 		}, HEARTBEAT_INTERVAL_MS);
 	}
 

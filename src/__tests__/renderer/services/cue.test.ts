@@ -1,0 +1,255 @@
+/**
+ * Tests for src/renderer/services/cue.ts
+ *
+ * Covers:
+ * - Read methods return their default value on IPC error
+ * - Write methods rethrow on IPC error
+ * - Successful calls pass values through unchanged
+ * - onActivityUpdate is a direct passthrough
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { cueService } from '../../../renderer/services/cue';
+
+// ─── Mock helpers ─────────────────────────────────────────────────────────────
+
+const mockCue = {
+	getSettings: vi.fn(),
+	getStatus: vi.fn(),
+	getGraphData: vi.fn(),
+	getActiveRuns: vi.fn(),
+	getActivityLog: vi.fn(),
+	getQueueStatus: vi.fn(),
+	readYaml: vi.fn(),
+	loadPipelineLayout: vi.fn(),
+	validateYaml: vi.fn(),
+	enable: vi.fn(),
+	disable: vi.fn(),
+	stopRun: vi.fn(),
+	stopAll: vi.fn(),
+	triggerSubscription: vi.fn(),
+	refreshSession: vi.fn(),
+	removeSession: vi.fn(),
+	writeYaml: vi.fn(),
+	deleteYaml: vi.fn(),
+	savePipelineLayout: vi.fn(),
+	onActivityUpdate: vi.fn(),
+};
+
+beforeEach(() => {
+	vi.clearAllMocks();
+	(window as any).maestro = { cue: mockCue };
+	vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+// ─── Read methods ─────────────────────────────────────────────────────────────
+
+describe('cueService — read methods', () => {
+	describe('getSettings', () => {
+		it('passes resolved value through', async () => {
+			const settings = { timeout_minutes: 10 } as any;
+			mockCue.getSettings.mockResolvedValue(settings);
+			expect(await cueService.getSettings()).toBe(settings);
+		});
+
+		it('returns empty object on error', async () => {
+			mockCue.getSettings.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getSettings()).toEqual({});
+			expect(console.error).toHaveBeenCalledWith('Cue getSettings error:', expect.any(Error));
+		});
+	});
+
+	describe('getStatus', () => {
+		it('passes resolved value through', async () => {
+			const statuses = [{ sessionId: 's1' }] as any;
+			mockCue.getStatus.mockResolvedValue(statuses);
+			expect(await cueService.getStatus()).toBe(statuses);
+		});
+
+		it('returns [] on error', async () => {
+			mockCue.getStatus.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getStatus()).toEqual([]);
+		});
+	});
+
+	describe('getGraphData', () => {
+		it('passes resolved value through', async () => {
+			const data = [{ id: 'g1' }] as any;
+			mockCue.getGraphData.mockResolvedValue(data);
+			expect(await cueService.getGraphData()).toBe(data);
+		});
+
+		it('returns [] on error', async () => {
+			mockCue.getGraphData.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getGraphData()).toEqual([]);
+		});
+	});
+
+	describe('getActiveRuns', () => {
+		it('passes resolved value through', async () => {
+			const runs = [{ runId: 'r1' }] as any;
+			mockCue.getActiveRuns.mockResolvedValue(runs);
+			expect(await cueService.getActiveRuns()).toBe(runs);
+		});
+
+		it('returns [] on error', async () => {
+			mockCue.getActiveRuns.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getActiveRuns()).toEqual([]);
+		});
+	});
+
+	describe('getActivityLog', () => {
+		it('passes limit parameter through', async () => {
+			mockCue.getActivityLog.mockResolvedValue([]);
+			await cueService.getActivityLog(50);
+			expect(mockCue.getActivityLog).toHaveBeenCalledWith(50);
+		});
+
+		it('returns [] on error', async () => {
+			mockCue.getActivityLog.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getActivityLog()).toEqual([]);
+		});
+	});
+
+	describe('getQueueStatus', () => {
+		it('passes resolved value through', async () => {
+			const status = { s1: 3 };
+			mockCue.getQueueStatus.mockResolvedValue(status);
+			expect(await cueService.getQueueStatus()).toBe(status);
+		});
+
+		it('returns {} on error', async () => {
+			mockCue.getQueueStatus.mockRejectedValue(new Error('fail'));
+			expect(await cueService.getQueueStatus()).toEqual({});
+		});
+	});
+
+	describe('readYaml', () => {
+		it('passes resolved value through', async () => {
+			mockCue.readYaml.mockResolvedValue('yaml content');
+			expect(await cueService.readYaml('/root')).toBe('yaml content');
+			expect(mockCue.readYaml).toHaveBeenCalledWith('/root');
+		});
+
+		it('returns null on error', async () => {
+			mockCue.readYaml.mockRejectedValue(new Error('fail'));
+			expect(await cueService.readYaml('/root')).toBeNull();
+		});
+	});
+
+	describe('loadPipelineLayout', () => {
+		it('passes resolved value through', async () => {
+			const layout = { pipelines: [] };
+			mockCue.loadPipelineLayout.mockResolvedValue(layout);
+			expect(await cueService.loadPipelineLayout()).toBe(layout);
+		});
+
+		it('returns null on error', async () => {
+			mockCue.loadPipelineLayout.mockRejectedValue(new Error('fail'));
+			expect(await cueService.loadPipelineLayout()).toBeNull();
+		});
+	});
+
+	describe('validateYaml', () => {
+		it('passes resolved value through', async () => {
+			const validation = { valid: false, errors: ['bad yaml'] };
+			mockCue.validateYaml.mockResolvedValue(validation);
+			expect(await cueService.validateYaml('bad')).toBe(validation);
+		});
+
+		it('returns { valid: true, errors: [] } on error', async () => {
+			mockCue.validateYaml.mockRejectedValue(new Error('fail'));
+			expect(await cueService.validateYaml('content')).toEqual({ valid: true, errors: [] });
+		});
+	});
+});
+
+// ─── Write methods ────────────────────────────────────────────────────────────
+
+describe('cueService — write methods', () => {
+	it('enable — resolves on success', async () => {
+		mockCue.enable.mockResolvedValue(undefined);
+		await expect(cueService.enable()).resolves.toBeUndefined();
+	});
+
+	it('enable — rethrows on error', async () => {
+		mockCue.enable.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.enable()).rejects.toThrow('IPC fail');
+	});
+
+	it('disable — rethrows on error', async () => {
+		mockCue.disable.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.disable()).rejects.toThrow('IPC fail');
+	});
+
+	it('stopRun — passes runId and rethrows on error', async () => {
+		mockCue.stopRun.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.stopRun('run-1')).rejects.toThrow('IPC fail');
+		expect(mockCue.stopRun).toHaveBeenCalledWith('run-1');
+	});
+
+	it('stopRun — passes resolved boolean through', async () => {
+		mockCue.stopRun.mockResolvedValue(true);
+		expect(await cueService.stopRun('run-1')).toBe(true);
+	});
+
+	it('stopAll — rethrows on error', async () => {
+		mockCue.stopAll.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.stopAll()).rejects.toThrow('IPC fail');
+	});
+
+	it('triggerSubscription — passes args and rethrows on error', async () => {
+		mockCue.triggerSubscription.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.triggerSubscription('sub-1', 'prompt')).rejects.toThrow('IPC fail');
+		expect(mockCue.triggerSubscription).toHaveBeenCalledWith('sub-1', 'prompt');
+	});
+
+	it('refreshSession — passes args and rethrows on error', async () => {
+		mockCue.refreshSession.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.refreshSession('sess-1', '/root')).rejects.toThrow('IPC fail');
+		expect(mockCue.refreshSession).toHaveBeenCalledWith('sess-1', '/root');
+	});
+
+	it('removeSession — rethrows on error', async () => {
+		mockCue.removeSession.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.removeSession('sess-1')).rejects.toThrow('IPC fail');
+	});
+
+	it('writeYaml — passes args (including promptFiles) and rethrows on error', async () => {
+		mockCue.writeYaml.mockRejectedValue(new Error('IPC fail'));
+		const promptFiles = { 'p.md': 'content' };
+		await expect(cueService.writeYaml('/root', 'yaml', promptFiles)).rejects.toThrow('IPC fail');
+		expect(mockCue.writeYaml).toHaveBeenCalledWith('/root', 'yaml', promptFiles);
+	});
+
+	it('deleteYaml — passes resolved boolean through', async () => {
+		mockCue.deleteYaml.mockResolvedValue(true);
+		expect(await cueService.deleteYaml('/root')).toBe(true);
+	});
+
+	it('deleteYaml — rethrows on error', async () => {
+		mockCue.deleteYaml.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.deleteYaml('/root')).rejects.toThrow('IPC fail');
+	});
+
+	it('savePipelineLayout — rethrows on error', async () => {
+		mockCue.savePipelineLayout.mockRejectedValue(new Error('IPC fail'));
+		await expect(cueService.savePipelineLayout({ x: 1 })).rejects.toThrow('IPC fail');
+		expect(mockCue.savePipelineLayout).toHaveBeenCalledWith({ x: 1 });
+	});
+});
+
+// ─── Event passthrough ────────────────────────────────────────────────────────
+
+describe('cueService — onActivityUpdate', () => {
+	it('is a direct passthrough to window.maestro.cue.onActivityUpdate', () => {
+		const unsubscribe = vi.fn();
+		mockCue.onActivityUpdate.mockReturnValue(unsubscribe);
+		const callback = vi.fn();
+
+		const result = cueService.onActivityUpdate(callback);
+
+		expect(mockCue.onActivityUpdate).toHaveBeenCalledWith(callback);
+		expect(result).toBe(unsubscribe);
+	});
+});

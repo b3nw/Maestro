@@ -15,6 +15,7 @@ import type {
 import { graphSessionsToPipelines } from '../../components/CuePipelineEditor/utils/yamlToPipeline';
 import { mergePipelinesWithSavedLayout } from '../../components/CuePipelineEditor/utils/pipelineLayout';
 import { captureException } from '../../utils/sentry';
+import { cueService } from '../../services/cue';
 
 import type { CuePipelineSessionInfo as SessionInfo } from '../../../shared/cue-pipeline-types';
 
@@ -60,7 +61,7 @@ export function usePipelineLayout({
 				selectedPipelineId: state.selectedPipelineId,
 				viewport,
 			};
-			window.maestro.cue
+			cueService
 				.savePipelineLayout(layout as unknown as Record<string, unknown>)
 				.catch((err: unknown) => {
 					captureException(err, { extra: { operation: 'savePipelineLayout' } });
@@ -93,7 +94,7 @@ export function usePipelineLayout({
 
 			let savedLayout: PipelineLayoutState | null = null;
 			try {
-				savedLayout = (await window.maestro.cue.loadPipelineLayout()) as PipelineLayoutState | null;
+				savedLayout = (await cueService.loadPipelineLayout()) as PipelineLayoutState | null;
 			} catch (err: unknown) {
 				// loadPipelineLayout may fail if no layout has been saved yet — that's expected.
 				// Report anything else to Sentry.
