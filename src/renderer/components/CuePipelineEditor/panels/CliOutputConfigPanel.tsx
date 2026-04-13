@@ -31,12 +31,11 @@ export function CliOutputConfigPanel({
 		setTarget(data.target || '');
 	}, [data.target]);
 
-	const debouncedSave = useDebouncedCallback(
-		(value: string) => {
-			onUpdateNode(nodeId, { target: value });
+	const { debouncedCallback: debouncedSave } = useDebouncedCallback(
+		(value: unknown) => {
+			onUpdateNode(nodeId, { target: value as string });
 		},
-		300,
-		[nodeId, onUpdateNode]
+		300
 	);
 
 	const handleTargetChange = useCallback(
@@ -73,8 +72,9 @@ export function CliOutputConfigPanel({
 						lineHeight: 1.4,
 					}}
 				>
-					Session ID to send output to via <code style={{ fontSize: 10 }}>maestro-cli send --live</code>.
-					Use <code style={{ fontSize: 10 }}>{'{{CUE_SOURCE_AGENT_ID}}'}</code> for cli.trigger events.
+					Session ID to send output to via{' '}
+					<code style={{ fontSize: 10 }}>maestro-cli send --live</code>. Use{' '}
+					<code style={{ fontSize: 10 }}>{'{{CUE_SOURCE_AGENT_ID}}'}</code> for cli.trigger events.
 				</span>
 			</div>
 		</div>
