@@ -22,6 +22,7 @@ import { useSessionDebounce } from './useSessionDebounce';
 import { DEFAULT_BATCH_STATE, type BatchAction } from './batchReducer';
 import { useBatchStore, selectHasAnyActiveBatch } from '../../stores/batchStore';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { notifyToast } from '../../stores/notificationStore';
 import { useTimeTracking } from './useTimeTracking';
 import { useWorktreeManager } from './useWorktreeManager';
@@ -610,6 +611,22 @@ export function useBatchProcessor({
 	 */
 	const startBatchRun = useCallback(
 		async (sessionId: string, config: BatchRunConfig, folderPath: string) => {
+			// Check global Auto Run kill switch
+			if (useSettingsStore.getState().autoRunDisabled) {
+				window.maestro.logger.log(
+					'warn',
+					'Auto Run is disabled via autoRunDisabled setting',
+					'BatchProcessor',
+					{ sessionId }
+				);
+				notifyToast({
+					type: 'warning',
+					title: 'Auto Run Disabled',
+					message: 'Auto Run is disabled. Enable it in Settings to use this feature.',
+				});
+				return;
+			}
+
 			window.maestro.logger.log('info', 'startBatchRun called', 'BatchProcessor', {
 				sessionId,
 				folderPath,

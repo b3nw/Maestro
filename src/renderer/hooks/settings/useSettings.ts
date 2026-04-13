@@ -331,6 +331,10 @@ export interface UseSettingsReturn {
 	// Group Chat settings
 	moderatorStandingInstructions: string;
 	setModeratorStandingInstructions: (value: string) => void;
+
+	// Auto Run kill switch
+	autoRunDisabled: boolean;
+	setAutoRunDisabled: (value: boolean) => void;
 }
 
 export function useSettings(): UseSettingsReturn {

@@ -22,6 +22,7 @@ import type {
 // Import the exported functions directly
 import { countUnfinishedTasks, uncheckAllTasks, useBatchProcessor } from '../../../renderer/hooks';
 import { useBatchStore } from '../../../renderer/stores/batchStore';
+import { useSettingsStore } from '../../../renderer/stores/settingsStore';
 
 // Mock notifyToast so we can verify toast notifications
 const { mockNotifyToast } = vi.hoisted(() => ({
@@ -913,6 +914,40 @@ describe('useBatchProcessor hook', () => {
 	});
 
 	describe('startBatchRun', () => {
+		it('should not start when autoRunDisabled is true', async () => {
+			useSettingsStore.setState({ autoRunDisabled: true });
+			const sessions = [createMockSession()];
+			const groups = [createMockGroup()];
+
+			const { result } = renderHook(() =>
+				useBatchProcessor({
+					sessions,
+					groups,
+					onUpdateSession: mockOnUpdateSession,
+					onSpawnAgent: mockOnSpawnAgent,
+					onAddHistoryEntry: mockOnAddHistoryEntry,
+				})
+			);
+
+			await act(async () => {
+				await result.current.startBatchRun(
+					'test-session-id',
+					{
+						documents: [{ filename: 'test', resetOnCompletion: false }],
+						prompt: 'Test prompt',
+						loopEnabled: false,
+					},
+					'/test/folder'
+				);
+			});
+
+			expect(mockOnSpawnAgent).not.toHaveBeenCalled();
+			expect(mockNotifyToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }));
+
+			// Reset for other tests
+			useSettingsStore.setState({ autoRunDisabled: false });
+		});
+
 		it('should not start if session is not found', async () => {
 			const sessions: Session[] = [];
 			const groups: Group[] = [];

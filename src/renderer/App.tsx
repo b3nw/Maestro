@@ -1477,6 +1477,7 @@ function MaestroConsoleInner() {
 	// Handler for switching to autorun tab - shows setup modal if no folder configured
 	const handleSetActiveRightTab = useCallback(
 		(tab: RightPanelTab) => {
+			if (tab === 'autorun' && settings.autoRunDisabled) return;
 			if (tab === 'autorun' && activeSession && !activeSession.autoRunFolderPath) {
 				// No folder configured - show setup modal
 				setAutoRunSetupModalOpen(true);

@@ -267,6 +267,7 @@ export interface SettingsStoreState {
 	useNativeTitleBar: boolean;
 	autoHideMenuBar: boolean;
 	moderatorStandingInstructions: string;
+	autoRunDisabled: boolean;
 }
 
 export interface SettingsStoreActions {
@@ -348,6 +349,7 @@ export interface SettingsStoreActions {
 	setUseNativeTitleBar: (value: boolean) => void;
 	setAutoHideMenuBar: (value: boolean) => void;
 	setModeratorStandingInstructions: (value: string) => void;
+	setAutoRunDisabled: (value: boolean) => void;
 
 	// Async setters
 	setLogLevel: (value: string) => Promise<void>;
@@ -509,6 +511,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 		useNativeTitleBar: isWindowsPlatform(),
 		autoHideMenuBar: false,
 		moderatorStandingInstructions: '',
+		autoRunDisabled: false,
 
 		// ============================================================================
 		// Simple Setters
@@ -965,6 +968,11 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 			const trimmed = value.slice(0, 2000);
 			set({ moderatorStandingInstructions: trimmed });
 			window.maestro.settings.set('moderatorStandingInstructions', trimmed);
+		},
+
+		setAutoRunDisabled: (value) => {
+			set({ autoRunDisabled: value });
+			window.maestro.settings.set('autoRunDisabled', value);
 		},
 
 		// ============================================================================
@@ -1912,6 +1920,9 @@ export async function loadAllSettings(): Promise<void> {
 		if (allSettings['moderatorStandingInstructions'] !== undefined)
 			patch.moderatorStandingInstructions = allSettings['moderatorStandingInstructions'] as string;
 
+		if (allSettings['autoRunDisabled'] !== undefined)
+			patch.autoRunDisabled = allSettings['autoRunDisabled'] as boolean;
+
 		// Apply the entire patch in one setState call
 		patch.settingsLoaded = true;
 		useSettingsStore.setState(patch);
@@ -2036,5 +2047,6 @@ export function getSettingsActions() {
 		setUseNativeTitleBar: state.setUseNativeTitleBar,
 		setAutoHideMenuBar: state.setAutoHideMenuBar,
 		setModeratorStandingInstructions: state.setModeratorStandingInstructions,
+		setAutoRunDisabled: state.setAutoRunDisabled,
 	};
 }

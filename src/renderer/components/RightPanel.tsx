@@ -133,6 +133,7 @@ export const RightPanel = memo(
 		const fileExplorerIconTheme = useSettingsStore((s) => s.fileExplorerIconTheme);
 		const setRightPanelWidth = useSettingsStore((s) => s.setRightPanelWidth);
 		const setShowHiddenFiles = useSettingsStore((s) => s.setShowHiddenFiles);
+		const autoRunDisabled = useSettingsStore((s) => s.autoRunDisabled);
 
 		const fileTreeFilter = useFileExplorerStore((s) => s.fileTreeFilter);
 		const fileTreeFilterOpen = useFileExplorerStore((s) => s.fileTreeFilterOpen);
@@ -439,7 +440,7 @@ export const RightPanel = memo(
 
 				{/* Tab Header */}
 				<div className="flex border-b h-16" style={{ borderColor: theme.colors.border }}>
-					{['files', 'history', 'autorun'].map((tab) => (
+					{(['files', 'history', ...(autoRunDisabled ? [] : ['autorun'])] as const).map((tab) => (
 						<button
 							key={tab}
 							onClick={() => setActiveRightTab(tab as RightPanelTab)}
@@ -544,7 +545,7 @@ export const RightPanel = memo(
 						</div>
 					)}
 
-					{activeRightTab === 'autorun' && (
+					{activeRightTab === 'autorun' && !autoRunDisabled && (
 						<div data-tour="autorun-panel" className="h-full">
 							<AutoRun ref={autoRunRef} {...autoRunSharedProps} onExpand={handleExpandAutoRun} />
 						</div>
@@ -552,7 +553,7 @@ export const RightPanel = memo(
 				</div>
 
 				{/* Auto Run Expanded Modal */}
-				{autoRunExpanded && session && (
+				{autoRunExpanded && session && !autoRunDisabled && (
 					<AutoRunExpandedModal {...autoRunSharedProps} onClose={handleCollapseAutoRun} />
 				)}
 

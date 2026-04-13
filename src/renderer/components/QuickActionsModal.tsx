@@ -242,6 +242,8 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 	const storeSetFileTreeFilterOpen = useFileExplorerStore((s) => s.setFileTreeFilterOpen);
 	const audioFeedbackEnabled = useSettingsStore((s) => s.audioFeedbackEnabled);
 	const setAudioFeedbackEnabled = useSettingsStore((s) => s.setAudioFeedbackEnabled);
+	const idleNotificationEnabled = useSettingsStore((s) => s.idleNotificationEnabled);
+	const setIdleNotificationEnabled = useSettingsStore((s) => s.setIdleNotificationEnabled);
 	const storeSetHistorySearchFilterOpen = useUIStore((s) => s.setHistorySearchFilterOpen);
 	const setSuccessFlashNotification = useUIStore((s) => s.setSuccessFlashNotification);
 
@@ -649,6 +651,20 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 				setAudioFeedbackEnabled(newState);
 				setSuccessFlashNotification(
 					newState ? 'Custom Notifications: ON' : 'Custom Notifications: OFF'
+				);
+				setTimeout(() => setSuccessFlashNotification(null), 2000);
+				setQuickActionOpen(false);
+			},
+		},
+		{
+			id: 'toggleIdleNotification',
+			label: idleNotificationEnabled ? 'Turn Off Idle Notifications' : 'Turn On Idle Notifications',
+			subtext: `Idle notifications: ${idleNotificationEnabled ? 'enabled' : 'disabled'}`,
+			action: () => {
+				const newState = !idleNotificationEnabled;
+				setIdleNotificationEnabled(newState);
+				setSuccessFlashNotification(
+					newState ? 'Idle Notifications: ON' : 'Idle Notifications: OFF'
 				);
 				setTimeout(() => setSuccessFlashNotification(null), 2000);
 				setQuickActionOpen(false);
@@ -1326,16 +1342,20 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 				setQuickActionOpen(false);
 			},
 		},
-		{
-			id: 'goToAutoRun',
-			label: 'Go to Auto Run Tab',
-			shortcut: shortcuts.goToAutoRun,
-			action: () => {
-				setRightPanelOpen(true);
-				setActiveRightTab('autorun');
-				setQuickActionOpen(false);
-			},
-		},
+		...(useSettingsStore.getState().autoRunDisabled
+			? []
+			: [
+					{
+						id: 'goToAutoRun',
+						label: 'Go to Auto Run Tab',
+						shortcut: shortcuts.goToAutoRun,
+						action: () => {
+							setRightPanelOpen(true);
+							setActiveRightTab('autorun');
+							setQuickActionOpen(false);
+						},
+					},
+				]),
 		// Playbook Exchange - browse and import community playbooks
 		...(onOpenPlaybookExchange
 			? [
@@ -1424,7 +1444,8 @@ export const QuickActionsModal = memo(function QuickActionsModal(props: QuickAct
 				]
 			: []),
 		// Auto Run reset tasks - only show when there are completed tasks in the selected document
-		...(autoRunSelectedDocument &&
+		...(!useSettingsStore.getState().autoRunDisabled &&
+		autoRunSelectedDocument &&
 		autoRunCompletedTaskCount &&
 		autoRunCompletedTaskCount > 0 &&
 		onAutoRunResetTasks

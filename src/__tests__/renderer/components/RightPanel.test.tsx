@@ -326,6 +326,16 @@ describe('RightPanel', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Files' }));
 			expect(setActiveRightTab).toHaveBeenCalledWith('files');
 		});
+
+		it('should hide Auto Run tab when autoRunDisabled is true', () => {
+			useSettingsStore.setState({ autoRunDisabled: true });
+			const props = createDefaultProps();
+			render(<RightPanel {...props} />);
+
+			expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'History' })).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Auto Run' })).not.toBeInTheDocument();
+		});
 	});
 
 	describe('Tab content', () => {

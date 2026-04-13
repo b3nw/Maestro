@@ -479,6 +479,7 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 				trackShortcut('goToHistory');
 			} else if (ctx.isShortcut(e, 'goToAutoRun')) {
 				e.preventDefault();
+				if (useSettingsStore.getState().autoRunDisabled) return;
 				ctx.setRightPanelOpen(true);
 				ctx.handleSetActiveRightTab('autorun');
 				ctx.setActiveFocus('right');
@@ -632,6 +633,7 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 			} else if (ctx.isShortcut(e, 'toggleAutoRunExpanded')) {
 				// Toggle Auto Run expanded/contracted view
 				e.preventDefault();
+				if (useSettingsStore.getState().autoRunDisabled) return;
 				ctx.rightPanelRef?.current?.toggleAutoRunExpanded();
 				trackShortcut('toggleAutoRunExpanded');
 			} else if (ctx.isShortcut(e, 'jumpToTerminal')) {

@@ -453,6 +453,15 @@ export const SETTINGS_METADATA: Record<string, SettingMetadata> = {
 		category: 'file-indexing',
 	},
 
+	// --- Auto Run ---
+	autoRunDisabled: {
+		description:
+			'Globally disable Auto Run. When true, prevents all Auto Run operations from starting.',
+		type: 'boolean',
+		default: false,
+		category: 'advanced',
+	},
+
 	// --- Stats & Tracking ---
 	statsCollectionEnabled: {
 		description: 'Enable collection of usage statistics shown in the Usage Dashboard.',
