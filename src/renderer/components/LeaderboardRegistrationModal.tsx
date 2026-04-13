@@ -23,7 +23,7 @@ import {
 	DownloadCloud,
 } from 'lucide-react';
 import type { Theme, AutoRunStats, LeaderboardRegistration, KeyboardMasteryStats } from '../types';
-import { useLayerStack } from '../contexts/LayerStackContext';
+import { useModalLayer } from '../hooks/ui/useModalLayer';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { getBadgeForTime } from '../constants/conductorBadges';
 import { KEYBOARD_MASTERY_LEVELS } from '../constants/keyboardMastery';
@@ -132,8 +132,9 @@ export function LeaderboardRegistrationModal({
 	onOptOut,
 	onSyncStats,
 }: LeaderboardRegistrationModalProps) {
-	const { registerLayer, unregisterLayer } = useLayerStack();
-	const layerIdRef = useRef<string>();
+	useModalLayer(MODAL_PRIORITIES.LEADERBOARD_REGISTRATION, 'Register for Leaderboard', () =>
+		onCloseRef.current()
+	);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
@@ -737,27 +738,10 @@ export function LeaderboardRegistrationModal({
 		setSuccessMessage('You have opted out of the leaderboard. Your local stats are preserved.');
 	}, [onOptOut]);
 
-	// Register layer on mount
+	// Focus container on mount
 	useEffect(() => {
-		const id = registerLayer({
-			type: 'modal',
-			priority: MODAL_PRIORITIES.LEADERBOARD_REGISTRATION,
-			blocksLowerLayers: true,
-			capturesFocus: true,
-			focusTrap: 'strict',
-			ariaLabel: 'Register for Leaderboard',
-			onEscape: () => onCloseRef.current(),
-		});
-		layerIdRef.current = id;
-
 		containerRef.current?.focus();
-
-		return () => {
-			if (layerIdRef.current) {
-				unregisterLayer(layerIdRef.current);
-			}
-		};
-	}, [registerLayer, unregisterLayer]);
+	}, []);
 
 	// Handle Enter key for form submission
 	const handleKeyDown = useCallback(

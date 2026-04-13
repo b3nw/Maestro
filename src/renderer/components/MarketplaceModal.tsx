@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import type { Theme } from '../types';
 import type { MarketplacePlaybook } from '../../shared/marketplace-types';
-import { useLayerStack } from '../contexts/LayerStackContext';
+import { useModalLayer } from '../hooks/ui/useModalLayer';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { useMarketplace } from '../hooks/batch/useMarketplace';
 import {
@@ -732,7 +732,6 @@ export function MarketplaceModal({
 	onImportComplete,
 }: MarketplaceModalProps) {
 	// Layer stack for escape handling
-	const { registerLayer, unregisterLayer } = useLayerStack();
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
 
@@ -821,28 +820,20 @@ export function MarketplaceModal({
 	handleBackToListRef.current = handleBackToList;
 
 	// Register with layer stack for escape handling
-	useEffect(() => {
-		if (isOpen) {
-			const id = registerLayer({
-				type: 'modal',
-				priority: MODAL_PRIORITIES.MARKETPLACE,
-				blocksLowerLayers: true,
-				capturesFocus: true,
-				focusTrap: 'strict',
-				ariaLabel: 'Playbook Exchange',
-				onEscape: () => {
-					if (showHelpRef.current) {
-						setShowHelp(false);
-					} else if (showDetailViewRef.current) {
-						handleBackToListRef.current();
-					} else {
-						onCloseRef.current();
-					}
-				},
-			});
-			return () => unregisterLayer(id);
-		}
-	}, [isOpen, registerLayer, unregisterLayer]);
+	useModalLayer(
+		MODAL_PRIORITIES.MARKETPLACE,
+		'Playbook Exchange',
+		() => {
+			if (showHelpRef.current) {
+				setShowHelp(false);
+			} else if (showDetailViewRef.current) {
+				handleBackToListRef.current();
+			} else {
+				onCloseRef.current();
+			}
+		},
+		{ enabled: isOpen }
+	);
 
 	// Focus search input when modal opens
 	useEffect(() => {

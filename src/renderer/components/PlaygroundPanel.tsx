@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { Theme, AutoRunStats, ThemeMode } from '../types';
-import { useLayerStack } from '../contexts/LayerStackContext';
+import { useModalLayer } from '../hooks/ui/useModalLayer';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { AchievementCard } from './AchievementCard';
 import { StandingOvationOverlay } from './StandingOvationOverlay';
@@ -105,8 +105,6 @@ const DEFAULT_CONFETTI_COLORS = [
 ];
 
 export function PlaygroundPanel({ theme, themeMode, onClose }: PlaygroundPanelProps) {
-	const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
-	const layerIdRef = useRef<string>();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const onCloseRef = useRef(onClose);
 
@@ -185,32 +183,16 @@ export function PlaygroundPanel({ theme, themeMode, onClose }: PlaygroundPanelPr
 	}, []);
 
 	// Register layer on mount
+	useModalLayer(
+		MODAL_PRIORITIES.STANDING_OVATION - 1, // Just below standing ovation
+		'Developer Playground',
+		() => onCloseRef.current()
+	);
+
+	// Focus container on mount
 	useEffect(() => {
-		const id = registerLayer({
-			type: 'modal',
-			priority: MODAL_PRIORITIES.STANDING_OVATION - 1, // Just below standing ovation
-			blocksLowerLayers: true,
-			capturesFocus: true,
-			focusTrap: 'strict',
-			ariaLabel: 'Developer Playground',
-			onEscape: () => onCloseRef.current(),
-		});
-		layerIdRef.current = id;
 		containerRef.current?.focus();
-
-		return () => {
-			if (layerIdRef.current) {
-				unregisterLayer(layerIdRef.current);
-			}
-		};
-	}, [registerLayer, unregisterLayer]);
-
-	// Update handler when dependencies change
-	useEffect(() => {
-		if (layerIdRef.current) {
-			updateLayerHandler(layerIdRef.current, () => onCloseRef.current());
-		}
-	}, [updateLayerHandler]);
+	}, []);
 
 	// Build mock AutoRunStats
 	const mockAutoRunStats: AutoRunStats = {

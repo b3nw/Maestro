@@ -20,7 +20,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { X, Check, Loader2, AlertTriangle, ArrowRight, Wand2 } from 'lucide-react';
 import type { Theme, ToolType } from '../types';
 import type { GroomingProgress } from '../types/contextMerge';
-import { useLayerStack } from '../contexts/LayerStackContext';
+import { useModalLayer } from '../hooks/ui/useModalLayer';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { getAgentDisplayName } from '../services/contextGroomer';
 
@@ -258,8 +258,6 @@ export function TransferProgressModal({
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
 	// Layer stack registration
-	const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
-	const layerIdRef = useRef<string>();
 	const onCancelRef = useRef(onCancel);
 	const onCompleteRef = useRef(onComplete);
 
@@ -286,32 +284,9 @@ export function TransferProgressModal({
 	}, [progress.stage]);
 
 	// Register layer on mount
-	useEffect(() => {
-		if (!isOpen) return;
-
-		layerIdRef.current = registerLayer({
-			type: 'modal',
-			priority: MODAL_PRIORITIES.TRANSFER_PROGRESS,
-			blocksLowerLayers: true,
-			capturesFocus: true,
-			focusTrap: 'strict',
-			ariaLabel: 'Transfer Progress',
-			onEscape: handleEscape,
-		});
-
-		return () => {
-			if (layerIdRef.current) {
-				unregisterLayer(layerIdRef.current);
-			}
-		};
-	}, [isOpen, registerLayer, unregisterLayer, handleEscape]);
-
-	// Update handler when callbacks change
-	useEffect(() => {
-		if (layerIdRef.current) {
-			updateLayerHandler(layerIdRef.current, handleEscape);
-		}
-	}, [updateLayerHandler, handleEscape]);
+	useModalLayer(MODAL_PRIORITIES.TRANSFER_PROGRESS, 'Transfer Progress', handleEscape, {
+		enabled: isOpen,
+	});
 
 	// Get the current stage index
 	const currentStageIndex = useMemo(() => {
