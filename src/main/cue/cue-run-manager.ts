@@ -15,7 +15,10 @@ import type { MainLogLevel } from '../../shared/logger-types';
 import type { CueEvent, CueRunResult, CueSettings, CueSubscription } from './cue-types';
 import { updateCueEventStatus, safeRecordCueEvent, safeUpdateCueEventStatus } from './cue-db';
 import { SOURCE_OUTPUT_MAX_CHARS } from './cue-fan-in-tracker';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { captureException } from '../utils/sentry';
+import { substituteTemplateVariables, type TemplateContext } from '../../shared/templateVariables';
 
 /** Phase of a run in the state machine: running → stopping | finished */
 export type RunPhase = 'running' | 'stopping' | 'finished';
@@ -38,6 +41,7 @@ export interface QueuedEvent {
 	subscriptionName: string;
 	queuedAt: number;
 	chainDepth?: number;
+	cliOutput?: { target: string };
 }
 
 export interface CueRunManagerDeps {
@@ -75,7 +79,8 @@ export interface CueRunManager {
 		event: CueEvent,
 		subscriptionName: string,
 		outputPrompt?: string,
-		chainDepth?: number
+		chainDepth?: number,
+		cliOutput?: { target: string }
 	): void;
 	stopRun(runId: string): boolean;
 	stopAll(): void;
@@ -143,7 +148,8 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 				entry.event,
 				entry.subscriptionName,
 				entry.outputPrompt,
-				entry.chainDepth
+				entry.chainDepth,
+				entry.cliOutput
 			);
 		}
 
@@ -159,7 +165,8 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 		event: CueEvent,
 		subscriptionName: string,
 		outputPrompt?: string,
-		chainDepth?: number
+		chainDepth?: number,
+		cliOutput?: { target: string }
 	): Promise<void> {
 		const sessionName = getSessionName(sessionId);
 		const settings = deps.getSessionSettings(sessionId);
@@ -285,6 +292,33 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					);
 				}
 			}
+
+			// Phase 3: CLI Output delivery — shell out to maestro-cli send --live
+			if (cliOutput && result.status === 'completed') {
+				try {
+					const execFileAsync = promisify(execFile);
+					// Build a minimal template context for variable substitution in the target
+					const templateContext: TemplateContext = {
+						session: {
+							id: sessionId,
+							name: sessionName,
+							toolType: '',
+							cwd: '',
+						},
+						cue: event.payload as TemplateContext['cue'],
+					};
+					const resolvedTarget = substituteTemplateVariables(cliOutput.target, templateContext);
+					const truncatedOutput = result.stdout.substring(0, 100_000);
+					await execFileAsync('maestro-cli', ['send', resolvedTarget, truncatedOutput, '--live', '--json']);
+					deps.onLog('cue', `[CUE] "${subscriptionName}" CLI output delivered to ${resolvedTarget}`);
+				} catch (cliError) {
+					deps.onLog(
+						'warn',
+						`[CUE] "${subscriptionName}" CLI output delivery failed: ${cliError instanceof Error ? cliError.message : String(cliError)}`
+					);
+					// Non-fatal — don't change result.status
+				}
+			}
 		} catch (error) {
 			if (!activeRuns.has(runId)) {
 				return;
@@ -338,7 +372,8 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 			event: CueEvent,
 			subscriptionName: string,
 			outputPrompt?: string,
-			chainDepth?: number
+			chainDepth?: number,
+			cliOutput?: { target: string }
 		): void {
 			const settings = deps.getSessionSettings(sessionId);
 			const maxConcurrent = settings?.max_concurrent ?? 1;
@@ -367,6 +402,7 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					subscriptionName,
 					queuedAt: Date.now(),
 					chainDepth,
+					cliOutput,
 				});
 
 				deps.onLog(
@@ -378,7 +414,7 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 
 			// Slot available — dispatch immediately
 			activeRunCount.set(sessionId, currentCount + 1);
-			doExecuteCueRun(sessionId, prompt, event, subscriptionName, outputPrompt, chainDepth);
+			doExecuteCueRun(sessionId, prompt, event, subscriptionName, outputPrompt, chainDepth, cliOutput);
 		},
 
 		stopRun(runId: string): boolean {

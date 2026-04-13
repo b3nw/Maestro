@@ -139,14 +139,15 @@ export class CueEngine {
 		});
 		this.dispatchService = createCueDispatchService({
 			getSessions: deps.getSessions,
-			executeRun: (sessionId, prompt, event, subscriptionName, outputPrompt, chainDepth) => {
+			executeRun: (sessionId, prompt, event, subscriptionName, outputPrompt, chainDepth, cliOutput) => {
 				this.runManager.execute(
 					sessionId,
 					prompt,
 					event,
 					subscriptionName,
 					outputPrompt,
-					chainDepth
+					chainDepth,
+					cliOutput
 				);
 			},
 			onLog: deps.onLog,
