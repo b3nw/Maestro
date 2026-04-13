@@ -21,7 +21,7 @@ import { countUnfinishedTasks, uncheckAllTasks } from './batchUtils';
 import { useSessionDebounce } from './useSessionDebounce';
 import { DEFAULT_BATCH_STATE, type BatchAction } from './batchReducer';
 import { useBatchStore, selectHasAnyActiveBatch } from '../../stores/batchStore';
-import { useSessionStore } from '../../stores/sessionStore';
+import { useSessionStore, selectSessionById } from '../../stores/sessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { notifyToast } from '../../stores/notificationStore';
 import { useTimeTracking } from './useTimeTracking';
@@ -638,7 +638,7 @@ export function useBatchProcessor({
 			// (sessionsRef updates on React re-render, but Zustand store updates synchronously)
 			const session =
 				sessionsRef.current.find((s) => s.id === sessionId) ||
-				useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+				selectSessionById(sessionId)(useSessionStore.getState());
 			if (!session) {
 				const worktreeInfo = config.worktreeTarget
 					? ` (worktree mode: ${config.worktreeTarget.mode}, path: ${

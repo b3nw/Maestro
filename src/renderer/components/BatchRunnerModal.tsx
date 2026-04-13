@@ -24,7 +24,7 @@ import { PlaybookNameModal } from './PlaybookNameModal';
 import { AgentPromptComposerModal } from './AgentPromptComposerModal';
 import { DocumentsPanel } from './DocumentsPanel';
 import { WorktreeRunSection } from './WorktreeRunSection';
-import { useSessionStore } from '../stores/sessionStore';
+import { useSessionStore, selectSessionById } from '../stores/sessionStore';
 import { useUIStore } from '../stores/uiStore';
 import { getModalActions } from '../stores/modalStore';
 import {
@@ -108,7 +108,7 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
 	// Worktree run target state
 	const [worktreeTarget, setWorktreeTarget] = useState<WorktreeRunTarget | null>(null);
 	const [isPreparingWorktree, setIsPreparingWorktree] = useState(false);
-	const activeSession = useSessionStore((state) => state.sessions.find((s) => s.id === sessionId));
+	const activeSession = useSessionStore(selectSessionById(sessionId));
 	const sessions = useSessionStore((state) => state.sessions);
 	const worktreeChildren = useMemo(
 		() => sessions.filter((s) => s.parentSessionId === sessionId),

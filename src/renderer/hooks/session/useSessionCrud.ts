@@ -16,7 +16,7 @@
 
 import { useCallback, useState } from 'react';
 import type { ToolType, Session, AITab } from '../../types';
-import { useSessionStore } from '../../stores/sessionStore';
+import { useSessionStore, selectSessionById } from '../../stores/sessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getModalActions, useModalStore } from '../../stores/modalStore';
@@ -292,7 +292,7 @@ export function useSessionCrud(deps: UseSessionCrudDeps): UseSessionCrudReturn {
 	// ========================================================================
 	const deleteSession = useCallback(
 		(id: string) => {
-			const session = useSessionStore.getState().sessions.find((s) => s.id === id);
+			const session = selectSessionById(id)(useSessionStore.getState());
 			if (!session) return;
 			setDeleteAgentSession(session);
 		},

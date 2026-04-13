@@ -13,12 +13,12 @@
  * directly. These will be migrated in a future cleanup pass.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { Session, LeaderboardRegistration, AgentError } from '../../types';
 import type { RecoveryAction } from '../../components/AgentErrorModal';
 import { getModalActions, useModalStore } from '../../stores/modalStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useSessionStore, selectActiveSession } from '../../stores/sessionStore';
+import { useSessionStore, selectActiveSession, selectSessionById } from '../../stores/sessionStore';
 import { useGroupChatStore } from '../../stores/groupChatStore';
 import { useAgentStore } from '../../stores/agentStore';
 import { useAgentErrorRecovery } from '../agent/useAgentErrorRecovery';
@@ -166,7 +166,6 @@ export function useModalHandlers(
 	// --- Reactive subscriptions (for derived state & effects) ---
 	const agentErrorModalSessionId = useModalStore(selectAgentErrorSessionId);
 	const historicalAgentError = useModalStore(selectAgentErrorHistorical);
-	const sessions = useSessionStore((s) => s.sessions);
 	const logViewerOpen = useModalStore(selectLogViewerOpen);
 	const shortcutsHelpOpen = useModalStore(selectShortcutsHelpOpen);
 	const settingsLoaded = useSettingsStore((s) => s.settingsLoaded);
@@ -176,13 +175,10 @@ export function useModalHandlers(
 	// Derived State
 	// ====================================================================
 
-	const errorSession = useMemo(
-		() =>
-			agentErrorModalSessionId
-				? (sessions.find((s) => s.id === agentErrorModalSessionId) ?? null)
-				: null,
-		[agentErrorModalSessionId, sessions]
-	);
+	const errorSession =
+		useSessionStore(
+			agentErrorModalSessionId ? selectSessionById(agentErrorModalSessionId) : () => undefined
+		) ?? null;
 
 	// ====================================================================
 	// Group A: Simple Close Handlers
