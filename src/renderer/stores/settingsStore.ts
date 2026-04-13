@@ -214,6 +214,8 @@ export interface SettingsStoreState {
 	audioFeedbackEnabled: boolean;
 	audioFeedbackCommand: string;
 	toastDuration: number;
+	idleNotificationEnabled: boolean;
+	idleNotificationCommand: string;
 	checkForUpdatesOnStartup: boolean;
 	enableBetaUpdates: boolean;
 	crashReportingEnabled: boolean;
@@ -300,6 +302,8 @@ export interface SettingsStoreActions {
 	setAudioFeedbackEnabled: (value: boolean) => void;
 	setAudioFeedbackCommand: (value: string) => void;
 	setToastDuration: (value: number) => void;
+	setIdleNotificationEnabled: (value: boolean) => void;
+	setIdleNotificationCommand: (value: string) => void;
 	setCheckForUpdatesOnStartup: (value: boolean) => void;
 	setEnableBetaUpdates: (value: boolean) => void;
 	setCrashReportingEnabled: (value: boolean) => void;
@@ -452,6 +456,8 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 		audioFeedbackEnabled: false,
 		audioFeedbackCommand: 'say',
 		toastDuration: 20,
+		idleNotificationEnabled: false,
+		idleNotificationCommand: 'say Maestro is idle',
 		checkForUpdatesOnStartup: true,
 		enableBetaUpdates: false,
 		crashReportingEnabled: true,
@@ -663,6 +669,16 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => {
 		setToastDuration: (value) => {
 			set({ toastDuration: value });
 			window.maestro.settings.set('toastDuration', value);
+		},
+
+		setIdleNotificationEnabled: (value) => {
+			set({ idleNotificationEnabled: value });
+			window.maestro.settings.set('idleNotificationEnabled', value);
+		},
+
+		setIdleNotificationCommand: (value) => {
+			set({ idleNotificationCommand: value });
+			window.maestro.settings.set('idleNotificationCommand', value);
 		},
 
 		setCheckForUpdatesOnStartup: (value) => {
@@ -1572,6 +1588,12 @@ export async function loadAllSettings(): Promise<void> {
 		if (allSettings['toastDuration'] !== undefined)
 			patch.toastDuration = allSettings['toastDuration'] as number;
 
+		if (allSettings['idleNotificationEnabled'] !== undefined)
+			patch.idleNotificationEnabled = allSettings['idleNotificationEnabled'] as boolean;
+
+		if (allSettings['idleNotificationCommand'] !== undefined)
+			patch.idleNotificationCommand = allSettings['idleNotificationCommand'] as string;
+
 		if (allSettings['checkForUpdatesOnStartup'] !== undefined)
 			patch.checkForUpdatesOnStartup = allSettings['checkForUpdatesOnStartup'] as boolean;
 
@@ -1944,6 +1966,8 @@ export function getSettingsActions() {
 		setAudioFeedbackEnabled: state.setAudioFeedbackEnabled,
 		setAudioFeedbackCommand: state.setAudioFeedbackCommand,
 		setToastDuration: state.setToastDuration,
+		setIdleNotificationEnabled: state.setIdleNotificationEnabled,
+		setIdleNotificationCommand: state.setIdleNotificationCommand,
 		setCheckForUpdatesOnStartup: state.setCheckForUpdatesOnStartup,
 		setEnableBetaUpdates: state.setEnableBetaUpdates,
 		setCrashReportingEnabled: state.setCrashReportingEnabled,

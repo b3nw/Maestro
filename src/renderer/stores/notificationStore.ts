@@ -48,6 +48,8 @@ export interface NotificationConfig {
 	audioFeedbackEnabled: boolean;
 	audioFeedbackCommand: string;
 	osNotificationsEnabled: boolean;
+	idleNotificationEnabled: boolean;
+	idleNotificationCommand: string;
 }
 
 // ============================================================================
@@ -72,6 +74,8 @@ export interface NotificationStoreActions {
 	setAudioFeedback: (enabled: boolean, command: string) => void;
 	/** Configure OS desktop notifications. */
 	setOsNotifications: (enabled: boolean) => void;
+	/** Configure idle notification (fires when all agents/batches stop). */
+	setIdleNotification: (enabled: boolean, command: string) => void;
 }
 
 export type NotificationStore = NotificationStoreState & NotificationStoreActions;
@@ -104,6 +108,8 @@ export const useNotificationStore = create<NotificationStore>()((set) => ({
 		audioFeedbackEnabled: false,
 		audioFeedbackCommand: '',
 		osNotificationsEnabled: true,
+		idleNotificationEnabled: false,
+		idleNotificationCommand: '',
 	},
 
 	// --- Toast CRUD ---
@@ -137,6 +143,11 @@ export const useNotificationStore = create<NotificationStore>()((set) => ({
 
 	setOsNotifications: (enabled) =>
 		set((s) => ({ config: { ...s.config, osNotificationsEnabled: enabled } })),
+
+	setIdleNotification: (enabled, command) =>
+		set((s) => ({
+			config: { ...s.config, idleNotificationEnabled: enabled, idleNotificationCommand: command },
+		})),
 }));
 
 // ============================================================================
@@ -313,5 +324,6 @@ export function getNotificationActions() {
 		setDefaultDuration: state.setDefaultDuration,
 		setAudioFeedback: state.setAudioFeedback,
 		setOsNotifications: state.setOsNotifications,
+		setIdleNotification: state.setIdleNotification,
 	};
 }

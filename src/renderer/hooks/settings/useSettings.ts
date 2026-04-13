@@ -118,6 +118,10 @@ export interface UseSettingsReturn {
 	setAudioFeedbackCommand: (value: string) => void;
 	toastDuration: number;
 	setToastDuration: (value: number) => void;
+	idleNotificationEnabled: boolean;
+	setIdleNotificationEnabled: (value: boolean) => void;
+	idleNotificationCommand: string;
+	setIdleNotificationCommand: (value: string) => void;
 
 	// Update settings
 	checkForUpdatesOnStartup: boolean;

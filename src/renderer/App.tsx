@@ -97,6 +97,8 @@ import {
 	useInterruptHandler,
 	// Tour actions (right panel control from tour overlay)
 	useTourActions,
+	// Idle notification (fires command when all agents/batches finish)
+	useIdleNotification,
 	// Queue handlers (queue browser UI operations)
 	useQueueHandlers,
 	// Queue processing (execution queue processing + startup recovery)
@@ -1696,6 +1698,9 @@ function MaestroConsoleInner() {
 
 	// Tour actions (right panel control from tour overlay) — extracted to useTourActions hook
 	useTourActions();
+
+	// Idle notification — fires configured command when all agents/batches finish
+	useIdleNotification();
 
 	// Queue processing (execution, startup recovery) — extracted to useQueueProcessing hook
 	const { processQueuedItem } = useQueueProcessing({

@@ -56,6 +56,8 @@ function resetStore() {
 		audioFeedbackEnabled: false,
 		audioFeedbackCommand: 'say',
 		toastDuration: 20,
+		idleNotificationEnabled: false,
+		idleNotificationCommand: 'say Maestro is idle',
 		checkForUpdatesOnStartup: true,
 		enableBetaUpdates: false,
 		crashReportingEnabled: true,

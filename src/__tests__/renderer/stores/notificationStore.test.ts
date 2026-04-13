@@ -39,6 +39,8 @@ beforeEach(() => {
 			audioFeedbackEnabled: false,
 			audioFeedbackCommand: '',
 			osNotificationsEnabled: true,
+			idleNotificationEnabled: false,
+			idleNotificationCommand: '',
 		},
 	});
 	resetToastIdCounter();
@@ -210,6 +212,30 @@ describe('notificationStore', () => {
 			useNotificationStore.getState().setOsNotifications(false);
 			useNotificationStore.getState().setOsNotifications(true);
 			expect(useNotificationStore.getState().config.osNotificationsEnabled).toBe(true);
+		});
+	});
+
+	describe('setIdleNotification', () => {
+		it('enables idle notification with command', () => {
+			useNotificationStore.getState().setIdleNotification(true, 'say Maestro is idle');
+			const { config } = useNotificationStore.getState();
+			expect(config.idleNotificationEnabled).toBe(true);
+			expect(config.idleNotificationCommand).toBe('say Maestro is idle');
+		});
+
+		it('disables idle notification', () => {
+			useNotificationStore.getState().setIdleNotification(true, 'say idle');
+			useNotificationStore.getState().setIdleNotification(false, '');
+			const { config } = useNotificationStore.getState();
+			expect(config.idleNotificationEnabled).toBe(false);
+			expect(config.idleNotificationCommand).toBe('');
+		});
+
+		it('does not affect other config fields', () => {
+			useNotificationStore.getState().setAudioFeedback(true, 'say');
+			useNotificationStore.getState().setIdleNotification(true, 'notify-send idle');
+			expect(useNotificationStore.getState().config.audioFeedbackEnabled).toBe(true);
+			expect(useNotificationStore.getState().config.audioFeedbackCommand).toBe('say');
 		});
 	});
 
@@ -561,6 +587,7 @@ describe('notificationStore', () => {
 			expect(actions1.setDefaultDuration).toBe(actions2.setDefaultDuration);
 			expect(actions1.setAudioFeedback).toBe(actions2.setAudioFeedback);
 			expect(actions1.setOsNotifications).toBe(actions2.setOsNotifications);
+			expect(actions1.setIdleNotification).toBe(actions2.setIdleNotification);
 		});
 	});
 
@@ -580,6 +607,8 @@ describe('notificationStore', () => {
 					audioFeedbackEnabled: false,
 					audioFeedbackCommand: '',
 					osNotificationsEnabled: true,
+					idleNotificationEnabled: false,
+					idleNotificationCommand: '',
 				},
 			});
 

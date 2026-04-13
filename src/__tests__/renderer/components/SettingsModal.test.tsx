@@ -99,6 +99,8 @@ const mockSetOsNotificationsEnabled = vi.fn();
 const mockSetAudioFeedbackEnabled = vi.fn();
 const mockSetAudioFeedbackCommand = vi.fn();
 const mockSetToastDuration = vi.fn();
+const mockSetIdleNotificationEnabled = vi.fn();
+const mockSetIdleNotificationCommand = vi.fn();
 const mockSetCheckForUpdatesOnStartup = vi.fn();
 const mockSetEnableBetaUpdates = vi.fn();
 const mockSetCrashReportingEnabled = vi.fn();
@@ -187,6 +189,10 @@ vi.mock('../../../renderer/hooks/settings/useSettings', () => ({
 		setAudioFeedbackCommand: mockSetAudioFeedbackCommand,
 		toastDuration: 10,
 		setToastDuration: mockSetToastDuration,
+		idleNotificationEnabled: false,
+		setIdleNotificationEnabled: mockSetIdleNotificationEnabled,
+		idleNotificationCommand: 'say Maestro is idle',
+		setIdleNotificationCommand: mockSetIdleNotificationCommand,
 		// Update settings
 		checkForUpdatesOnStartup: true,
 		setCheckForUpdatesOnStartup: mockSetCheckForUpdatesOnStartup,

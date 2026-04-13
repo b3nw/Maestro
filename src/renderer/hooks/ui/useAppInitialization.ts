@@ -69,6 +69,8 @@ export function useAppInitialization(): AppInitializationReturn {
 	const audioFeedbackEnabled = useSettingsStore((s) => s.audioFeedbackEnabled);
 	const audioFeedbackCommand = useSettingsStore((s) => s.audioFeedbackCommand);
 	const osNotificationsEnabled = useSettingsStore((s) => s.osNotificationsEnabled);
+	const idleNotificationEnabled = useSettingsStore((s) => s.idleNotificationEnabled);
+	const idleNotificationCommand = useSettingsStore((s) => s.idleNotificationCommand);
 
 	// --- Local state ---
 	const [ghCliAvailable, setGhCliAvailable] = useState(false);
@@ -320,6 +322,12 @@ export function useAppInitialization(): AppInitializationReturn {
 	useEffect(() => {
 		useNotificationStore.getState().setOsNotifications(osNotificationsEnabled);
 	}, [osNotificationsEnabled]);
+
+	useEffect(() => {
+		useNotificationStore
+			.getState()
+			.setIdleNotification(idleNotificationEnabled, idleNotificationCommand);
+	}, [idleNotificationEnabled, idleNotificationCommand]);
 
 	// --- Playground debug function ---
 	useEffect(() => {

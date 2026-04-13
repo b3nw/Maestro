@@ -92,6 +92,10 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 		setAudioFeedbackCommand,
 		toastDuration,
 		setToastDuration,
+		idleNotificationEnabled,
+		setIdleNotificationEnabled,
+		idleNotificationCommand,
+		setIdleNotificationCommand,
 		// AI Commands
 		customAICommands,
 		setCustomAICommands,
@@ -594,6 +598,10 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 								setAudioFeedbackCommand={setAudioFeedbackCommand}
 								toastDuration={toastDuration}
 								setToastDuration={setToastDuration}
+								idleNotificationEnabled={idleNotificationEnabled}
+								setIdleNotificationEnabled={setIdleNotificationEnabled}
+								idleNotificationCommand={idleNotificationCommand}
+								setIdleNotificationCommand={setIdleNotificationCommand}
 								theme={theme}
 							/>
 						)}

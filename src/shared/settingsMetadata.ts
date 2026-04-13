@@ -339,6 +339,20 @@ export const SETTINGS_METADATA: Record<string, SettingMetadata> = {
 		default: 20,
 		category: 'notifications',
 	},
+	idleNotificationEnabled: {
+		description:
+			'Run a custom command when all agents and Auto Runs finish and Maestro becomes idle.',
+		type: 'boolean',
+		default: false,
+		category: 'notifications',
+	},
+	idleNotificationCommand: {
+		description:
+			'Shell command to execute when Maestro becomes idle (no agents or Auto Runs running).',
+		type: 'string',
+		default: 'say Maestro is idle',
+		category: 'notifications',
+	},
 
 	// --- Updates & Crash Reporting ---
 	checkForUpdatesOnStartup: {
