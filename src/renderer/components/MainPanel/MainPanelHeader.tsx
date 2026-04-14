@@ -231,6 +231,7 @@ export const MainPanelHeader = React.memo(function MainPanelHeader({
 															);
 														}}
 														title="Copy branch name"
+														ariaLabel="Copy branch name"
 													>
 														<Copy className="w-3 h-3" style={{ color: theme.colors.textDim }} />
 													</GhostIconButton>

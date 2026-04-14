@@ -74,7 +74,7 @@ export function ShortcutsHelpModal({
 						{searchQuery ? `${filteredCount} / ${totalShortcuts}` : totalShortcuts}
 					</span>
 				</div>
-				<GhostIconButton onClick={onClose} color={theme.colors.textDim}>
+				<GhostIconButton onClick={onClose} color={theme.colors.textDim} ariaLabel="Close">
 					<X className="w-4 h-4" />
 				</GhostIconButton>
 			</div>

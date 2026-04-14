@@ -733,6 +733,7 @@ export function AgentSessionsBrowser({
 								onClick={clearViewingSession}
 								padding="p-1.5"
 								color={theme.colors.textDim}
+								ariaLabel="Go back"
 							>
 								<ChevronLeft className="w-5 h-5" />
 							</GhostIconButton>

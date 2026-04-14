@@ -452,6 +452,7 @@ export function AgentSessionsModal({
 									setMessages([]);
 								}}
 								color={theme.colors.textDim}
+								ariaLabel="Go back"
 							>
 								<ChevronLeft className="w-5 h-5" />
 							</GhostIconButton>
@@ -600,7 +601,7 @@ export function AgentSessionsModal({
 								theme={theme}
 								title={
 									sessions.length === 0
-										? 'No Claude sessions found for this project'
+										? 'No sessions found for this project'
 										: 'No sessions match your search'
 								}
 								verticalPadding="py-8"

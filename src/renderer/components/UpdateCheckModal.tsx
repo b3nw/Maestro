@@ -192,7 +192,7 @@ export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
 						style={{ color: theme.colors.textDim }}
 					/>
 				</button>
-				<GhostIconButton onClick={onClose} color={theme.colors.textDim}>
+				<GhostIconButton onClick={onClose} color={theme.colors.textDim} ariaLabel="Close">
 					<X className="w-4 h-4" />
 				</GhostIconButton>
 			</div>

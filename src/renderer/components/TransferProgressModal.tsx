@@ -382,7 +382,13 @@ export function TransferProgressModal({
 					</h2>
 					{isComplete && (
 						<GhostIconButton
-							onClick={() => onComplete?.() || onCancel()}
+							onClick={() => {
+								if (onComplete) {
+									onComplete();
+								} else {
+									onCancel();
+								}
+							}}
 							ariaLabel="Close modal"
 							color={theme.colors.textDim}
 						>

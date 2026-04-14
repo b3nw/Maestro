@@ -765,6 +765,7 @@ export function SshRemoteModal({
 										onClick={() => removeEnvVar(entry.id)}
 										padding="p-2"
 										title="Remove variable"
+										ariaLabel="Remove variable"
 										color={theme.colors.textDim}
 									>
 										<Trash2 className="w-3 h-3" />

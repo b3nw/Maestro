@@ -212,7 +212,7 @@ export function DirectorNotesModal({
 					</div>
 
 					{/* Close button */}
-					<GhostIconButton onClick={onClose}>
+					<GhostIconButton onClick={onClose} ariaLabel="Close">
 						<X className="w-4 h-4" style={{ color: theme.colors.textDim }} />
 					</GhostIconButton>
 				</div>
