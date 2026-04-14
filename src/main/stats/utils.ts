@@ -32,7 +32,7 @@ export const perfMetrics = new PerformanceMetrics(
  * data rely on it). Do not replace with generateUUID().
  */
 export function generateId(): string {
-	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 /**
