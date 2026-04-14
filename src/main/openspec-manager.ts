@@ -34,31 +34,26 @@ const LOG_CONTEXT = '[OpenSpec]';
 const OPENSPEC_COMMANDS: readonly SpecCommandDefinition[] = [
 	{
 		id: 'help',
-		command: '/openspec.help',
 		description: 'Learn how to use OpenSpec with Maestro',
 		isCustom: true,
 	},
 	{
 		id: 'proposal',
-		command: '/openspec.proposal',
 		description: 'Create a change proposal with specs, tasks, and optional design docs',
 		isCustom: false,
 	},
 	{
 		id: 'apply',
-		command: '/openspec.apply',
 		description: 'Implement an approved change proposal by executing tasks',
 		isCustom: false,
 	},
 	{
 		id: 'archive',
-		command: '/openspec.archive',
 		description: 'Archive a completed change after deployment',
 		isCustom: false,
 	},
 	{
 		id: 'implement',
-		command: '/openspec.implement',
 		description: 'Convert OpenSpec tasks to Maestro Auto Run documents',
 		isCustom: true,
 	},

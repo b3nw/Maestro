@@ -34,61 +34,51 @@ const LOG_CONTEXT = '[SpecKit]';
 const SPECKIT_COMMANDS: readonly SpecCommandDefinition[] = [
 	{
 		id: 'help',
-		command: '/speckit.help',
 		description: 'Learn how to use spec-kit with Maestro',
 		isCustom: true,
 	},
 	{
 		id: 'constitution',
-		command: '/speckit.constitution',
 		description: 'Create or update the project constitution',
 		isCustom: false,
 	},
 	{
 		id: 'specify',
-		command: '/speckit.specify',
 		description: 'Create or update feature specification',
 		isCustom: false,
 	},
 	{
 		id: 'clarify',
-		command: '/speckit.clarify',
 		description: 'Identify underspecified areas and ask clarification questions',
 		isCustom: false,
 	},
 	{
 		id: 'plan',
-		command: '/speckit.plan',
 		description: 'Execute implementation planning workflow',
 		isCustom: false,
 	},
 	{
 		id: 'tasks',
-		command: '/speckit.tasks',
 		description: 'Generate actionable, dependency-ordered tasks',
 		isCustom: false,
 	},
 	{
 		id: 'analyze',
-		command: '/speckit.analyze',
 		description: 'Cross-artifact consistency and quality analysis',
 		isCustom: false,
 	},
 	{
 		id: 'checklist',
-		command: '/speckit.checklist',
 		description: 'Generate custom checklist for feature',
 		isCustom: false,
 	},
 	{
 		id: 'taskstoissues',
-		command: '/speckit.taskstoissues',
 		description: 'Convert tasks to GitHub issues',
 		isCustom: false,
 	},
 	{
 		id: 'implement',
-		command: '/speckit.implement',
 		description: 'Execute tasks using Maestro Auto Run with worktree support',
 		isCustom: true,
 	},

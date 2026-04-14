@@ -19,7 +19,6 @@ import { logger } from './utils/logger';
 
 export interface SpecCommandDefinition {
 	id: string;
-	command: string;
 	description: string;
 	isCustom: boolean;
 }
@@ -40,13 +39,13 @@ export interface SpecMetadata {
 	sourceUrl: string;
 }
 
-interface StoredPrompt {
+export interface StoredPrompt {
 	content: string;
 	isModified: boolean;
 	modifiedAt?: string;
 }
 
-interface StoredData {
+export interface StoredData {
 	metadata: SpecMetadata;
 	prompts: Record<string, StoredPrompt>;
 }
@@ -114,7 +113,8 @@ export function createSpecCommandManager(config: SpecCommandManagerConfig): Spec
 		try {
 			const content = await fs.readFile(getUserDataPath(), 'utf-8');
 			return JSON.parse(content);
-		} catch {
+		} catch (error: unknown) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 			return null;
 		}
 	}
@@ -173,7 +173,8 @@ export function createSpecCommandManager(config: SpecCommandManagerConfig): Spec
 					isCustom: cmd.isCustom,
 				};
 				continue;
-			} catch {
+			} catch (error: unknown) {
+				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 				// User prompt not found, try bundled
 			}
 
@@ -208,7 +209,8 @@ export function createSpecCommandManager(config: SpecCommandManagerConfig): Spec
 			const userMetadataPath = path.join(userPromptsDir, 'metadata.json');
 			const content = await fs.readFile(userMetadataPath, 'utf-8');
 			return JSON.parse(content);
-		} catch {
+		} catch (error: unknown) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 			// User metadata not found, try bundled
 		}
 
@@ -217,7 +219,8 @@ export function createSpecCommandManager(config: SpecCommandManagerConfig): Spec
 			const metadataPath = path.join(bundledPromptsDir, 'metadata.json');
 			const content = await fs.readFile(metadataPath, 'utf-8');
 			return JSON.parse(content);
-		} catch {
+		} catch (error: unknown) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 			return { ...defaultMetadata };
 		}
 	}
