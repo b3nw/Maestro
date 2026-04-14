@@ -6,8 +6,9 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import type { ReactFlowInstance } from 'reactflow';
+import type { ReactFlowInstance, Viewport } from 'reactflow';
 import type {
+	AgentNodeData,
 	CuePipelineState,
 	CueGraphSession,
 	PipelineLayoutState,
@@ -15,6 +16,7 @@ import type {
 import { graphSessionsToPipelines } from '../../components/CuePipelineEditor/utils/yamlToPipeline';
 import { mergePipelinesWithSavedLayout } from '../../components/CuePipelineEditor/utils/pipelineLayout';
 import { captureException } from '../../utils/sentry';
+import { cueService } from '../../services/cue';
 
 import type { CuePipelineSessionInfo as SessionInfo } from '../../../shared/cue-pipeline-types';
 
@@ -25,11 +27,31 @@ export interface UsePipelineLayoutParams {
 	pipelineState: CuePipelineState;
 	setPipelineState: React.Dispatch<React.SetStateAction<CuePipelineState>>;
 	savedStateRef: React.MutableRefObject<string>;
+	/**
+	 * Set of project roots that the current saved state corresponds to. Seeded
+	 * from the initial loaded pipelines so handleSave knows which roots to
+	 * clear if their last pipeline disappears, even when the agent that owned
+	 * those pipelines was renamed/removed since the load.
+	 */
+	lastWrittenRootsRef: React.MutableRefObject<Set<string>>;
 	setIsDirty: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface UsePipelineLayoutReturn {
 	persistLayout: () => void;
+	/**
+	 * Pending saved viewport from disk, captured during initial restore.
+	 * CuePipelineEditor reads this once nodes have been measured and either
+	 * applies it via `setViewport` or falls back to `fitView`. Consumed (set
+	 * back to null) after the first read to prevent re-application.
+	 *
+	 * Owning the viewport-apply step in the component (rather than scheduling
+	 * `setViewport` on a timeout here) eliminates the race against ReactFlow's
+	 * node measurement — the previous implementation could set or fit the
+	 * viewport before nodes were measured, leaving the canvas appearing empty
+	 * on first open.
+	 */
+	pendingSavedViewportRef: React.MutableRefObject<Viewport | null>;
 }
 
 export function usePipelineLayout({
@@ -39,17 +61,19 @@ export function usePipelineLayout({
 	pipelineState,
 	setPipelineState,
 	savedStateRef,
+	lastWrittenRootsRef,
 	setIsDirty,
 }: UsePipelineLayoutParams): UsePipelineLayoutReturn {
 	const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const hasRestoredLayoutRef = useRef(false);
 	const latestRestoreIdRef = useRef(0);
+	const pendingSavedViewportRef = useRef<Viewport | null>(null);
 
 	// Keep a ref to current pipeline state for layout persistence (avoids unstable callback)
 	const pipelineStateRef = useRef(pipelineState);
 	pipelineStateRef.current = pipelineState;
 
-	// Debounced layout persistence (positions + viewport)
+	// Debounced layout persistence (positions + viewport + written roots)
 	const persistLayout = useCallback(() => {
 		if (layoutSaveTimerRef.current) clearTimeout(layoutSaveTimerRef.current);
 		layoutSaveTimerRef.current = setTimeout(() => {
@@ -59,14 +83,19 @@ export function usePipelineLayout({
 				pipelines: state.pipelines,
 				selectedPipelineId: state.selectedPipelineId,
 				viewport,
+				// Persist the written-roots snapshot so the next mount can
+				// reseed lastWrittenRootsRef even if the originating agent has
+				// been renamed/removed (sessionId/Name lookup would miss the
+				// root in that case, leaving stale YAML uncleared).
+				writtenRoots: [...lastWrittenRootsRef.current],
 			};
-			window.maestro.cue
+			cueService
 				.savePipelineLayout(layout as unknown as Record<string, unknown>)
 				.catch((err: unknown) => {
 					captureException(err, { extra: { operation: 'savePipelineLayout' } });
 				});
 		}, 500);
-	}, [reactFlowInstance]);
+	}, [reactFlowInstance, lastWrittenRootsRef]);
 
 	// Clean up debounce timer on unmount
 	useEffect(() => {
@@ -74,6 +103,39 @@ export function usePipelineLayout({
 			if (layoutSaveTimerRef.current) clearTimeout(layoutSaveTimerRef.current);
 		};
 	}, []);
+
+	// Reseed lastWrittenRootsRef from the persisted writtenRoots set as early
+	// as possible — independent of graphSessions / livePipelines availability.
+	// The main load-layout effect below ALSO rebuilds the ref, but it's gated
+	// on graphSessions being non-empty; without this early seed, opening the
+	// editor with no live sessions (engine disabled, no registered sessions)
+	// would miss orphan-root metadata for the very first save.
+	useEffect(() => {
+		let cancelled = false;
+		const loadWrittenRoots = async () => {
+			let savedLayout: PipelineLayoutState | null = null;
+			try {
+				savedLayout = (await cueService.loadPipelineLayout()) as PipelineLayoutState | null;
+			} catch (err: unknown) {
+				const message = err instanceof Error ? err.message : String(err);
+				if (!message.includes('no saved layout') && !message.includes('ENOENT')) {
+					captureException(err, { extra: { operation: 'loadPipelineLayout.writtenRoots' } });
+				}
+				return;
+			}
+			if (cancelled) return;
+			if (!savedLayout?.writtenRoots || !Array.isArray(savedLayout.writtenRoots)) return;
+			for (const root of savedLayout.writtenRoots) {
+				if (typeof root === 'string' && root.length > 0) {
+					lastWrittenRootsRef.current.add(root);
+				}
+			}
+		};
+		loadWrittenRoots();
+		return () => {
+			cancelled = true;
+		};
+	}, [lastWrittenRootsRef]);
 
 	// Load pipelines once on mount from saved layout merged with live graph data.
 	// The pipeline editor is the primary editor — we don't re-sync from disk
@@ -93,7 +155,7 @@ export function usePipelineLayout({
 
 			let savedLayout: PipelineLayoutState | null = null;
 			try {
-				savedLayout = (await window.maestro.cue.loadPipelineLayout()) as PipelineLayoutState | null;
+				savedLayout = (await cueService.loadPipelineLayout()) as PipelineLayoutState | null;
 			} catch (err: unknown) {
 				// loadPipelineLayout may fail if no layout has been saved yet — that's expected.
 				// Report anything else to Sentry.
@@ -106,25 +168,57 @@ export function usePipelineLayout({
 			// Guard: if a newer load started or a previous one already completed, bail out
 			if (reqId !== latestRestoreIdRef.current || hasRestoredLayoutRef.current) return;
 
+			let pipelinesForRoots: CuePipelineState['pipelines'];
 			if (savedLayout && savedLayout.pipelines) {
 				const merged = mergePipelinesWithSavedLayout(livePipelines, savedLayout);
 
 				setPipelineState(merged);
 				savedStateRef.current = JSON.stringify(merged.pipelines);
+				pipelinesForRoots = merged.pipelines;
 
-				// Restore viewport if available
+				// Stash the saved viewport for the editor to apply once ReactFlow
+				// has measured the restored nodes. Applying it here on a timeout
+				// raced against `fitView` and — more importantly — against node
+				// measurement, which caused the initial canvas to appear empty.
 				if (savedLayout.viewport) {
-					const viewportToRestore = savedLayout.viewport;
-					setTimeout(() => {
-						if (reqId === latestRestoreIdRef.current) {
-							reactFlowInstance.setViewport(viewportToRestore);
-						}
-					}, 100);
+					pendingSavedViewportRef.current = savedLayout.viewport;
 				}
 			} else {
 				setPipelineState({ pipelines: livePipelines, selectedPipelineId: livePipelines[0].id });
 				savedStateRef.current = JSON.stringify(livePipelines);
+				pipelinesForRoots = livePipelines;
 			}
+
+			// Seed lastWrittenRootsRef from two sources, unioned:
+			//   1. The persisted writtenRoots set from the previous save —
+			//      authoritative even when the originating agent has since been
+			//      renamed or deleted (the session lookup below would miss it
+			//      in that case, leaving stale YAML at that root uncleared).
+			//   2. Session-resolved roots from the just-loaded pipelines —
+			//      catches any roots that aren't in writtenRoots yet (e.g.
+			//      first-ever editor open with pre-existing pipelines, or
+			//      writtenRoots was cleared/missing on disk).
+			const loadedRoots = new Set<string>();
+			if (savedLayout?.writtenRoots && Array.isArray(savedLayout.writtenRoots)) {
+				for (const root of savedLayout.writtenRoots) {
+					if (typeof root === 'string' && root.length > 0) {
+						loadedRoots.add(root);
+					}
+				}
+			}
+			const sessionsById = new Map(sessions.map((s) => [s.id, s]));
+			const sessionsByName = new Map(sessions.map((s) => [s.name, s]));
+			for (const pipeline of pipelinesForRoots) {
+				for (const node of pipeline.nodes) {
+					if (node.type !== 'agent') continue;
+					const data = node.data as AgentNodeData;
+					const root =
+						sessionsById.get(data.sessionId)?.projectRoot ??
+						sessionsByName.get(data.sessionName)?.projectRoot;
+					if (root) loadedRoots.add(root);
+				}
+			}
+			lastWrittenRootsRef.current = loadedRoots;
 
 			hasRestoredLayoutRef.current = true;
 			setIsDirty(false);
@@ -133,5 +227,5 @@ export function usePipelineLayout({
 		loadLayout();
 	}, [graphSessions, sessions]);
 
-	return { persistLayout };
+	return { persistLayout, pendingSavedViewportRef };
 }

@@ -19,10 +19,12 @@ import { validateCueConfig } from '../../cue/cue-yaml-loader';
 import {
 	deleteCueConfigFile,
 	readCueConfigFile,
+	pruneOrphanedPromptFiles,
 	writeCueConfigFile,
 	writeCuePromptFile,
 } from '../../cue/config/cue-config-repository';
 import { loadPipelineLayout, savePipelineLayout } from '../../cue/pipeline-layout-store';
+import { captureException } from '../../utils/sentry';
 import type { CueEngine } from '../../cue/cue-engine';
 import type {
 	CueGraphSession,
@@ -217,6 +219,7 @@ export function registerCueHandlers(deps: CueHandlerDependencies): void {
 				content: string;
 				promptFiles?: Record<string, string>;
 			}): Promise<void> => {
+				const keepPaths = new Set<string>();
 				if (options.promptFiles) {
 					const promptsBase = path.resolve(options.projectRoot, '.maestro/prompts');
 					for (const [relativePath, content] of Object.entries(options.promptFiles)) {
@@ -226,16 +229,69 @@ export function registerCueHandlers(deps: CueHandlerDependencies): void {
 							);
 						}
 						const target = path.resolve(options.projectRoot, relativePath);
-						if (!target.startsWith(promptsBase + path.sep) && target !== promptsBase) {
+						// Must resolve strictly INSIDE .maestro/prompts/. The earlier
+						// check allowed `target === promptsBase` which would attempt
+						// to write to the directory path itself.
+						if (!target.startsWith(promptsBase + path.sep)) {
 							throw new Error(
 								`cue:writeYaml: promptFiles key "${relativePath}" resolves outside the .maestro/prompts directory`
 							);
 						}
+						// Must be a .md file. pruneOrphanedPromptFiles only deletes
+						// .md files, so accepting other extensions here would let
+						// non-markdown junk accumulate forever (it's never on the
+						// prune keep-set's enforcement path).
+						if (path.extname(target).toLowerCase() !== '.md') {
+							throw new Error(`cue:writeYaml: promptFiles key "${relativePath}" must end with .md`);
+						}
 						writeCuePromptFile(options.projectRoot, relativePath, content);
+						keepPaths.add(relativePath);
 					}
 				}
 
+				// Parse the YAML BEFORE writing so we can derive the full
+				// referenced-paths keep-set up front — and so a parse failure
+				// becomes a hard skip on pruning instead of a partial keep-set
+				// that could mass-delete prompt files referenced only inside
+				// options.content (and not duplicated in options.promptFiles).
+				let parseSucceeded = true;
+				try {
+					const parsed = yaml.load(options.content) as
+						| { subscriptions?: Array<Record<string, unknown>> }
+						| null
+						| undefined;
+					const subs = parsed?.subscriptions;
+					if (Array.isArray(subs)) {
+						for (const sub of subs) {
+							if (!sub || typeof sub !== 'object') continue;
+							const pf = (sub as Record<string, unknown>).prompt_file;
+							const opf = (sub as Record<string, unknown>).output_prompt_file;
+							if (typeof pf === 'string' && pf.length > 0 && !path.isAbsolute(pf)) {
+								keepPaths.add(pf);
+							}
+							if (typeof opf === 'string' && opf.length > 0 && !path.isAbsolute(opf)) {
+								keepPaths.add(opf);
+							}
+						}
+					}
+				} catch (parseErr) {
+					parseSucceeded = false;
+					captureException(parseErr, {
+						operation: 'cue:writeYaml.parseForPrune',
+						projectRoot: options.projectRoot,
+					});
+				}
+
 				writeCueConfigFile(options.projectRoot, options.content);
+
+				// Only prune when we have an authoritative keep-set. If the YAML
+				// failed to parse, the keep-set may be missing prompt files the
+				// YAML actually references — running prune anyway risks
+				// mass-deleting files we'd lose forever. The next successful save
+				// (with valid YAML) will catch up.
+				if (parseSucceeded) {
+					pruneOrphanedPromptFiles(options.projectRoot, keepPaths);
+				}
 			}
 		)
 	);

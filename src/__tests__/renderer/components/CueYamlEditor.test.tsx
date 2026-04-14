@@ -678,7 +678,7 @@ describe('CueYamlEditor', () => {
 			fireEvent.click(screen.getByText('Save'));
 
 			await waitFor(() => {
-				expect(mockWriteYaml).toHaveBeenCalledWith('/test/project', 'new content');
+				expect(mockWriteYaml).toHaveBeenCalledWith('/test/project', 'new content', undefined);
 			});
 			expect(mockRefreshSession).toHaveBeenCalledWith('sess-1', '/test/project');
 			expect(defaultProps.onClose).toHaveBeenCalledOnce();

@@ -42,6 +42,8 @@ vi.mock('../../../main/cue/cue-db', () => ({
 	pruneCueEvents: vi.fn(),
 	recordCueEvent: vi.fn(),
 	updateCueEventStatus: vi.fn(),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 // Mock reconciler
@@ -55,6 +57,8 @@ vi.mock('crypto', () => ({
 }));
 
 import { CueEngine, type CueEngineDeps } from '../../../main/cue/cue-engine';
+import { createCueSessionRuntimeService } from '../../../main/cue/cue-session-runtime-service';
+import { createCueSessionRegistry } from '../../../main/cue/cue-session-registry';
 import { createMockSession, createMockConfig, createMockDeps } from './cue-test-helpers';
 
 describe('CueEngine session lifecycle', () => {
@@ -578,6 +582,87 @@ describe('CueEngine session lifecycle', () => {
 			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
 
 			engine.stop();
+		});
+
+		it('initSession idempotency guard — calling twice logs warn and re-initializes cleanly', async () => {
+			// Use a config with no subscriptions so createTriggerSource is never invoked
+			const config = createMockConfig({ subscriptions: [] });
+			mockLoadCueConfig.mockReturnValue(config);
+
+			const yamlWatcherCleanup = vi.fn();
+			mockWatchCueYaml.mockReturnValue(yamlWatcherCleanup);
+
+			const registry = createCueSessionRegistry();
+			const clearQueue = vi.fn();
+			const clearFanInState = vi.fn();
+			const onLog = vi.fn();
+
+			const service = createCueSessionRuntimeService({
+				enabled: () => true,
+				getSessions: () => [createMockSession()],
+				onRefreshRequested: vi.fn(),
+				onLog,
+				registry,
+				dispatchSubscription: vi.fn(),
+				clearQueue,
+				clearFanInState,
+			});
+
+			const session = createMockSession();
+
+			// First initSession — normal registration
+			service.initSession(session, { reason: 'system-boot' });
+			expect(registry.has(session.id)).toBe(true);
+
+			// Second initSession — should trigger idempotency guard
+			service.initSession(session, { reason: 'user-toggle' });
+
+			// Guard must have logged a warning
+			expect(onLog).toHaveBeenCalledWith(
+				'warn',
+				expect.stringContaining('initSession called for already-initialized session')
+			);
+
+			// Session is still registered after re-init (not left in broken state)
+			expect(registry.has(session.id)).toBe(true);
+
+			// teardownSession was invoked (clearFanInState is called by teardown)
+			expect(clearFanInState).toHaveBeenCalledWith(session.id);
+		});
+
+		it('initSession idempotency guard — does not double-register the session in the registry', async () => {
+			// NOTE: this test uses an empty `subscriptions: []` config so it does
+			// NOT exercise trigger-source registration directly; it only verifies
+			// the registry-level dedupe behavior (calling initSession twice still
+			// leaves exactly one entry in the registry snapshot). A separate test
+			// would need a real subscription wired through createTriggerSource to
+			// assert non-duplication of trigger sources themselves.
+			const config = createMockConfig({ subscriptions: [] });
+			mockLoadCueConfig.mockReturnValue(config);
+			mockWatchCueYaml.mockReturnValue(vi.fn());
+
+			const registry = createCueSessionRegistry();
+
+			const service = createCueSessionRuntimeService({
+				enabled: () => true,
+				getSessions: () => [createMockSession()],
+				onRefreshRequested: vi.fn(),
+				onLog: vi.fn(),
+				registry,
+				dispatchSubscription: vi.fn(),
+				clearQueue: vi.fn(),
+				clearFanInState: vi.fn(),
+			});
+
+			const session = createMockSession();
+
+			// Call initSession twice
+			service.initSession(session, { reason: 'system-boot' });
+			service.initSession(session, { reason: 'system-boot' });
+
+			// After two calls, session should appear exactly once in the registry
+			// (not duplicated). The registry snapshot size is 1.
+			expect(registry.snapshot().size).toBe(1);
 		});
 
 		it('removeSession clears startup keys so re-adding the session can re-fire', () => {

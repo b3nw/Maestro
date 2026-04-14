@@ -62,6 +62,13 @@ export interface CueSessionRegistry {
 	 * (i.e., a new registry instance).
 	 */
 	clear(): void;
+
+	/**
+	 * Sweep all `time.scheduled` fired-keys whose time component does not match
+	 * `currentTime` ("HH:MM"). Returns the number of evicted keys.
+	 * Intended for periodic cleanup to prevent unbounded growth of the dedup set.
+	 */
+	sweepStaleScheduledKeys(currentTime: string): number;
 }
 
 export function createCueSessionRegistry(): CueSessionRegistry {
@@ -148,6 +155,20 @@ export function createCueSessionRegistry(): CueSessionRegistry {
 			sessions.clear();
 			scheduledFiredKeys.clear();
 			// startupFiredKeys deliberately preserved across stop/start.
+		},
+
+		sweepStaleScheduledKeys(currentTime: string): number {
+			// Keys have format: ${sessionId}:${subName}:HH:MM
+			// The time is always the trailing ":HH:MM" suffix (e.g. ":09:30").
+			const suffix = `:${currentTime}`;
+			let evicted = 0;
+			for (const key of scheduledFiredKeys) {
+				if (!key.endsWith(suffix)) {
+					scheduledFiredKeys.delete(key);
+					evicted++;
+				}
+			}
+			return evicted;
 		},
 	};
 }

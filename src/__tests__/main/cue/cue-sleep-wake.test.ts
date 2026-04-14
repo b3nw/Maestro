@@ -25,6 +25,10 @@ vi.mock('../../../main/cue/cue-db', () => ({
 	updateHeartbeat: () => mockUpdateHeartbeat(),
 	getLastHeartbeat: () => mockGetLastHeartbeat(),
 	pruneCueEvents: (...args: unknown[]) => mockPruneCueEvents(...args),
+	recordCueEvent: vi.fn(),
+	updateCueEventStatus: vi.fn(),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 // Track reconciler calls

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useCueDirtyStore } from '../../../../renderer/stores/cueDirtyStore';
 import { renderHook, act } from '@testing-library/react';
 import {
 	usePipelineState,
@@ -19,8 +20,14 @@ vi.mock('../../../../renderer/utils/sentry', () => ({
 }));
 
 const mockPersistLayout = vi.fn();
+const mockPendingSavedViewportRef = {
+	current: null as null | { x: number; y: number; zoom: number },
+};
 vi.mock('../../../../renderer/hooks/cue/usePipelineLayout', () => ({
-	usePipelineLayout: vi.fn(() => ({ persistLayout: mockPersistLayout })),
+	usePipelineLayout: vi.fn(() => ({
+		persistLayout: mockPersistLayout,
+		pendingSavedViewportRef: mockPendingSavedViewportRef,
+	})),
 }));
 
 vi.mock('../../../../renderer/components/CuePipelineEditor/utils/pipelineToYaml', () => ({
@@ -54,6 +61,13 @@ const mockGetSettings = vi.fn().mockResolvedValue({
 const mockWriteYaml = vi.fn().mockResolvedValue(undefined);
 const mockRefreshSession = vi.fn().mockResolvedValue(undefined);
 const mockGetGraphData = vi.fn().mockResolvedValue([]);
+// readYaml returns the same content pipelinesToYaml is mocked to produce, so
+// handleSave's write-back verification passes.
+const mockReadYaml = vi.fn().mockResolvedValue('test');
+
+afterEach(() => {
+	useCueDirtyStore.setState({ pipelineDirty: false, yamlDirty: false });
+});
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -61,6 +75,7 @@ beforeEach(() => {
 		cue: {
 			getSettings: mockGetSettings,
 			writeYaml: mockWriteYaml,
+			readYaml: mockReadYaml,
 			refreshSession: mockRefreshSession,
 			getGraphData: mockGetGraphData,
 		},
@@ -75,7 +90,6 @@ function createDefaultParams(overrides?: Partial<UsePipelineStateParams>): UsePi
 		sessions: [],
 		graphSessions: [],
 		activeRuns: [],
-		onDirtyChange: vi.fn(),
 		reactFlowInstance: { getViewport: vi.fn(() => ({ x: 0, y: 0, zoom: 1 })) } as any,
 		selectedNodePipelineId: null,
 		selectedEdgePipelineId: null,
@@ -88,14 +102,23 @@ function createDefaultParams(overrides?: Partial<UsePipelineStateParams>): UsePi
 }
 
 function makeTriggerNode(id: string, eventType = 'file.changed' as const): PipelineNode {
+	// Provide event-appropriate defaults so the per-event trigger config
+	// validation (introduced to prevent broken YAML being saved) doesn't
+	// fail tests that aren't asserting on trigger config specifics.
+	const defaults: Record<string, Record<string, unknown>> = {
+		'file.changed': { watch: '**/*' },
+		'task.pending': { watch: '**/*.md' },
+		'time.heartbeat': { interval_minutes: 5 },
+		'time.scheduled': { schedule_times: ['09:00'] },
+	};
 	return {
 		id,
 		type: 'trigger',
 		position: { x: 0, y: 0 },
 		data: {
 			eventType,
-			label: 'File Change',
-			config: {},
+			label: eventType,
+			config: defaults[eventType] ?? {},
 		},
 	};
 }
@@ -162,9 +185,12 @@ describe('DEFAULT_TRIGGER_LABELS', () => {
 // ─── validatePipelines (pure function) ───────────────────────────────────────
 
 describe('validatePipelines', () => {
-	it('returns empty array for empty pipeline (no nodes)', () => {
-		const errors = validatePipelines([makePipeline()]);
-		expect(errors).toEqual([]);
+	it('flags an empty pipeline (no nodes) so the save surfaces feedback', () => {
+		// Previously this returned [] and save silently succeeded without
+		// persisting anything — the "didn't save" class of user-reported bugs.
+		const errors = validatePipelines([makePipeline({ name: 'Empty' })]);
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toMatch(/Empty.*add a trigger and an agent/);
 	});
 
 	it('returns empty array for empty pipelines array', () => {
@@ -930,17 +956,22 @@ describe('usePipelineState', () => {
 		expect(result.current.showSettings).toBe(true);
 	});
 
-	it('notifies onDirtyChange when isDirty changes', () => {
-		const onDirtyChange = vi.fn();
-		const { result } = renderHook(() => usePipelineState(createDefaultParams({ onDirtyChange })));
+	it('pushes isDirty into cueDirtyStore.pipelineDirty when isDirty changes', () => {
+		const { result } = renderHook(() => usePipelineState(createDefaultParams()));
 
-		// Initial call with false
-		expect(onDirtyChange).toHaveBeenCalledWith(false);
+		// Initially not dirty
+		expect(useCueDirtyStore.getState().pipelineDirty).toBe(false);
 
 		act(() => {
 			result.current.setIsDirty(true);
 		});
 
-		expect(onDirtyChange).toHaveBeenCalledWith(true);
+		expect(useCueDirtyStore.getState().pipelineDirty).toBe(true);
+
+		act(() => {
+			result.current.setIsDirty(false);
+		});
+
+		expect(useCueDirtyStore.getState().pipelineDirty).toBe(false);
 	});
 });

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Session, SessionState, ThinkingMode } from '../../types';
+import { cueService } from '../../services/cue';
+import { captureException } from '../../utils/sentry';
 import { createTab, closeTab } from '../../utils/tabHelpers';
 
 /**
@@ -886,10 +888,23 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
 		const unsubscribe = window.maestro.process.onRemoteTriggerCueSubscription(
 			async (subscriptionName: string, prompt: string | undefined, responseChannel: string) => {
 				try {
-					const result = await window.maestro.cue.triggerSubscription(subscriptionName, prompt);
+					const result = await cueService.triggerSubscription(subscriptionName, prompt);
 					window.maestro.process.sendRemoteTriggerCueSubscriptionResponse(responseChannel, result);
 				} catch (error) {
 					console.error('[Remote Cue Trigger] Failed:', subscriptionName, error);
+					// Never send the raw prompt to telemetry — remote-triggered
+					// Cue prompts can carry user-authored content with PII or
+					// secrets. Send length/presence so we can correlate failures
+					// against payload size without leaking the body.
+					captureException(error, {
+						extra: {
+							context: 'remoteTriggerCueSubscription',
+							subscriptionName,
+							responseChannel,
+							promptLength: prompt?.length ?? 0,
+							promptProvided: prompt !== undefined,
+						},
+					});
 					window.maestro.process.sendRemoteTriggerCueSubscriptionResponse(responseChannel, false);
 				}
 			}

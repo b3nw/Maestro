@@ -50,6 +50,7 @@ import { createCueSessionRuntimeService } from './cue-session-runtime-service';
 import type { CueSessionRuntimeService, SessionInitReason } from './cue-session-runtime-service';
 import { createCueSessionRegistry, type CueSessionRegistry } from './cue-session-registry';
 import { createCueRecoveryService, type CueRecoveryService } from './cue-recovery-service';
+import { createCueCleanupService, type CueCleanupService } from './cue-cleanup-service';
 import { loadCueConfig } from './cue-yaml-loader';
 
 const MAX_CHAIN_DEPTH = 10;
@@ -85,6 +86,7 @@ export class CueEngine {
 	private queryService: CueQueryService;
 	private sessionRuntimeService: CueSessionRuntimeService;
 	private recoveryService: CueRecoveryService;
+	private cleanupService: CueCleanupService;
 	private deps: CueEngineDeps;
 
 	constructor(deps: CueEngineDeps) {
@@ -205,7 +207,21 @@ export class CueEngine {
 			getActiveRunCount: (sessionId) => this.runManager.getActiveRunCount(sessionId),
 			loadConfigForProjectRoot: loadCueConfig,
 		});
-		this.heartbeat = createCueHeartbeat();
+		this.cleanupService = createCueCleanupService({
+			fanInTracker: this.fanInTracker,
+			registry: this.registry,
+			getSessions: () => deps.getSessions().map((s) => ({ id: s.id })),
+			getSessionTimeoutMs: (sessionId) => {
+				const state = this.registry.get(sessionId);
+				return (state?.config.settings?.timeout_minutes ?? 30) * 60 * 1000;
+			},
+			getCurrentMinute: () => {
+				const now = new Date();
+				return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+			},
+			onLog: deps.onLog,
+		});
+		this.heartbeat = createCueHeartbeat(() => this.cleanupService.onTick());
 		this.recoveryService = createCueRecoveryService({
 			onLog: deps.onLog,
 			getSessions: () => {

@@ -11,8 +11,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
 	ReactFlowProvider,
 	useReactFlow,
+	useNodesInitialized,
 	applyNodeChanges,
 	type Node,
+	type Edge,
 	type NodeChange,
 	type OnNodesChange,
 	type OnEdgesChange,
@@ -50,7 +52,6 @@ export interface CuePipelineEditorProps {
 	graphSessions: CueGraphSession[];
 	onSwitchToSession: (id: string) => void;
 	onClose: () => void;
-	onDirtyChange?: (isDirty: boolean) => void;
 	theme: Theme;
 	activeRuns?: ActiveRunInfo[];
 	/** Callback to manually trigger a pipeline by name */
@@ -72,7 +73,6 @@ function CuePipelineEditorInner({
 	groups,
 	graphSessions,
 	onSwitchToSession,
-	onDirtyChange,
 	theme,
 	activeRuns: activeRunsProp,
 	onTriggerPipeline,
@@ -93,7 +93,6 @@ function CuePipelineEditorInner({
 		sessions,
 		graphSessions,
 		activeRuns: activeRunsProp,
-		onDirtyChange,
 		reactFlowInstance,
 		selectedNodePipelineId: selectionRef.current.selectedNodePipelineId,
 		selectedEdgePipelineId: selectionRef.current.selectedEdgePipelineId,
@@ -129,6 +128,7 @@ function CuePipelineEditorInner({
 		setShowSettings,
 		runningPipelineIds,
 		persistLayout,
+		pendingSavedViewportRef,
 		handleSave,
 		handleDiscard,
 		createPipeline,
@@ -192,6 +192,18 @@ function CuePipelineEditorInner({
 		handleConfigureNode,
 	} = selectionHook;
 
+	// The per-node "Configure" icon calls this directly via node data, bypassing
+	// onNodeClick. In All Pipelines view everything is read-only, so we refuse
+	// to open the edit panel. Declared here (before computedNodes) so the memo
+	// embeds the stable guarded callback.
+	const handleConfigureNodeGuarded = useCallback(
+		(compositeId: string) => {
+			if (isAllPipelinesView) return;
+			handleConfigureNode(compositeId);
+		},
+		[isAllPipelinesView, handleConfigureNode]
+	);
+
 	// ─── ReactFlow nodes/edges ───────────────────────────────────────────────
 
 	// Compute canonical nodes from pipeline state. This is the "source of truth"
@@ -201,7 +213,7 @@ function CuePipelineEditorInner({
 			convertToReactFlowNodes(
 				pipelineState.pipelines,
 				pipelineState.selectedPipelineId,
-				handleConfigureNode,
+				handleConfigureNodeGuarded,
 				{
 					onTriggerPipeline,
 					isSaved: !isDirty,
@@ -213,7 +225,7 @@ function CuePipelineEditorInner({
 		[
 			pipelineState.pipelines,
 			pipelineState.selectedPipelineId,
-			handleConfigureNode,
+			handleConfigureNodeGuarded,
 			onTriggerPipeline,
 			isDirty,
 			runningPipelineIds,
@@ -283,19 +295,35 @@ function CuePipelineEditorInner({
 		return () => clearTimeout(timer);
 	}, [pipelineState.selectedPipelineId, reactFlowInstance]);
 
-	// ─── Initial fit view ────────────────────────────────────────────────────
-	// With the always-on fitView prop removed from ReactFlow, we need to
-	// fit the viewport once after the first render with nodes. usePipelineLayout
-	// will overwrite this if it has a saved viewport.
+	// ─── Initial viewport (saved viewport OR fit view) ──────────────────────
+	// Two distinct paths with different timing requirements:
+	//
+	//   - Saved viewport: a pure (x, y, zoom) restore. setViewport doesn't read
+	//     node geometry, so it can — and SHOULD — fire immediately on mount.
+	//     Waiting for nodesInitialized would briefly show the wrong viewport
+	//     before snapping to the saved one.
+	//   - fitView fallback: computes bounds from rendered node dimensions. Must
+	//     wait for `useNodesInitialized()` — fitting before measurement
+	//     completes produced the original "canvas appears empty on first open"
+	//     symptom (selection-change fitView later "fixed" it because nodes
+	//     were measured by then).
+	const nodesInitialized = useNodesInitialized();
 	const hasInitialFitRef = useRef(false);
 	useEffect(() => {
-		if (hasInitialFitRef.current || computedNodes.length === 0) return;
+		if (hasInitialFitRef.current) return;
+		const saved = pendingSavedViewportRef.current;
+		if (saved) {
+			// Restore immediately — setViewport doesn't depend on measurement.
+			pendingSavedViewportRef.current = null;
+			reactFlowInstance.setViewport(saved);
+			hasInitialFitRef.current = true;
+			return;
+		}
+		// fitView path: must wait for nodes to be measured.
+		if (!nodesInitialized || computedNodes.length === 0) return;
+		reactFlowInstance.fitView({ padding: 0.15, duration: 200 });
 		hasInitialFitRef.current = true;
-		const timer = setTimeout(() => {
-			reactFlowInstance.fitView({ padding: 0.15, duration: 200 });
-		}, 150);
-		return () => clearTimeout(timer);
-	}, [computedNodes.length, reactFlowInstance]);
+	}, [nodesInitialized, computedNodes.length, reactFlowInstance, pendingSavedViewportRef]);
 
 	// ─── Canvas callbacks ────────────────────────────────────────────────────
 
@@ -316,8 +344,13 @@ function CuePipelineEditorInner({
 	// Commit final positions to canonical pipelineState when drag ends.
 	// ReactFlow's onNodeDragStop reliably provides the final node with its
 	// position, unlike onNodesChange which may omit position on drag end.
+	//
+	// In All Pipelines view everything is locked in place — even if ReactFlow
+	// somehow fired a drag-stop (shouldn't, since `nodesDraggable={false}`),
+	// we refuse to mutate canonical state.
 	const onNodeDragStop = useCallback(
 		(_event: React.MouseEvent, _node: Node, draggedNodes: Node[]) => {
+			if (isAllPipelinesView) return;
 			if (draggedNodes.length === 0) return;
 
 			setPipelineState((prev) => {
@@ -349,13 +382,14 @@ function CuePipelineEditorInner({
 
 			persistLayout();
 		},
-		[persistLayout, setPipelineState]
+		[isAllPipelinesView, persistLayout, setPipelineState]
 	);
 
 	const onEdgesChange: OnEdgesChange = useCallback(() => {}, []);
 
 	const onConnect = useCallback(
 		(connection: Connection) => {
+			if (isAllPipelinesView) return;
 			if (!connection.source || !connection.target) return;
 
 			const sourcePipelineId = connection.source.split(':')[0];
@@ -412,11 +446,12 @@ function CuePipelineEditorInner({
 				};
 			});
 		},
-		[setPipelineState]
+		[isAllPipelinesView, setPipelineState]
 	);
 
 	const isValidConnection = useCallback(
 		(connection: Connection) => {
+			if (isAllPipelinesView) return false;
 			if (!connection.source || !connection.target) return false;
 			if (connection.source === connection.target) return false;
 
@@ -434,7 +469,7 @@ function CuePipelineEditorInner({
 
 			return true;
 		},
-		[nodes, edges]
+		[isAllPipelinesView, nodes, edges]
 	);
 
 	const onDragOver = useCallback((event: React.DragEvent) => {
@@ -447,6 +482,12 @@ function CuePipelineEditorInner({
 		(event: React.DragEvent) => {
 			event.preventDefault();
 			event.stopPropagation();
+
+			// All Pipelines view is read-only — refuse to place new nodes.
+			// The toolbar disables the drawer buttons in this view, but a drag
+			// from an already-open drawer (possible if the view changed mid-drag)
+			// must still be rejected here.
+			if (isAllPipelinesView) return;
 
 			const raw = event.dataTransfer.getData('application/cue-pipeline');
 			if (!raw) return;
@@ -550,7 +591,7 @@ function CuePipelineEditorInner({
 				};
 			});
 		},
-		[reactFlowInstance, setPipelineState, setSelectedNodeId, setSelectedEdgeId]
+		[isAllPipelinesView, reactFlowInstance, setPipelineState, setSelectedNodeId, setSelectedEdgeId]
 	);
 
 	// ─── Keyboard shortcuts ──────────────────────────────────────────────────
@@ -563,6 +604,9 @@ function CuePipelineEditorInner({
 
 			if (e.key === 'Delete' || e.key === 'Backspace') {
 				if (isInput) return;
+				// All Pipelines view is read-only — no deletions.
+				// (Save via Cmd+S and Escape-to-deselect remain available.)
+				if (isAllPipelinesView) return;
 				if (selectedNode && selectedNodePipelineId) {
 					e.preventDefault();
 					onDeleteNode(selectedNode.id);
@@ -588,6 +632,7 @@ function CuePipelineEditorInner({
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [
+		isAllPipelinesView,
 		selectedNode,
 		selectedNodePipelineId,
 		selectedEdge,
@@ -605,30 +650,49 @@ function CuePipelineEditorInner({
 
 	// ─── Context menu handlers ───────────────────────────────────────────────
 
-	const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
-		event.preventDefault();
-		const sepIdx = node.id.indexOf(':');
-		if (sepIdx === -1) return;
-		const pipelineId = node.id.substring(0, sepIdx);
-		const nodeId = node.id.substring(sepIdx + 1);
-		setContextMenu({
-			x: event.clientX,
-			y: event.clientY,
-			nodeId,
-			pipelineId,
-			nodeType: node.type as 'trigger' | 'agent',
-		});
-	}, []);
+	// In All Pipelines view, right-clicking a node does nothing — the context
+	// menu's actions (Configure/Delete/Duplicate) are all editing operations.
+	const onNodeContextMenu = useCallback(
+		(event: React.MouseEvent, node: Node) => {
+			event.preventDefault();
+			if (isAllPipelinesView) return;
+			const sepIdx = node.id.indexOf(':');
+			if (sepIdx === -1) return;
+			const pipelineId = node.id.substring(0, sepIdx);
+			const nodeId = node.id.substring(sepIdx + 1);
+			setContextMenu({
+				x: event.clientX,
+				y: event.clientY,
+				nodeId,
+				pipelineId,
+				nodeType: node.type as 'trigger' | 'agent',
+			});
+		},
+		[isAllPipelinesView]
+	);
 
+	// All three handlers re-check isAllPipelinesView even though onNodeContextMenu
+	// also blocks open: a context menu opened in the per-pipeline view stays
+	// rendered if the user switches to All Pipelines mode while it's open, and
+	// without the guard the still-clickable Configure/Delete/Duplicate items
+	// would mutate state that isn't editable in the All Pipelines view.
 	const handleContextMenuConfigure = useCallback(() => {
 		if (!contextMenu) return;
+		if (isAllPipelinesView) {
+			setContextMenu(null);
+			return;
+		}
 		setSelectedNodeId(`${contextMenu.pipelineId}:${contextMenu.nodeId}`);
 		setSelectedEdgeId(null);
 		setContextMenu(null);
-	}, [contextMenu, setSelectedNodeId, setSelectedEdgeId]);
+	}, [contextMenu, isAllPipelinesView, setSelectedNodeId, setSelectedEdgeId]);
 
 	const handleContextMenuDelete = useCallback(() => {
 		if (!contextMenu) return;
+		if (isAllPipelinesView) {
+			setContextMenu(null);
+			return;
+		}
 		setPipelineState((prev) => ({
 			...prev,
 			pipelines: prev.pipelines.map((p) => {
@@ -644,10 +708,14 @@ function CuePipelineEditorInner({
 		}));
 		setSelectedNodeId(null);
 		setContextMenu(null);
-	}, [contextMenu, setPipelineState, setSelectedNodeId]);
+	}, [contextMenu, isAllPipelinesView, setPipelineState, setSelectedNodeId]);
 
 	const handleContextMenuDuplicate = useCallback(() => {
 		if (!contextMenu || contextMenu.nodeType !== 'trigger') return;
+		if (isAllPipelinesView) {
+			setContextMenu(null);
+			return;
+		}
 		setPipelineState((prev) => {
 			const pipeline = prev.pipelines.find((p) => p.id === contextMenu.pipelineId);
 			if (!pipeline) return prev;
@@ -668,7 +736,28 @@ function CuePipelineEditorInner({
 			};
 		});
 		setContextMenu(null);
-	}, [contextMenu, setPipelineState]);
+	}, [contextMenu, isAllPipelinesView, setPipelineState]);
+
+	// ─── Read-only click wrappers for All Pipelines view ───────────────────
+	// Clicking a node/edge normally sets selection, which opens the node or
+	// edge config panel with editable fields. In All Pipelines view nothing
+	// is editable, so short-circuit selection at the source. Any pre-existing
+	// selection from before the view switch is additionally guarded at panel
+	// render time in PipelineCanvas.
+	const onNodeClickGuarded = useCallback(
+		(event: React.MouseEvent, node: Node) => {
+			if (isAllPipelinesView) return;
+			onNodeClick(event, node);
+		},
+		[isAllPipelinesView, onNodeClick]
+	);
+	const onEdgeClickGuarded = useCallback(
+		(event: React.MouseEvent, edge: Edge) => {
+			if (isAllPipelinesView) return;
+			onEdgeClick(event, edge);
+		},
+		[isAllPipelinesView, onEdgeClick]
+	);
 
 	// ─── Render ──────────────────────────────────────────────────────────────
 
@@ -701,12 +790,13 @@ function CuePipelineEditorInner({
 				theme={theme}
 				nodes={nodes}
 				edges={edges}
+				isReadOnly={isAllPipelinesView}
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
 				onConnect={onConnect}
 				isValidConnection={isValidConnection}
-				onNodeClick={onNodeClick}
-				onEdgeClick={onEdgeClick}
+				onNodeClick={onNodeClickGuarded}
+				onEdgeClick={onEdgeClickGuarded}
 				onPaneClick={onPaneClick}
 				onNodeContextMenu={onNodeContextMenu}
 				onNodeDragStop={onNodeDragStop}

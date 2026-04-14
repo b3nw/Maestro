@@ -85,6 +85,18 @@ export function createCueSessionRuntimeService(
 	function initSession(session: SessionInfo, opts: InitSessionOptions): void {
 		if (!deps.enabled()) return;
 
+		// Idempotency guard: tear down any pre-existing registration to prevent
+		// duplicate trigger sources if initSession is called twice for the same
+		// session (race between auto-discovery and manual refresh).
+		if (registry.has(session.id)) {
+			deps.onLog(
+				'warn',
+				`[CUE] initSession called for already-initialized session "${session.name}" — tearing down first`
+			);
+			teardownSession(session.id);
+			registry.unregister(session.id);
+		}
+
 		const loadResult = loadCueConfigDetailed(session.projectRoot);
 		if (!loadResult.ok) {
 			// Distinguish missing (silent) from parse / validation failures (loud).

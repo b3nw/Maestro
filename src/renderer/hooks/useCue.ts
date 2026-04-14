@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { CueRunResult, CueSessionStatus } from '../../shared/cue';
 export type { CueRunResult, CueSessionStatus } from '../../shared/cue';
+import { cueService } from '../services/cue';
 
 export interface UseCueReturn {
 	sessions: CueSessionStatus[];
@@ -36,6 +37,12 @@ export function useCue(): UseCueReturn {
 	const refresh = useCallback(async () => {
 		try {
 			setError(null);
+			// NOTE: these reads bypass the cueService wrapper deliberately.
+			// cueService.* read methods swallow IPC failures and return safe
+			// defaults so the rest of the UI degrades silently — but useCue
+			// powers the Cue dashboard, where an IPC failure must surface as
+			// a user-visible error banner. Going direct preserves the catch
+			// path below; the wrapper would make `err` unreachable here.
 			const [statusData, runsData, logData, queueData] = await Promise.all([
 				window.maestro.cue.getStatus(),
 				window.maestro.cue.getActiveRuns(),
@@ -58,31 +65,31 @@ export function useCue(): UseCueReturn {
 	}, []);
 
 	const enable = useCallback(async () => {
-		await window.maestro.cue.enable();
+		await cueService.enable();
 		await refresh();
 	}, [refresh]);
 
 	const disable = useCallback(async () => {
-		await window.maestro.cue.disable();
+		await cueService.disable();
 		await refresh();
 	}, [refresh]);
 
 	const stopRun = useCallback(
 		async (runId: string) => {
-			await window.maestro.cue.stopRun(runId);
+			await cueService.stopRun(runId);
 			await refresh();
 		},
 		[refresh]
 	);
 
 	const stopAll = useCallback(async () => {
-		await window.maestro.cue.stopAll();
+		await cueService.stopAll();
 		await refresh();
 	}, [refresh]);
 
 	const triggerSubscription = useCallback(
 		async (subscriptionName: string) => {
-			await window.maestro.cue.triggerSubscription(subscriptionName);
+			await cueService.triggerSubscription(subscriptionName);
 			await refresh();
 		},
 		[refresh]
@@ -94,7 +101,7 @@ export function useCue(): UseCueReturn {
 		refresh();
 
 		// Subscribe to real-time activity updates
-		const unsubscribe = window.maestro.cue.onActivityUpdate(() => {
+		const unsubscribe = cueService.onActivityUpdate(() => {
 			refresh();
 		});
 

@@ -10,6 +10,7 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
+import { captureException } from '../utils/sentry';
 
 const LOG_CONTEXT = '[CueDB]';
 
@@ -189,6 +190,54 @@ export function updateCueEventStatus(id: string, status: string): void {
 	getDb()
 		.prepare(`UPDATE cue_events SET status = ?, completed_at = ? WHERE id = ?`)
 		.run(status, Date.now(), id);
+}
+
+/**
+ * Safe wrapper: records a Cue event; logs warn on failure instead of throwing.
+ * Non-fatal — callers must not rely on successful persistence.
+ */
+export function safeRecordCueEvent(event: Parameters<typeof recordCueEvent>[0]): void {
+	try {
+		recordCueEvent(event);
+	} catch (err) {
+		log(
+			'warn',
+			`Failed to record Cue event (id=${event.id}): ${err instanceof Error ? err.message : String(err)}`
+		);
+		// Persist warns to Sentry too — DB write failures here are silent at
+		// runtime (callers must remain non-fatal) but accumulate observability
+		// gaps if not surfaced; keep returning without throwing.
+		// Strip event.payload before reporting: for agent.completed runs it
+		// contains the upstream agent's stdout (sourceOutput), which can carry
+		// user content / secrets. Send only identifiers + size.
+		const sanitizedEvent = {
+			id: event.id,
+			type: event.type,
+			triggerName: event.triggerName,
+			sessionId: event.sessionId,
+			subscriptionName: event.subscriptionName,
+			status: event.status,
+			payloadSize: event.payload?.length ?? 0,
+			payloadRedacted: event.payload != null,
+		};
+		captureException(err, { operation: 'safeRecordCueEvent', event: sanitizedEvent });
+	}
+}
+
+/**
+ * Safe wrapper: updates Cue event status; logs warn on failure instead of throwing.
+ * Non-fatal — callers must not rely on successful persistence.
+ */
+export function safeUpdateCueEventStatus(id: string, status: string): void {
+	try {
+		updateCueEventStatus(id, status);
+	} catch (err) {
+		log(
+			'warn',
+			`Failed to update Cue event status (id=${id}, status=${status}): ${err instanceof Error ? err.message : String(err)}`
+		);
+		captureException(err, { operation: 'safeUpdateCueEventStatus', id, status });
+	}
 }
 
 /**

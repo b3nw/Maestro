@@ -60,6 +60,8 @@ vi.mock('../../../main/cue/cue-db', () => ({
 	isCueDbReady: () => true,
 	recordCueEvent: vi.fn(),
 	updateCueEventStatus: vi.fn(),
+	safeRecordCueEvent: vi.fn(),
+	safeUpdateCueEventStatus: vi.fn(),
 }));
 
 // Mock crypto
@@ -1618,7 +1620,10 @@ describe('CueEngine', () => {
 			expect(graph[0].sessionId).toBe('session-1');
 		});
 
-		it('includes subscriptions with agent_id targeting a different session', () => {
+		it('filters out subscriptions whose agent_id targets a different session', () => {
+			// getGraphData reports only subscriptions that belong to each session
+			// (agent_id matches, or agent_id absent) so the pipeline editor never
+			// sees a subscription under an unrelated session.
 			const config = createMockConfig({
 				subscriptions: [
 					{
@@ -1644,13 +1649,14 @@ describe('CueEngine', () => {
 
 			const graph = engine.getGraphData();
 			expect(graph).toHaveLength(1);
-			expect(graph[0].subscriptions).toHaveLength(2);
-			expect(graph[0].subscriptions.map((s) => s.name)).toEqual(['step-a', 'step-b']);
+			// Only step-a (no agent_id, so unbound) is reported — step-b targets a
+			// different session.
+			expect(graph[0].subscriptions.map((s) => s.name)).toEqual(['step-a']);
 
 			engine.stop();
 		});
 
-		it('includes subscriptions with foreign agent_id when loading from disk', () => {
+		it('filters foreign-agent_id subscriptions when loading from disk (engine disabled)', () => {
 			const config = createMockConfig({
 				subscriptions: [
 					{
@@ -1676,11 +1682,12 @@ describe('CueEngine', () => {
 
 			const graph = engine.getGraphData();
 			expect(graph).toHaveLength(1);
-			expect(graph[0].subscriptions).toHaveLength(2);
-			expect(graph[0].subscriptions.map((s) => s.name)).toEqual(['trigger', 'downstream']);
+			// Only `trigger` (unbound) is reported — `downstream` is bound to a
+			// session that doesn't exist in this view.
+			expect(graph[0].subscriptions.map((s) => s.name)).toEqual(['trigger']);
 		});
 
-		it('returns all subscriptions from multiple sessions sharing the same config', () => {
+		it('scopes subscriptions to their owning session when multiple sessions share a config', () => {
 			const config = createMockConfig({
 				subscriptions: [
 					{
@@ -1712,9 +1719,10 @@ describe('CueEngine', () => {
 
 			const graph = engine.getGraphData();
 			expect(graph).toHaveLength(2);
-			// Each session should report ALL subscriptions (not just its own)
-			expect(graph[0].subscriptions).toHaveLength(2);
-			expect(graph[1].subscriptions).toHaveLength(2);
+			// Each session reports only its own subscriptions (agent_id match).
+			const byId = new Map(graph.map((g) => [g.sessionId, g]));
+			expect(byId.get('session-1')!.subscriptions.map((s) => s.name)).toEqual(['step-a']);
+			expect(byId.get('session-2')!.subscriptions.map((s) => s.name)).toEqual(['step-b']);
 
 			engine.stop();
 		});
