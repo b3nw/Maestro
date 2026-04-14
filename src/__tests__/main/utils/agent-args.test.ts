@@ -104,7 +104,7 @@ describe('buildAgentArgs', () => {
 
 	it('skips jsonOutputArgs when prompt is empty', () => {
 		const agent = makeAgent({ jsonOutputArgs: ['--format', 'json'] });
-		const result = buildAgentArgs(agent, { baseArgs: ['--print'] });
+		const result = buildAgentArgs(agent, { baseArgs: ['--print'], prompt: '' });
 		expect(result).toEqual(['--print']);
 	});
 

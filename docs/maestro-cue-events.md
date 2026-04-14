@@ -1,10 +1,10 @@
 ---
 title: Cue Event Types
-description: Detailed reference for all eight Maestro Cue event types with configuration, payloads, and examples.
+description: Detailed reference for all nine Maestro Cue event types with configuration, payloads, and examples.
 icon: calendar-check
 ---
 
-Cue supports eight event types. Each type watches for a different kind of activity and produces a payload that can be injected into prompts via [template variables](./maestro-cue-advanced#template-variables).
+Cue supports nine event types. Each type watches for a different kind of activity and produces a payload that can be injected into prompts via [template variables](./maestro-cue-advanced#template-variables).
 
 ## app.startup
 

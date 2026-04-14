@@ -333,10 +333,10 @@ Send a message to another agent and receive a JSON response. Useful for inter-ag
 {{MAESTRO_CLI_PATH}} cue list [--json]
 
 # Trigger a Cue subscription by name (fires immediately, bypassing its normal event)
-{{MAESTRO_CLI_PATH}} cue trigger <subscription-name> [-p, --prompt <text>] [--json]
+{{MAESTRO_CLI_PATH}} cue trigger <subscription-name> [-p, --prompt <text>] [--source-agent-id <id>] [--json]
 ```
 
-Use `cue list` to discover available subscriptions. Use `cue trigger` to fire one on demand — for example, to kick off a review pipeline after finishing your work, or to chain into a deployment step. The optional `--prompt` flag overrides the subscription's configured prompt with custom text.
+Use `cue list` to discover available subscriptions. Use `cue trigger` to fire one on demand — for example, to kick off a review pipeline after finishing your work, or to chain into a deployment step. The optional `--prompt` flag overrides the subscription's configured prompt with custom text. Pass `--source-agent-id {{AGENT_ID}}` so pipelines with `cli_output` can route results back to you.
 
 ### Playbook Operations
 

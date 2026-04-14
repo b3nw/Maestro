@@ -24,48 +24,21 @@ vi.mock('../../../main/utils/sentry', () => ({
 	captureException: (...args: unknown[]) => mockCaptureException(...args),
 }));
 
-// Track calls to the promisified execFile.
-// We provide a real callback-style function so `promisify(execFile)` works,
-// and capture calls via a separate spy for assertions.
-const { mockExecFileAsync, execFileMock } = vi.hoisted(() => {
-	const mockExecFileAsync =
-		vi.fn<
-			(
-				cmd: string,
-				args: string[],
-				options?: Record<string, unknown>
-			) => Promise<{ stdout: string; stderr: string }>
-		>();
-	mockExecFileAsync.mockResolvedValue({ stdout: '{}', stderr: '' });
+// Mock execFileNoThrow for Phase 3 CLI output delivery
+const mockExecFileNoThrow =
+	vi.fn<
+		(
+			cmd: string,
+			args?: string[],
+			cwd?: string,
+			options?: Record<string, unknown>
+		) => Promise<{ stdout: string; stderr: string; exitCode: number | string }>
+	>();
+mockExecFileNoThrow.mockResolvedValue({ stdout: '{}', stderr: '', exitCode: 0 });
 
-	// A callback-style function whose promisified form delegates to mockExecFileAsync
-	// Handles both (cmd, args, cb) and (cmd, args, options, cb) signatures
-	const execFileMock = vi.fn(function execFile(
-		cmd: string,
-		args: string[],
-		optionsOrCb:
-			| Record<string, unknown>
-			| ((err: Error | null, stdout: string, stderr: string) => void),
-		maybeCb?: (err: Error | null, stdout: string, stderr: string) => void
-	) {
-		const cb = typeof optionsOrCb === 'function' ? optionsOrCb : maybeCb!;
-		const options = typeof optionsOrCb === 'function' ? undefined : optionsOrCb;
-		mockExecFileAsync(cmd, args, options).then(
-			(result) => cb(null, result.stdout, result.stderr),
-			(err) => cb(err instanceof Error ? err : new Error(String(err)), '', '')
-		);
-	});
-
-	return { mockExecFileAsync, execFileMock };
-});
-
-vi.mock('child_process', () => ({
-	default: { execFile: execFileMock },
-	execFile: execFileMock,
-}));
-
-vi.mock('../../../main/runtime/getShellPath', () => ({
-	getShellPath: vi.fn().mockResolvedValue('/usr/bin:/usr/local/bin'),
+vi.mock('../../../main/utils/execFile', () => ({
+	execFileNoThrow: (...args: unknown[]) =>
+		mockExecFileNoThrow(...(args as Parameters<typeof mockExecFileNoThrow>)),
 }));
 
 let uuidCounter = 0;
@@ -856,7 +829,7 @@ describe('createCueRunManager', () => {
 
 	describe('Phase 3: CLI Output delivery', () => {
 		beforeEach(() => {
-			mockExecFileAsync.mockResolvedValue({ stdout: '{}', stderr: '' });
+			mockExecFileNoThrow.mockResolvedValue({ stdout: '{}', stderr: '', exitCode: 0 });
 		});
 
 		it('triggers execFile with correct arguments when run succeeds', async () => {
@@ -874,14 +847,12 @@ describe('createCueRunManager', () => {
 			);
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
-			expect(mockExecFileAsync).toHaveBeenCalledWith(
-				'node',
-				['/opt/Maestro/resources/maestro-cli.js', 'send', 'agent-42', 'output', '--live'],
-				expect.objectContaining({
-					env: expect.objectContaining({ PATH: expect.any(String) }),
-					timeout: 30_000,
-				})
+			expect(mockExecFileNoThrow).toHaveBeenCalledTimes(1);
+			expect(mockExecFileNoThrow).toHaveBeenCalledWith(
+				process.execPath,
+				expect.arrayContaining(['send', 'agent-42', 'output', '--live']),
+				undefined,
+				{ timeout: 30_000 }
 			);
 		});
 
@@ -895,7 +866,7 @@ describe('createCueRunManager', () => {
 			});
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).not.toHaveBeenCalled();
+			expect(mockExecFileNoThrow).not.toHaveBeenCalled();
 			expect(deps.onLog).toHaveBeenCalledWith(
 				'warn',
 				expect.stringContaining('target resolved to empty string')
@@ -913,11 +884,15 @@ describe('createCueRunManager', () => {
 			});
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).not.toHaveBeenCalled();
+			expect(mockExecFileNoThrow).not.toHaveBeenCalled();
 		});
 
 		it('delivery failure does not change run status', async () => {
-			mockExecFileAsync.mockRejectedValue(new Error('Connection refused'));
+			mockExecFileNoThrow.mockResolvedValue({
+				stdout: '',
+				stderr: 'Connection refused',
+				exitCode: 1,
+			});
 			const deps = createDeps();
 			const manager = createCueRunManager(deps);
 
@@ -951,11 +926,12 @@ describe('createCueRunManager', () => {
 			});
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
-			expect(mockExecFileAsync).toHaveBeenCalledWith(
-				'node',
-				['/opt/Maestro/resources/maestro-cli.js', 'send', 'resolved-agent-99', 'output', '--live'],
-				expect.objectContaining({ env: expect.objectContaining({ PATH: expect.any(String) }) })
+			expect(mockExecFileNoThrow).toHaveBeenCalledTimes(1);
+			expect(mockExecFileNoThrow).toHaveBeenCalledWith(
+				process.execPath,
+				expect.arrayContaining(['send', 'resolved-agent-99', 'output', '--live']),
+				undefined,
+				{ timeout: 30_000 }
 			);
 		});
 
@@ -966,7 +942,7 @@ describe('createCueRunManager', () => {
 			manager.execute('session-1', 'prompt', createEvent(), 'test-sub');
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).not.toHaveBeenCalled();
+			expect(mockExecFileNoThrow).not.toHaveBeenCalled();
 		});
 
 		it('truncates stdout to 100,000 characters', async () => {
@@ -981,10 +957,11 @@ describe('createCueRunManager', () => {
 			});
 			await vi.advanceTimersByTimeAsync(0);
 
-			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
-			const passedArgs = mockExecFileAsync.mock.calls[0][1] as string[];
-			// Args: [cli.js path, 'send', target, truncated output, '--live']
-			expect(passedArgs[3].length).toBe(100_000);
+			expect(mockExecFileNoThrow).toHaveBeenCalledTimes(1);
+			const passedArgs = mockExecFileNoThrow.mock.calls[0][1] as string[];
+			// Args: [cli.js, 'send', target, truncated output, '--live']
+			const outputArg = passedArgs.find((a) => a.length > 1000);
+			expect(outputArg?.length).toBe(100_000);
 		});
 
 		it('logs success message on delivery', async () => {

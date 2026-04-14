@@ -286,7 +286,7 @@ export const AgentDrawer = memo(function AgentDrawer({
 				)}
 
 				{/* CLI Output node */}
-				{!search && (
+				{!search.trim() && (
 					<>
 						<div
 							style={{

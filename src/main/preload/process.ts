@@ -1105,11 +1105,13 @@ export function createProcessApi() {
 			) => {
 				try {
 					Promise.resolve(callback(subscriptionName, prompt, responseChannel, sourceAgentId)).catch(
-						() => {
+						(error) => {
+							console.error('[Cue] Remote trigger callback failed:', error);
 							ipcRenderer.send(responseChannel, false);
 						}
 					);
-				} catch {
+				} catch (error) {
+					console.error('[Cue] Remote trigger callback threw:', error);
 					ipcRenderer.send(responseChannel, false);
 				}
 			};

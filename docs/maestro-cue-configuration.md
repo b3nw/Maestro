@@ -268,7 +268,7 @@ The engine validates your YAML on every load. Common validation errors:
 | Error                                   | Fix                                                          |
 | --------------------------------------- | ------------------------------------------------------------ |
 | `"name" is required`                    | Every subscription needs a unique `name` field               |
-| `"event" is required`                   | Specify one of the eight event types                         |
+| `"event" is required`                   | Specify one of the nine event types                          |
 | `"prompt" is required`                  | Provide inline text or a file path                           |
 | `"interval_minutes" is required`        | `time.heartbeat` events must specify a positive interval     |
 | `"schedule_times" is required`          | `time.scheduled` events must have at least one `HH:MM` time  |

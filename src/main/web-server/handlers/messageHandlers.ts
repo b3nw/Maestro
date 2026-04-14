@@ -2373,7 +2373,12 @@ export class WebSocketMessageHandler {
 			return;
 		}
 
-		const sourceAgentId = message.sourceAgentId as string | undefined;
+		const rawSourceAgentId = message.sourceAgentId;
+		if (rawSourceAgentId !== undefined && typeof rawSourceAgentId !== 'string') {
+			this.sendError(client, 'Invalid sourceAgentId: must be a string when provided');
+			return;
+		}
+		const sourceAgentId = rawSourceAgentId as string | undefined;
 
 		this.callbacks
 			.triggerCueSubscription(subscriptionName, prompt as string | undefined, sourceAgentId)

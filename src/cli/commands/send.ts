@@ -109,8 +109,14 @@ export async function send(
 				lowerMsg.includes('etimedout')
 			) {
 				emitErrorJson('Maestro desktop is not running or not reachable', 'MAESTRO_NOT_RUNNING');
+			} else if (
+				lowerMsg.includes('session not found') ||
+				lowerMsg.includes('no such session') ||
+				lowerMsg.includes('unknown session')
+			) {
+				emitErrorJson(`Session not found: ${agentIdArg}`, 'SESSION_NOT_FOUND');
 			} else {
-				emitErrorJson(`Session not found or command failed: ${agentIdArg}`, 'SESSION_NOT_FOUND');
+				emitErrorJson(`Command failed: ${msg}`, 'COMMAND_FAILED');
 			}
 			process.exit(1);
 		}

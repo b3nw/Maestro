@@ -587,10 +587,11 @@ maestro-cli cue trigger <subscription-name> --prompt "Deploy to staging only"
 maestro-cli cue trigger <subscription-name> --json
 ```
 
-| Flag                  | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `-p, --prompt <text>` | Override the subscription's configured prompt        |
-| `--json`              | Output as JSON (for scripting and CI/CD integration) |
+| Flag                     | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- |
+| `-p, --prompt <text>`    | Override the subscription's configured prompt                        |
+| `--source-agent-id <id>` | Identify the originating agent (populates `{{CUE_SOURCE_AGENT_ID}}`) |
+| `--json`                 | Output as JSON (for scripting and CI/CD integration)                 |
 
 The `--prompt` flag is especially useful for `cli.trigger` subscriptions, where the prompt text is available in the subscription's template as `{{CUE_CLI_PROMPT}}`.
 

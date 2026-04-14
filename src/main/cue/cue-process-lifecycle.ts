@@ -86,19 +86,30 @@ function extractCleanStdout(rawStdout: string, toolType: string): string {
 	}
 
 	const resultParts: string[] = [];
-	const assistantParts: string[] = [];
+	const assistantTextByMessage = new Map<string, string>();
+	const assistantTextWithoutId: string[] = [];
 	for (const line of rawStdout.split('\n')) {
 		if (!line.trim()) continue;
 		const event = parser.parseJsonLine(line);
 		if (event?.type === 'result' && event.text) {
 			resultParts.push(event.text);
 		} else if (event?.type === 'text' && event.isPartial && event.text) {
-			assistantParts.push(event.text);
+			const raw = event.raw as { message?: { id?: string } } | undefined;
+			const msgId = raw?.message?.id;
+			if (msgId) {
+				const existing = assistantTextByMessage.get(msgId) ?? '';
+				if (event.text.length > existing.length) {
+					assistantTextByMessage.set(msgId, event.text);
+				}
+			} else {
+				assistantTextWithoutId.push(event.text);
+			}
 		}
 	}
 
 	if (resultParts.length > 0) return resultParts.join('\n');
-	if (assistantParts.length > 0) return assistantParts.join('\n');
+	const deduped = [...assistantTextByMessage.values(), ...assistantTextWithoutId];
+	if (deduped.length > 0) return deduped.join('\n');
 	return rawStdout;
 }
 

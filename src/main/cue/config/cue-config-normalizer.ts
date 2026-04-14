@@ -144,7 +144,7 @@ function normalizeSubscription(
 			sub.cli_output !== null &&
 			typeof (sub.cli_output as Record<string, unknown>).target === 'string' &&
 			((sub.cli_output as Record<string, unknown>).target as string).trim() !== ''
-				? { target: String((sub.cli_output as Record<string, unknown>).target) }
+				? { target: String((sub.cli_output as Record<string, unknown>).target).trim() }
 				: undefined,
 	};
 }
