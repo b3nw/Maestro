@@ -104,6 +104,39 @@ export function usePipelineLayout({
 		};
 	}, []);
 
+	// Reseed lastWrittenRootsRef from the persisted writtenRoots set as early
+	// as possible — independent of graphSessions / livePipelines availability.
+	// The main load-layout effect below ALSO rebuilds the ref, but it's gated
+	// on graphSessions being non-empty; without this early seed, opening the
+	// editor with no live sessions (engine disabled, no registered sessions)
+	// would miss orphan-root metadata for the very first save.
+	useEffect(() => {
+		let cancelled = false;
+		const loadWrittenRoots = async () => {
+			let savedLayout: PipelineLayoutState | null = null;
+			try {
+				savedLayout = (await cueService.loadPipelineLayout()) as PipelineLayoutState | null;
+			} catch (err: unknown) {
+				const message = err instanceof Error ? err.message : String(err);
+				if (!message.includes('no saved layout') && !message.includes('ENOENT')) {
+					captureException(err, { extra: { operation: 'loadPipelineLayout.writtenRoots' } });
+				}
+				return;
+			}
+			if (cancelled) return;
+			if (!savedLayout?.writtenRoots || !Array.isArray(savedLayout.writtenRoots)) return;
+			for (const root of savedLayout.writtenRoots) {
+				if (typeof root === 'string' && root.length > 0) {
+					lastWrittenRootsRef.current.add(root);
+				}
+			}
+		};
+		loadWrittenRoots();
+		return () => {
+			cancelled = true;
+		};
+	}, [lastWrittenRootsRef]);
+
 	// Load pipelines once on mount from saved layout merged with live graph data.
 	// The pipeline editor is the primary editor — we don't re-sync from disk
 	// while the user is working. Save writes back to disk.

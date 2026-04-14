@@ -131,9 +131,18 @@ describe('cueService — read methods', () => {
 			expect(mockCue.readYaml).toHaveBeenCalledWith('/root');
 		});
 
-		it('returns null on error', async () => {
-			mockCue.readYaml.mockRejectedValue(new Error('fail'));
+		it('passes through null when handler reports the file does not exist', async () => {
+			mockCue.readYaml.mockResolvedValue(null);
 			expect(await cueService.readYaml('/root')).toBeNull();
+		});
+
+		it('rethrows IPC errors instead of swallowing them as null', async () => {
+			// The handler distinguishes "no file" (null) from a transport
+			// failure (throws). Swallowing IPC errors as null hid bugs and
+			// caused callers (e.g. CueYamlEditor) to silently fall back to a
+			// template on transport failures.
+			mockCue.readYaml.mockRejectedValue(new Error('fail'));
+			await expect(cueService.readYaml('/root')).rejects.toThrow('fail');
 		});
 	});
 
@@ -157,9 +166,12 @@ describe('cueService — read methods', () => {
 			expect(await cueService.validateYaml('bad')).toBe(validation);
 		});
 
-		it('returns { valid: true, errors: [] } on error', async () => {
+		it('rethrows on IPC error so callers gate Save (no false-positive valid)', async () => {
+			// The previous default was `{ valid: true, errors: [] }` — a
+			// transport failure would have surfaced as "yaml is valid, save
+			// freely". Callers must now catch and treat the failure as invalid.
 			mockCue.validateYaml.mockRejectedValue(new Error('fail'));
-			expect(await cueService.validateYaml('content')).toEqual({ valid: true, errors: [] });
+			await expect(cueService.validateYaml('content')).rejects.toThrow('fail');
 		});
 	});
 });

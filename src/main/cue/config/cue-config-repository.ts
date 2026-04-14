@@ -94,10 +94,18 @@ export function writeCuePromptFile(
 	}
 	const promptsDir = path.resolve(path.join(projectRoot, CUE_PROMPTS_DIR));
 	const absPath = path.resolve(path.join(projectRoot, relativePath));
-	if (!absPath.startsWith(promptsDir + path.sep) && absPath !== promptsDir) {
+	// Must be strictly inside .maestro/prompts/ — equality with promptsDir would
+	// mean the caller asked to write to the directory path itself.
+	if (!absPath.startsWith(promptsDir + path.sep)) {
 		throw new Error(
 			`writeCuePromptFile: path "${relativePath}" resolves outside the prompts directory`
 		);
+	}
+	// Must be a .md file — pruneOrphanedPromptFiles only removes .md files,
+	// so any other extension would create a permanently orphaned file. Enforce
+	// the same trust boundary here as in the IPC layer (defense in depth).
+	if (path.extname(absPath).toLowerCase() !== '.md') {
+		throw new Error(`writeCuePromptFile: path "${relativePath}" must end with .md`);
 	}
 	const dir = path.dirname(absPath);
 	if (!fs.existsSync(dir)) {

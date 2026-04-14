@@ -229,10 +229,20 @@ export function registerCueHandlers(deps: CueHandlerDependencies): void {
 							);
 						}
 						const target = path.resolve(options.projectRoot, relativePath);
-						if (!target.startsWith(promptsBase + path.sep) && target !== promptsBase) {
+						// Must resolve strictly INSIDE .maestro/prompts/. The earlier
+						// check allowed `target === promptsBase` which would attempt
+						// to write to the directory path itself.
+						if (!target.startsWith(promptsBase + path.sep)) {
 							throw new Error(
 								`cue:writeYaml: promptFiles key "${relativePath}" resolves outside the .maestro/prompts directory`
 							);
+						}
+						// Must be a .md file. pruneOrphanedPromptFiles only deletes
+						// .md files, so accepting other extensions here would let
+						// non-markdown junk accumulate forever (it's never on the
+						// prune keep-set's enforcement path).
+						if (path.extname(target).toLowerCase() !== '.md') {
+							throw new Error(`cue:writeYaml: promptFiles key "${relativePath}" must end with .md`);
 						}
 						writeCuePromptFile(options.projectRoot, relativePath, content);
 						keepPaths.add(relativePath);

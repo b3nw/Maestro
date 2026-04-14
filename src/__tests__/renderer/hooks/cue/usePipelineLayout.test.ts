@@ -278,8 +278,15 @@ describe('usePipelineLayout', () => {
 		expect(setPipelineState).not.toHaveBeenCalled();
 	});
 
-	it('does not restore layout when graphSessions is empty', async () => {
-		const params = createDefaultParams({ graphSessions: [] });
+	it('does not restore pipelines when graphSessions is empty', async () => {
+		// Pipeline restore is gated on live graph data; with no graphSessions
+		// the pipeline-restore branch never runs. NOTE: loadPipelineLayout
+		// IS still called once by the standalone writtenRoots-reseed effect
+		// (which must run independent of graphSessions so orphan-root
+		// metadata is hydrated before the user takes their first save
+		// action). Pipeline state must remain untouched.
+		const setPipelineState = vi.fn();
+		const params = createDefaultParams({ graphSessions: [], setPipelineState });
 
 		renderHook(() => usePipelineLayout(params));
 
@@ -288,7 +295,7 @@ describe('usePipelineLayout', () => {
 		});
 
 		expect(mockGraphSessionsToPipelines).not.toHaveBeenCalled();
-		expect((window as any).maestro.cue.loadPipelineLayout).not.toHaveBeenCalled();
+		expect(setPipelineState).not.toHaveBeenCalled();
 	});
 
 	it('does not restore layout when graphSessionsToPipelines returns empty array', async () => {
