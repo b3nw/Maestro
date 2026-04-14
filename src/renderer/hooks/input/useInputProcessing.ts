@@ -961,7 +961,10 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
 						const spawnArgs = isReadOnly ? filterYoloArgs(baseArgs, agent) : [...baseArgs];
 
 						// Use agent.path (full path) if available, otherwise fall back to agent.command
-						const commandToUse = agent.path || agent.command || '';
+						const commandToUse = agent.path || agent.command;
+						if (!commandToUse) {
+							throw new Error(`${activeSession.toolType} agent has no command configured`);
+						}
 
 						// If user sends only an image without text, inject the default image-only prompt
 						const hasImages = capturedImages.length > 0;
