@@ -876,8 +876,8 @@ describe('createCueRunManager', () => {
 
 			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
 			expect(mockExecFileAsync).toHaveBeenCalledWith(
-				'maestro-cli',
-				['send', 'agent-42', 'output', '--live'],
+				'node',
+				['/opt/Maestro/resources/maestro-cli.js', 'send', 'agent-42', 'output', '--live'],
 				expect.objectContaining({
 					env: expect.objectContaining({ PATH: expect.any(String) }),
 					timeout: 30_000,
@@ -942,6 +942,7 @@ describe('createCueRunManager', () => {
 			const deps = createDeps();
 			const manager = createCueRunManager(deps);
 			const event = createEvent({
+				type: 'cli.trigger',
 				payload: { sourceAgentId: 'resolved-agent-99' },
 			});
 
@@ -952,8 +953,8 @@ describe('createCueRunManager', () => {
 
 			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
 			expect(mockExecFileAsync).toHaveBeenCalledWith(
-				'maestro-cli',
-				['send', 'resolved-agent-99', 'output', '--live'],
+				'node',
+				['/opt/Maestro/resources/maestro-cli.js', 'send', 'resolved-agent-99', 'output', '--live'],
 				expect.objectContaining({ env: expect.objectContaining({ PATH: expect.any(String) }) })
 			);
 		});
@@ -982,7 +983,8 @@ describe('createCueRunManager', () => {
 
 			expect(mockExecFileAsync).toHaveBeenCalledTimes(1);
 			const passedArgs = mockExecFileAsync.mock.calls[0][1] as string[];
-			expect(passedArgs[2].length).toBe(100_000);
+			// Args: [cli.js path, 'send', target, truncated output, '--live']
+			expect(passedArgs[3].length).toBe(100_000);
 		});
 
 		it('logs success message on delivery', async () => {

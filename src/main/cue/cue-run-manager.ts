@@ -18,7 +18,12 @@ import { SOURCE_OUTPUT_MAX_CHARS } from './cue-fan-in-tracker';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { captureException } from '../utils/sentry';
-import { substituteTemplateVariables, type TemplateContext } from '../../shared/templateVariables';
+import {
+	substituteTemplateVariables,
+	getMaestroCLIPath,
+	type TemplateContext,
+} from '../../shared/templateVariables';
+import { buildCueTemplateContext } from './cue-template-context-builder';
 import { getShellPath } from '../runtime/getShellPath';
 
 /** Phase of a run in the state machine: running → stopping | finished */
@@ -302,7 +307,11 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 				);
 				try {
 					const execFileAsync = promisify(execFile);
-					// Build a minimal template context for variable substitution in the target
+					const cueContext = buildCueTemplateContext(
+						event,
+						{ name: subscriptionName, event: event.type, enabled: true, prompt: '' },
+						runId
+					);
 					const templateContext: TemplateContext = {
 						session: {
 							id: sessionId,
@@ -310,7 +319,7 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 							toolType: '',
 							cwd: '',
 						},
-						cue: event.payload as TemplateContext['cue'],
+						cue: cueContext,
 					};
 					const resolvedTarget = substituteTemplateVariables(cliOutput.target, templateContext);
 					if (!resolvedTarget || resolvedTarget.trim() === '') {
@@ -321,9 +330,12 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					} else {
 						const truncatedOutput = result.stdout.substring(0, 100_000);
 						const shellPath = await getShellPath();
+						const cliPath = getMaestroCLIPath();
+						const [cliCmd, ...cliBaseArgs] = cliPath.split(/\s+/);
+						const cleanArgs = cliBaseArgs.map((a) => a.replace(/^"|"$/g, ''));
 						await execFileAsync(
-							'maestro-cli',
-							['send', resolvedTarget, truncatedOutput, '--live'],
+							cliCmd,
+							[...cleanArgs, 'send', resolvedTarget, truncatedOutput, '--live'],
 							{
 								env: { ...process.env, PATH: shellPath || process.env.PATH },
 								timeout: 30_000,

@@ -365,6 +365,17 @@ describe('send command', () => {
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
+		it('should produce SESSION_NOT_FOUND error when session is unknown', async () => {
+			vi.mocked(withMaestroClient).mockRejectedValue(new Error('Unknown session ID'));
+
+			await send('bad-session-id', 'Hello', { live: true });
+
+			const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+			expect(output.success).toBe(false);
+			expect(output.code).toBe('SESSION_NOT_FOUND');
+			expect(processExitSpy).toHaveBeenCalledWith(1);
+		});
+
 		it('should not call agent resolution or spawn in --live mode', async () => {
 			vi.mocked(withMaestroClient).mockImplementation(async (action) => {
 				const mockClient = { sendCommand: vi.fn().mockResolvedValue({ type: 'command_result' }) };

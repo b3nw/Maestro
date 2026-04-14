@@ -98,8 +98,20 @@ export async function send(
 				usage: null,
 			};
 			console.log(JSON.stringify(response, null, 2));
-		} catch {
-			emitErrorJson('Maestro desktop is not running or not reachable', 'MAESTRO_NOT_RUNNING');
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			const lowerMsg = msg.toLowerCase();
+			if (
+				lowerMsg.includes('econnrefused') ||
+				lowerMsg.includes('connection refused') ||
+				lowerMsg.includes('websocket') ||
+				lowerMsg.includes('enotfound') ||
+				lowerMsg.includes('etimedout')
+			) {
+				emitErrorJson('Maestro desktop is not running or not reachable', 'MAESTRO_NOT_RUNNING');
+			} else {
+				emitErrorJson(`Session not found or command failed: ${agentIdArg}`, 'SESSION_NOT_FOUND');
+			}
 			process.exit(1);
 		}
 		return;

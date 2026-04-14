@@ -92,6 +92,7 @@ import { buildSessionDeepLink, buildGroupDeepLink } from './deep-link-urls';
  *   {{CUE_GH_ASSIGNEES}}    - Comma-separated assignees (github.issue events)
  *
  *   {{CUE_CLI_PROMPT}}      - Prompt text passed via --prompt flag (cli.trigger events)
+ *   {{CUE_SOURCE_AGENT_ID}} - Source agent ID passed via --source-agent-id (cli.trigger events)
  */
 
 /**
@@ -115,7 +116,7 @@ function getCurrentPlatform(): string {
  * The CLI is bundled as a JS file inside the Maestro application package,
  * so the returned value includes the `node` invocation with the full path.
  */
-function getMaestroCLIPath(): string {
+export function getMaestroCLIPath(): string {
 	const platform = getCurrentPlatform();
 	switch (platform) {
 		case 'darwin':
