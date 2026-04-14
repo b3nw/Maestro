@@ -472,6 +472,7 @@ export type MoveSessionToGroupCallback = (
  */
 export interface CreateSessionConfig {
 	nudgeMessage?: string;
+	newSessionMessage?: string;
 	customPath?: string;
 	customArgs?: string;
 	customEnvVars?: Record<string, string>;

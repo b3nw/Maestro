@@ -713,6 +713,10 @@ export interface Session {
 	// Not visible in UI, but sent to the agent with each message
 	nudgeMessage?: string;
 
+	// New session message - prefixed to the first message when creating a new session/tab
+	// Not visible in UI, but sent to the agent with the initial message only
+	newSessionMessage?: string;
+
 	// Agent error state - set when an agent error is detected
 	// Cleared when user dismisses the error or takes recovery action
 	agentError?: AgentError;

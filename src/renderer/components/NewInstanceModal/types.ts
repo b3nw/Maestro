@@ -1,7 +1,8 @@
 import type { AgentConfig, Session, ToolType, Theme } from '../../types';
 
-// Maximum character length for nudge message
+// Maximum character length for nudge message and new session message
 export const NUDGE_MESSAGE_MAX_LENGTH = 1000;
+export const NEW_SESSION_MESSAGE_MAX_LENGTH = 1000;
 
 // Supported agents that are fully implemented
 export const SUPPORTED_AGENTS = ['claude-code', 'opencode', 'codex', 'factory-droid'];
@@ -32,6 +33,7 @@ export interface NewInstanceModalProps {
 		workingDir: string,
 		name: string,
 		nudgeMessage?: string,
+		newSessionMessage?: string,
 		customPath?: string,
 		customArgs?: string,
 		customEnvVars?: Record<string, string>,
@@ -53,6 +55,7 @@ export interface EditAgentModalProps {
 		name: string,
 		toolType?: ToolType,
 		nudgeMessage?: string,
+		newSessionMessage?: string,
 		customPath?: string,
 		customArgs?: string,
 		customEnvVars?: Record<string, string>,
@@ -77,6 +80,10 @@ export interface NudgeMessageFieldProps {
 	value: string;
 	onChange: (value: string) => void;
 	maxLength?: number;
+	label?: string;
+	labelSuffix?: string;
+	description?: string;
+	placeholder?: string;
 }
 
 export interface RemotePathStatusProps {

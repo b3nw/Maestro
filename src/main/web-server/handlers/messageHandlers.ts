@@ -1658,6 +1658,7 @@ export class WebSocketMessageHandler {
 		// Extract optional config fields
 		const config: CreateSessionConfig = {};
 		if (message.nudgeMessage) config.nudgeMessage = message.nudgeMessage as string;
+		if (message.newSessionMessage) config.newSessionMessage = message.newSessionMessage as string;
 		if (message.customPath) config.customPath = message.customPath as string;
 		if (message.customArgs) config.customArgs = message.customArgs as string;
 		if (message.customEnvVars)

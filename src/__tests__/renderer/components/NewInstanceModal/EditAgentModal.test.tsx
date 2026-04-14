@@ -441,6 +441,26 @@ describe('EditAgentModal', () => {
 		});
 	});
 
+	it('should show NewSessionMessageField with session new session message', async () => {
+		render(
+			<EditAgentModal
+				isOpen={true}
+				onClose={onClose}
+				onSave={onSave}
+				theme={theme}
+				session={createSession({ newSessionMessage: 'Init instructions' })}
+				existingSessions={[]}
+			/>
+		);
+
+		await waitFor(() => {
+			const textarea = screen.getByPlaceholderText(
+				'Instructions sent with the first message of every new session...'
+			);
+			expect(textarea).toHaveValue('Init instructions');
+		});
+	});
+
 	it('should set workingDirOverride from projectRoot when saving SSH session without explicit override (regression: SSH terminal cwd)', async () => {
 		// Regression test: when an SSH session has no explicit workingDirOverride
 		// (e.g., created before the fix), saving it should populate workingDirOverride

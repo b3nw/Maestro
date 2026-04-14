@@ -201,6 +201,7 @@ program
 	)
 	.option('-g, --group <id>', 'Group ID to assign the agent to')
 	.option('--nudge <message>', 'Nudge message appended to every user message')
+	.option('--new-session-message <message>', 'Message prefixed to first message in new sessions')
 	.option('--custom-path <path>', 'Custom binary path for the agent')
 	.option('--custom-args <args>', 'Custom CLI arguments for the agent')
 	.option(

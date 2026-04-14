@@ -948,6 +948,12 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
 						let effectivePrompt =
 							hasImages && hasNoText ? DEFAULT_IMAGE_ONLY_PROMPT : capturedInputValue;
 
+						// Prefix new session message if present (only for the first message in a new session)
+						const newSessionMsg = freshSession.newSessionMessage;
+						if (newSessionMsg && !tabAgentSessionId) {
+							effectivePrompt = `${newSessionMsg}\n\n---\n\n${effectivePrompt}`;
+						}
+
 						// For read-only mode, append instruction to return plan in response instead of writing files
 						if (isReadOnly) {
 							effectivePrompt +=
