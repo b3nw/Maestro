@@ -98,6 +98,10 @@ export function HistoryDetailModal({
 	}, [hasNext, filteredEntries, currentIndex, onNavigate]);
 
 	useModalLayer(MODAL_PRIORITIES.CONFIRM, undefined, () => {
+		if (showDeleteConfirm) {
+			setShowDeleteConfirm(false);
+			return;
+		}
 		onCloseRef.current();
 	});
 

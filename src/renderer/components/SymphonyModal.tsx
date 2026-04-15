@@ -1651,9 +1651,10 @@ export function SymphonyModal({
 				return;
 			}
 
-			// Escape from search returns focus to grid
+			// Escape from search returns focus to grid (stop propagation to prevent modal close)
 			if (e.key === 'Escape' && e.target instanceof HTMLInputElement) {
 				e.preventDefault();
+				e.stopPropagation();
 				(e.target as HTMLInputElement).blur();
 				tileGridRef.current?.focus();
 				return;

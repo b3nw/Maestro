@@ -56,8 +56,8 @@ export function ExistingDocsModal({
 
 	// Handle keyboard navigation
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === 'Tab') {
-			// Let natural tab flow work
+		if (e.key === 'Tab' || e.key === 'Escape') {
+			// Let Tab flow naturally, let Escape reach the layer stack
 			return;
 		}
 		e.stopPropagation();

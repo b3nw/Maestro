@@ -55,8 +55,11 @@ export const AutoRunLightbox = memo(
 		const onCloseRef = useRef(onClose);
 		onCloseRef.current = onClose;
 
-		// Determine if lightbox is visible
-		const isVisible = Boolean(lightboxFilename);
+		// Determine if lightbox is visible and has a renderable image
+		const lightboxImageUrl =
+			lightboxExternalUrl ||
+			(lightboxFilename ? attachmentPreviews.get(lightboxFilename) : undefined);
+		const isVisible = Boolean(lightboxFilename && lightboxImageUrl);
 
 		// Register with layer stack when lightbox is visible
 		// This ensures Escape closes the lightbox first before the expanded modal

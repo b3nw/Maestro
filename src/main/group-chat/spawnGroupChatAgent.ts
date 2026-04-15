@@ -95,6 +95,9 @@ export async function spawnGroupChatAgent(
 	let spawnSshStdinScript: string | undefined;
 
 	// Apply SSH wrapping if configured
+	if (sshRemoteConfig?.enabled && !sshStore) {
+		throw new Error(`SSH remote is enabled but sshStore is not available for ${debugLabel ?? sessionId}`);
+	}
 	if (sshStore && sshRemoteConfig?.enabled) {
 		if (debugLabel) {
 			console.log(`[GroupChat:Debug] Applying SSH wrapping for ${debugLabel}...`);

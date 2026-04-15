@@ -209,8 +209,7 @@ export function TourOverlay({
 					}
 					break;
 				case 'Escape':
-					e.preventDefault();
-					skipTour();
+					// Handled by useModalLayer - don't duplicate here
 					break;
 				case 'ArrowRight':
 				case 'ArrowDown':
