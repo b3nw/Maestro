@@ -126,13 +126,16 @@ export function PromptComposerModal({
 	const showMentionsRef = useRef(showMentions);
 	showMentionsRef.current = showMentions;
 
-	// Sync value when modal opens with new initialValue
+	// Sync value only on mount — while open, the composer owns the value
+	// and syncs back to parent via onSubmit on each keystroke.
+	// Excluding initialValue prevents useDeferredValue lag from overwriting edits.
 	useEffect(() => {
 		if (isOpen) {
 			setValue(initialValue);
 			setShowMentions(false);
 		}
-	}, [isOpen, initialValue]);
+		 
+	}, [isOpen]);
 
 	// Focus textarea when modal opens
 	useEffect(() => {
@@ -274,6 +277,9 @@ export function PromptComposerModal({
 
 	const handleValueChange = useCallback((newValue: string) => {
 		setValue(newValue);
+		// Sync every keystroke to parent so the composer is transparent —
+		// typing here is equivalent to typing in the standard input box
+		onSubmitRef.current(newValue);
 
 		// Check for @mention trigger (cursor-aware, same as InputArea)
 		const cursorPos = textareaRef.current?.selectionStart ?? newValue.length;
