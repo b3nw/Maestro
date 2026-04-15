@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { AgentConfig, Session, ToolType, Theme } from '../../types';
 
 // Maximum character length for nudge message and new session message

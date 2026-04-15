@@ -9,7 +9,15 @@ export const NudgeMessageField = React.memo(function NudgeMessageField({
 	maxLength = NUDGE_MESSAGE_MAX_LENGTH,
 	label = 'Nudge Message',
 	labelSuffix = '(optional)',
-	description = 'This text is added to every message you send to the agent (not visible in chat).',
+	description = (
+		<>
+			This text is added to{' '}
+			<strong>
+				<u>every message</u>
+			</strong>{' '}
+			you send to the agent (not visible in chat).
+		</>
+	),
 	placeholder = 'Instructions appended to every message you send...',
 }: NudgeMessageFieldProps) {
 	return (
