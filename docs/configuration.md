@@ -40,6 +40,8 @@ Click **Reset to Default** to restore the bundled version. This also takes effec
 
 Customizations are stored separately from bundled prompts and survive app updates. You can also access the four most common prompts directly from **Quick Actions** (`Cmd+K` / `Ctrl+K`): Maestro System Prompt, Auto Run Default, Commit Command, and Group Chat Moderator.
 
+For template variables, the `{{INCLUDE:name}}` directive, creating reusable prompt fragments, and more, see the full [Prompt Customization](/prompt-customization) guide.
+
 ## Conductor Profile
 
 The **Conductor Profile** (Settings → General → **About Me**) is a short description of yourself that gets injected into every AI agent's system prompt. This helps agents understand your background, preferences, and communication style so they can tailor responses accordingly.

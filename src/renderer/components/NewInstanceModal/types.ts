@@ -2,7 +2,7 @@ import type { AgentConfig, Session, ToolType, Theme } from '../../types';
 
 // Maximum character length for nudge message and new session message
 export const NUDGE_MESSAGE_MAX_LENGTH = 1000;
-export const NEW_SESSION_MESSAGE_MAX_LENGTH = 1000;
+export const NEW_SESSION_MESSAGE_MAX_LENGTH = 5000;
 
 // Supported agents that are fully implemented
 export const SUPPORTED_AGENTS = ['claude-code', 'opencode', 'codex', 'factory-droid'];
@@ -82,7 +82,7 @@ export interface NudgeMessageFieldProps {
 	maxLength?: number;
 	label?: string;
 	labelSuffix?: string;
-	description?: string;
+	description?: React.ReactNode;
 	placeholder?: string;
 }
 

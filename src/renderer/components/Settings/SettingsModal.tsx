@@ -161,6 +161,7 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 	const { registerLayer, unregisterLayer } = useLayerStack();
 	const layerIdRef = useRef<string>();
 	const isRecordingShortcutRef = useRef(false);
+	const promptsEscapeHandlerRef = useRef<(() => boolean) | null>(null);
 
 	useEffect(() => {
 		if (isOpen) {
@@ -187,6 +188,8 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 			onEscape: () => {
 				// If recording a shortcut, ShortcutsTab handles its own escape via onKeyDownCapture
 				if (isRecordingShortcutRef.current) return;
+				// Let prompts tab handle layered escape (help → expanded → list → close)
+				if (promptsEscapeHandlerRef.current?.()) return;
 				onCloseRef.current();
 			},
 		});
@@ -643,10 +646,13 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 						)}
 
 						{activeTab === 'prompts' && (
-							<div data-setting-id="prompts-editor">
+							<div data-setting-id="prompts-editor" className="prompts-editor-wrapper">
 								<MaestroPromptsTab
 									theme={theme}
 									initialSelectedPromptId={initialSelectedPromptId}
+									onEscapeHandled={(handler) => {
+										promptsEscapeHandlerRef.current = handler;
+									}}
 								/>
 							</div>
 						)}
