@@ -458,6 +458,46 @@ describe('envBuilder - Global Environment Variables', () => {
 
 			expect(env.VIMINIT).toBe('set compatible');
 		});
+
+		it('should inherit parent process environment on Unix', () => {
+			const originalPlatform = process.platform;
+			Object.defineProperty(process, 'platform', { value: 'linux' });
+
+			try {
+				process.env.ZSH_CUSTOM_VAR = 'zsh-value';
+				process.env.XDG_CONFIG_HOME = '/home/test/.config';
+
+				const env = buildPtyTerminalEnv({});
+
+				expect(env.ZSH_CUSTOM_VAR).toBe('zsh-value');
+				expect(env.XDG_CONFIG_HOME).toBe('/home/test/.config');
+			} finally {
+				Object.defineProperty(process, 'platform', { value: originalPlatform });
+				delete process.env.ZSH_CUSTOM_VAR;
+				delete process.env.XDG_CONFIG_HOME;
+			}
+		});
+
+		it('should strip Electron/IDE variables from PTY environment on Unix', () => {
+			const originalPlatform = process.platform;
+			Object.defineProperty(process, 'platform', { value: 'linux' });
+
+			try {
+				process.env.ELECTRON_RUN_AS_NODE = '1';
+				process.env.ELECTRON_NO_ASAR = '1';
+				process.env.CLAUDECODE = 'true';
+				process.env.NODE_ENV = 'test';
+
+				const env = buildPtyTerminalEnv({});
+
+				expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined();
+				expect(env.ELECTRON_NO_ASAR).toBeUndefined();
+				expect(env.CLAUDECODE).toBeUndefined();
+				expect(env.NODE_ENV).toBeUndefined();
+			} finally {
+				Object.defineProperty(process, 'platform', { value: originalPlatform });
+			}
+		});
 	});
 
 	describe('Test 2.9: Edge Cases and Special Values', () => {
