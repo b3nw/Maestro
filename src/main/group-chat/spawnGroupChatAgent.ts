@@ -96,7 +96,9 @@ export async function spawnGroupChatAgent(
 
 	// Apply SSH wrapping if configured
 	if (sshRemoteConfig?.enabled && !sshStore) {
-		throw new Error(`SSH remote is enabled but sshStore is not available for ${debugLabel ?? sessionId}`);
+		throw new Error(
+			`SSH remote is enabled but sshStore is not available for ${debugLabel ?? sessionId}`
+		);
 	}
 	if (sshStore && sshRemoteConfig?.enabled) {
 		if (debugLabel) {
