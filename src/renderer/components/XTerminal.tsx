@@ -410,13 +410,11 @@ export const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XT
 			}
 		};
 
-		// Allow Maestro's Meta-key (Cmd on macOS) and Ctrl+Shift shortcuts to bubble to
-		// the window-level handler in useMainKeyboardHandler.  Without this, xterm captures
-		// the keydown event on its internal textarea/canvas and stopPropagation prevents
-		// shortcuts like Cmd+K (clear terminal), Cmd+J (new terminal tab), Cmd+W (close tab),
-		// Cmd+[ / Cmd+] (navigate tabs), etc. from reaching the app-level handler.
-		// Returning false from this handler tells xterm to NOT handle the key itself,
-		// so the browser's normal event propagation continues to the window listener.
+		// Forward passthrough shortcuts to Maestro's window-level handler. xterm
+		// captures keydown on its internal textarea and can prevent bubbling, so we
+		// stopPropagation the original event and re-dispatch a synthetic copy directly
+		// on window. This guarantees shortcuts like Cmd+K, Cmd+J, Cmd+W, Alt+Cmd+J
+		// (cycle terminals), etc. always reach useMainKeyboardHandler.
 		//
 		// NOTE: This only works if the macOS native menu (src/main/index.ts) does NOT
 		// register conflicting accelerators. E.g., { role: 'close' } would steal Cmd+W
@@ -439,6 +437,21 @@ export const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XT
 			if (typeof action === 'object' && action.action === 'write') {
 				window.maestro.process.write(sessionId, action.data);
 				return false;
+			}
+			if (action === 'passthrough' && e.type === 'keydown') {
+				e.stopPropagation();
+				window.dispatchEvent(
+					new KeyboardEvent('keydown', {
+						key: e.key,
+						code: e.code,
+						metaKey: e.metaKey,
+						ctrlKey: e.ctrlKey,
+						altKey: e.altKey,
+						shiftKey: e.shiftKey,
+						bubbles: true,
+						cancelable: true,
+					})
+				);
 			}
 			return action === 'handle';
 		});

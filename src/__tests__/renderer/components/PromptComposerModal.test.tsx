@@ -534,7 +534,7 @@ describe('PromptComposerModal', () => {
 			expect(textarea.value).toBe('New value');
 		});
 
-		it('should update value when initialValue changes while open', () => {
+		it('should not overwrite user edits when initialValue changes while open', () => {
 			const { rerender } = renderWithProvider(
 				<PromptComposerModal
 					isOpen={true}
@@ -546,26 +546,25 @@ describe('PromptComposerModal', () => {
 				/>
 			);
 
+			const textarea = screen.getByPlaceholderText(
+				'Write your prompt here... (@ to reference files)'
+			) as HTMLTextAreaElement;
+			fireEvent.change(textarea, { target: { value: 'User typing' } });
+
 			rerender(
 				<LayerStackProvider>
 					<PromptComposerModal
 						isOpen={true}
 						onClose={onClose}
 						theme={mockTheme}
-						initialValue="Second"
+						initialValue="Stale deferred value"
 						onSubmit={onSubmit}
 						onSend={onSend}
 					/>
 				</LayerStackProvider>
 			);
 
-			const textarea = screen.getByPlaceholderText(
-				'Write your prompt here... (@ to reference files)'
-			) as HTMLTextAreaElement;
-			// The composer only syncs initialValue when isOpen transitions —
-			// while already open, the composer owns the value to prevent
-			// useDeferredValue lag from overwriting in-progress edits.
-			expect(textarea.value).toBe('First');
+			expect(textarea.value).toBe('User typing');
 		});
 	});
 
@@ -893,6 +892,35 @@ describe('PromptComposerModal', () => {
 			await waitFor(() => {
 				expect(onSubmit).toHaveBeenCalledWith('Modified');
 			});
+		});
+	});
+
+	describe('Keystroke sync', () => {
+		it('should call onSubmit on every keystroke to sync with parent', () => {
+			renderWithProvider(
+				<PromptComposerModal
+					isOpen={true}
+					onClose={onClose}
+					theme={mockTheme}
+					initialValue=""
+					onSubmit={onSubmit}
+					onSend={onSend}
+				/>
+			);
+
+			const textarea = screen.getByPlaceholderText(
+				'Write your prompt here... (@ to reference files)'
+			);
+			fireEvent.change(textarea, { target: { value: 'H' } });
+			expect(onSubmit).toHaveBeenCalledWith('H');
+
+			fireEvent.change(textarea, { target: { value: 'He' } });
+			expect(onSubmit).toHaveBeenCalledWith('He');
+
+			fireEvent.change(textarea, { target: { value: 'Hel' } });
+			expect(onSubmit).toHaveBeenCalledWith('Hel');
+
+			expect(onSubmit).toHaveBeenCalledTimes(3);
 		});
 	});
 

@@ -82,7 +82,7 @@ export function usePromptComposerHandlers(
 				setInputValue(value);
 			}
 		},
-		[activeGroupChatId]
+		[activeGroupChatId, setInputValue]
 	);
 
 	const handlePromptComposerSend = useCallback(
