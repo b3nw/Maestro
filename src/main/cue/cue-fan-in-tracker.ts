@@ -67,6 +67,41 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 	const fanInCreatedAt = new Map<string, number>();
 
 	/**
+	 * Build filtered output maps from a completed set of fan-in sources.
+	 * Shared by both the success path and timeout-continue path.
+	 */
+	function buildFilteredOutputs(
+		completions: FanInSourceCompletion[],
+		sub: CueSubscription
+	): {
+		outputCompletions: FanInSourceCompletion[];
+		perSourceOutputs: Record<string, string>;
+		forwardedOutputs: Record<string, string>;
+	} {
+		const includeSet = sub.include_output_from ? new Set(sub.include_output_from) : null;
+		const outputCompletions = includeSet
+			? completions.filter((c) => includeSet.has(c.sessionName) || includeSet.has(c.sessionId))
+			: completions;
+
+		const perSourceOutputs: Record<string, string> = {};
+		for (const c of outputCompletions) {
+			perSourceOutputs[c.sessionName] = c.output;
+		}
+
+		const forwardSet = sub.forward_output_from ? new Set(sub.forward_output_from) : null;
+		const forwardedOutputs: Record<string, string> = {};
+		if (forwardSet) {
+			for (const c of completions) {
+				if (forwardSet.has(c.sessionName) || forwardSet.has(c.sessionId)) {
+					forwardedOutputs[c.sessionName] = c.output;
+				}
+			}
+		}
+
+		return { outputCompletions, perSourceOutputs, forwardedOutputs };
+	}
+
+	/**
 	 * Resolve a user-authored `sources` list (names or IDs, possibly mixed) to a
 	 * deduped set of canonical session IDs. This is the source of truth for
 	 * fan-in completion counting — the raw `sources.length` is NOT reliable
@@ -124,26 +159,10 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 			fanInTrackers.delete(key);
 			fanInCreatedAt.delete(key);
 
-			// Same include/forward filtering as the success path.
-			const includeSet = sub.include_output_from ? new Set(sub.include_output_from) : null;
-			const outputCompletions = includeSet
-				? completions.filter((c) => includeSet.has(c.sessionName) || includeSet.has(c.sessionId))
-				: completions;
-
-			const perSourceOutputs: Record<string, string> = {};
-			for (const c of outputCompletions) {
-				perSourceOutputs[c.sessionName] = c.output;
-			}
-
-			const forwardSet = sub.forward_output_from ? new Set(sub.forward_output_from) : null;
-			const forwardedOutputs: Record<string, string> = {};
-			if (forwardSet) {
-				for (const c of completions) {
-					if (forwardSet.has(c.sessionName) || forwardSet.has(c.sessionId)) {
-						forwardedOutputs[c.sessionName] = c.output;
-					}
-				}
-			}
+			const { outputCompletions, perSourceOutputs, forwardedOutputs } = buildFilteredOutputs(
+				completions,
+				sub
+			);
 
 			const event = createCueEvent('agent.completed', sub.name, {
 				completedSessions: completions.map((c) => c.sessionId),
@@ -247,36 +266,10 @@ export function createCueFanInTracker(deps: CueFanInDeps): CueFanInTracker {
 			fanInCreatedAt.delete(key);
 
 			const completions = [...tracker.values()];
-			// When include_output_from is specified, only include outputs from
-			// the listed sources in {{CUE_SOURCE_OUTPUT}}. All sources still
-			// participate in the fan-in (they must all complete before the target
-			// fires), but "passthrough" sources' outputs are excluded from the
-			// prompt. Matching by both sessionName and sessionId mirrors the
-			// dispatch service's lookup.
-			const includeSet = sub.include_output_from ? new Set(sub.include_output_from) : null;
-			const outputCompletions = includeSet
-				? completions.filter((c) => includeSet.has(c.sessionName) || includeSet.has(c.sessionId))
-				: completions;
-
-			// Build per-source output map for named template variables
-			// (e.g. {{CUE_OUTPUT_AGENT_A}}).
-			const perSourceOutputs: Record<string, string> = {};
-			for (const c of outputCompletions) {
-				perSourceOutputs[c.sessionName] = c.output;
-			}
-
-			// Collect outputs that should be forwarded through this agent to
-			// downstream agents. These are attached to the event payload so the
-			// completion handler can re-attach them when this agent completes.
-			const forwardSet = sub.forward_output_from ? new Set(sub.forward_output_from) : null;
-			const forwardedOutputs: Record<string, string> = {};
-			if (forwardSet) {
-				for (const c of completions) {
-					if (forwardSet.has(c.sessionName) || forwardSet.has(c.sessionId)) {
-						forwardedOutputs[c.sessionName] = c.output;
-					}
-				}
-			}
+			const { outputCompletions, perSourceOutputs, forwardedOutputs } = buildFilteredOutputs(
+				completions,
+				sub
+			);
 
 			const event = createCueEvent('agent.completed', sub.name, {
 				completedSessions: completions.map((c) => c.sessionId),

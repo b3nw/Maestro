@@ -95,10 +95,9 @@ export function createCueCompletionService(deps: CueCompletionServiceDeps): CueC
 						};
 						// Forward any outputs that were forwarded TO this completing
 						// agent from its own upstream. They're carried in the
-						// completionData.forwardedOutputs field (set by the executor
+						// completionData.forwardedOutputs field (set by the engine
 						// from the triggering event's payload).
-						const upstreamForwarded = (completionData as Record<string, unknown> | undefined)
-							?.forwardedOutputs as Record<string, string> | undefined;
+						const upstreamForwarded = completionData?.forwardedOutputs;
 						const event = createCueEvent('agent.completed', sub.name, {
 							sourceSession: completingName,
 							sourceSessionId: sessionId,

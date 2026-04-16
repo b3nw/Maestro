@@ -10,6 +10,7 @@
 import type { CueEvent, CueSubscription } from './cue-types';
 import type { CueEventType } from '../../shared/cue/contracts';
 import type { TemplateContext } from '../../shared/templateVariables';
+import { sanitizeVarName } from '../../shared/cue-pipeline-types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,17 +33,6 @@ export type CueTemplateContext = NonNullable<TemplateContext['cue']>;
 const enricherRegistry = new Map<CueEventType | '*', CueContextEnricher>();
 
 /** Base enricher — runs for all event types. Populates common fields. */
-/**
- * Sanitize an agent session name into a valid template variable suffix.
- * "Agent A" → "AGENT_A", "my-agent" → "MY_AGENT"
- */
-function sanitizeVarName(name: string): string {
-	return name
-		.toUpperCase()
-		.replace(/[^A-Z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '');
-}
-
 enricherRegistry.set('*', (event, subscription, runId) => {
 	const base: Record<string, string> = {
 		eventType: event.type,

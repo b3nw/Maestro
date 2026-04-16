@@ -109,6 +109,21 @@ export interface IncomingAgentEdgeInfo {
 	forwardOutput: boolean;
 }
 
+/**
+ * Sanitize an agent session name into a valid template-variable suffix.
+ * Used by both the backend enricher and the pipeline editor UI to derive
+ * consistent variable names like `CUE_OUTPUT_AGENT_A`.
+ *
+ * "Agent A" → "AGENT_A", "my-agent.1" → "MY_AGENT_1", "   " → "UNNAMED"
+ */
+export function sanitizeVarName(name: string): string {
+	const sanitized = name
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+	return sanitized || 'UNNAMED';
+}
+
 export interface CuePipeline {
 	id: string;
 	name: string;

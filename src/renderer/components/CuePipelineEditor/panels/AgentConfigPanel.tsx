@@ -10,6 +10,7 @@ import { ExternalLink } from 'lucide-react';
 import type { Theme } from '../../../types';
 import {
 	CUE_COLOR,
+	sanitizeVarName,
 	type PipelineNode,
 	type PipelineEdge,
 	type AgentNodeData,
@@ -385,10 +386,8 @@ export function AgentConfigPanel({
 
 					{/* Per-source rows */}
 					{incomingAgentEdges.map((edge) => {
-						const varSuffix = edge.sourceSessionName
-							.toUpperCase()
-							.replace(/[^A-Z0-9]+/g, '_')
-							.replace(/^_+|_+$/g, '');
+						const varSuffix = sanitizeVarName(edge.sourceSessionName);
+						const editable = !!onUpdateEdge;
 						return (
 							<div
 								key={edge.edgeId}
@@ -425,15 +424,17 @@ export function AgentConfigPanel({
 										color: edge.includeUpstreamOutput
 											? theme.colors.textMain
 											: theme.colors.textDim,
-										cursor: 'pointer',
+										cursor: editable ? 'pointer' : 'default',
+										opacity: editable ? 1 : 0.5,
 										flex: '0 0 auto',
 									}}
 								>
 									<input
 										type="checkbox"
 										checked={edge.includeUpstreamOutput}
+										disabled={!editable}
 										onChange={(e) => {
-											onUpdateEdge?.(edge.edgeId, {
+											onUpdateEdge!(edge.edgeId, {
 												includeUpstreamOutput: e.target.checked,
 											});
 										}}
@@ -450,15 +451,17 @@ export function AgentConfigPanel({
 										gap: 4,
 										fontSize: 10,
 										color: edge.forwardOutput ? theme.colors.textMain : theme.colors.textDim,
-										cursor: 'pointer',
+										cursor: editable ? 'pointer' : 'default',
+										opacity: editable ? 1 : 0.5,
 										flex: '0 0 auto',
 									}}
 								>
 									<input
 										type="checkbox"
 										checked={edge.forwardOutput}
+										disabled={!editable}
 										onChange={(e) => {
-											onUpdateEdge?.(edge.edgeId, {
+											onUpdateEdge!(edge.edgeId, {
 												forwardOutput: e.target.checked,
 											});
 										}}
@@ -467,50 +470,59 @@ export function AgentConfigPanel({
 									Forward
 								</label>
 
-								{/* Per-source variable name (only when included) */}
-								{edge.includeUpstreamOutput && (
-									<code
-										style={{
-											fontSize: 9,
-											color: CUE_COLOR,
-											backgroundColor: `${CUE_COLOR}10`,
-											padding: '1px 5px',
-											borderRadius: 3,
-											marginLeft: 'auto',
-											flexShrink: 0,
-											userSelect: 'all',
-										}}
-									>
-										{'{{'}CUE_OUTPUT_{varSuffix}
-										{'}}'}
-									</code>
-								)}
-								{!edge.includeUpstreamOutput && !edge.forwardOutput && (
-									<span
-										style={{
-											fontSize: 9,
-											color: theme.colors.textDim,
-											opacity: 0.6,
-											fontStyle: 'italic',
-											marginLeft: 'auto',
-										}}
-									>
-										trigger only
-									</span>
-								)}
-								{!edge.includeUpstreamOutput && edge.forwardOutput && (
-									<span
-										style={{
-											fontSize: 9,
-											color: theme.colors.textDim,
-											opacity: 0.6,
-											fontStyle: 'italic',
-											marginLeft: 'auto',
-										}}
-									>
-										passthrough
-									</span>
-								)}
+								{/* Per-source variable token chips */}
+								<div
+									style={{
+										display: 'flex',
+										gap: 4,
+										marginLeft: 'auto',
+										flexShrink: 0,
+										alignItems: 'center',
+									}}
+								>
+									{edge.includeUpstreamOutput && (
+										<code
+											style={{
+												fontSize: 9,
+												color: CUE_COLOR,
+												backgroundColor: `${CUE_COLOR}10`,
+												padding: '1px 5px',
+												borderRadius: 3,
+												userSelect: 'all',
+											}}
+										>
+											{'{{'}CUE_OUTPUT_{varSuffix}
+											{'}}'}
+										</code>
+									)}
+									{edge.forwardOutput && (
+										<code
+											style={{
+												fontSize: 9,
+												color: theme.colors.textDim,
+												backgroundColor: `${theme.colors.textDim}15`,
+												padding: '1px 5px',
+												borderRadius: 3,
+												userSelect: 'all',
+											}}
+										>
+											{'{{'}CUE_FORWARDED_{varSuffix}
+											{'}}'}
+										</code>
+									)}
+									{!edge.includeUpstreamOutput && !edge.forwardOutput && (
+										<span
+											style={{
+												fontSize: 9,
+												color: theme.colors.textDim,
+												opacity: 0.6,
+												fontStyle: 'italic',
+											}}
+										>
+											trigger only
+										</span>
+									)}
+								</div>
 							</div>
 						);
 					})}
