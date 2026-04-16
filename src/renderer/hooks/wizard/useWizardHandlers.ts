@@ -59,7 +59,7 @@ function getAutorunSynopsisPrompt(): string {
 }
 import { formatRelativeTime } from '../../../shared/formatters';
 import { gitService } from '../../services/git';
-import { AUTO_RUN_FOLDER_NAME } from '../../components/Wizard';
+import { PLAYBOOKS_DIR } from '../../../shared/maestro-paths';
 import { DEFAULT_BATCH_PROMPT } from '../../components/BatchRunnerModal';
 import type { PreviousUIState, UseInlineWizardReturn } from '../batch/useInlineWizard';
 import type { WizardState } from '../../components/Wizard/WizardContext';
@@ -1136,7 +1136,7 @@ export function useWizardHandlers(deps: UseWizardHandlersDeps): UseWizardHandler
 				showThinking: currentDefaults.defaultShowThinking,
 			};
 
-			const autoRunFolderPath = `${directoryPath}/${AUTO_RUN_FOLDER_NAME}`;
+			const autoRunFolderPath = `${directoryPath}/${PLAYBOOKS_DIR}`;
 			const firstDoc = generatedDocuments[0];
 			const autoRunSelectedFile = firstDoc ? firstDoc.filename.replace(/\.md$/, '') : undefined;
 
