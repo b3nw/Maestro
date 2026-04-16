@@ -65,6 +65,7 @@ import {
 	registerCueHandlers,
 	registerWakatimeHandlers,
 	registerFeedbackHandlers,
+	registerMaestroCliHandlers,
 	registerPromptsHandlers,
 	setupLoggerEventForwarding,
 	cleanupAllGroomingSessions,
@@ -134,6 +135,7 @@ import {
 import { setupProcessListeners as setupProcessListenersModule } from './process-listeners';
 import { setupWakaTimeListener } from './process-listeners/wakatime-listener';
 import { WakaTimeManager } from './wakatime-manager';
+import { MaestroCliManager } from './maestro-cli-manager';
 import type { TemplateContext } from '../shared/templateVariables';
 
 // ============================================================================
@@ -194,6 +196,7 @@ if (!installationId) {
 
 // Initialize WakaTime heartbeat manager
 const wakatimeManager = new WakaTimeManager(store);
+const maestroCliManager = new MaestroCliManager();
 
 // Auto-install WakaTime CLI on startup if enabled
 if (store.get('wakatimeEnabled', false)) {
@@ -1011,6 +1014,9 @@ function setupIpcHandlers() {
 
 	// Register WakaTime handlers (CLI check, API key validation)
 	registerWakatimeHandlers(wakatimeManager);
+
+	// Register Maestro CLI handlers (status check + install/update)
+	registerMaestroCliHandlers(maestroCliManager);
 
 	// Register feedback handlers (gh auth + feedback submission)
 	registerFeedbackHandlers({

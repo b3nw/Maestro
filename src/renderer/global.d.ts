@@ -243,6 +243,7 @@ type GroupChatData = {
 };
 
 import type { CueGraphSession, CueRunResult, CueSessionStatus, CueSettings } from '../shared/cue';
+import type { MaestroCliStatus, MaestroCliInstallResult } from '../shared/maestro-cli';
 
 interface MaestroAPI {
 	// Context merging API (for session context transfer and grooming)
@@ -3088,6 +3089,13 @@ interface MaestroAPI {
 		checkCli: () => Promise<{ available: boolean; version?: string }>;
 		validateApiKey: (key: string) => Promise<{ valid: boolean }>;
 	};
+
+	// Maestro CLI API (status check + install/update)
+	maestroCli: {
+		checkStatus: () => Promise<MaestroCliStatus>;
+		installOrUpdate: () => Promise<MaestroCliInstallResult>;
+	};
+
 	prompts: {
 		get: (id: string) => Promise<{ success: boolean; content?: string; error?: string }>;
 		getAll: () => Promise<{
