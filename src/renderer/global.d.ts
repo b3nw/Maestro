@@ -82,44 +82,12 @@ type AgentConfigOption = import('../shared/types').AgentConfigOption;
 type AgentCapabilities = import('../shared/types').AgentCapabilities;
 type AgentConfig = import('../shared/types').AgentConfig;
 
-<<<<<<< HEAD
-type AgentCapabilities = import('../shared/types').AgentCapabilities;
-=======
 type DirectoryEntry = import('../shared/types').DirectoryEntry;
 type ShellInfo = import('../shared/types').ShellInfo;
->>>>>>> 55862d5ce (refactor: consolidate duplicated type definitions (Phase 05))
 
 type UsageStats = import('../shared/types').UsageStats;
 
-<<<<<<< HEAD
-interface DirectoryEntry {
-	name: string;
-	isDirectory: boolean;
-	isFile: boolean;
-	path: string;
-}
-
-interface ShellInfo {
-	id: string;
-	name: string;
-	available: boolean;
-	path?: string;
-}
-
-interface UsageStats {
-	inputTokens: number;
-	outputTokens: number;
-	cacheReadInputTokens: number;
-	cacheCreationInputTokens: number;
-	totalCostUsd: number;
-	contextWindow: number;
-	reasoningTokens?: number; // Separate reasoning tokens (Codex o3/o4-mini)
-}
-
-type HistoryEntryType = 'AUTO' | 'USER' | 'CUE';
-=======
 type HistoryEntryType = import('../shared/types').HistoryEntryType;
->>>>>>> 55862d5ce (refactor: consolidate duplicated type definitions (Phase 05))
 
 /**
  * Result type for reading session messages from agent storage.
