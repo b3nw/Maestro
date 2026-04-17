@@ -8,6 +8,7 @@ import type {
 	BrowserTab,
 	ThinkingItem,
 	AgentError,
+	QueuedItem,
 } from '../../types';
 
 export interface SlashCommand {
@@ -124,6 +125,11 @@ export interface MainPanelProps {
 	setActiveSessionId: (id: string) => void;
 	onDeleteLog?: (logId: string) => number | null;
 	onRemoveQueuedItem?: (itemId: string) => void;
+	onForceSendQueuedItem?: (itemId: string) => void;
+	forcedParallelEnabled?: boolean;
+	getForceSendContext?: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	onOpenQueueBrowser?: () => void;
 
 	// Auto mode props

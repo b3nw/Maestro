@@ -95,6 +95,9 @@ export const MainPanel = React.memo(
 			currentSessionBatchState,
 			onStopBatchRun,
 			onRemoveQueuedItem,
+			onForceSendQueuedItem,
+			forcedParallelEnabled,
+			getForceSendContext,
 			onOpenQueueBrowser,
 			isMobileLandscape = false,
 			showFlashNotification,
@@ -697,6 +700,9 @@ export const MainPanel = React.memo(
 							thinkingItems={thinkingItems}
 							onStopBatchRun={onStopBatchRun}
 							onRemoveQueuedItem={onRemoveQueuedItem}
+							onForceSendQueuedItem={onForceSendQueuedItem}
+							forcedParallelEnabled={forcedParallelEnabled}
+							getForceSendContext={getForceSendContext}
 							onOpenQueueBrowser={onOpenQueueBrowser}
 							showFlashNotification={showFlashNotification}
 							summarizeProgress={summarizeProgress}

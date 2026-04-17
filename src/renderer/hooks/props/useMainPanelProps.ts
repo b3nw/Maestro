@@ -22,6 +22,7 @@ import type {
 	FilePreviewTab,
 	ThinkingItem,
 	AgentError,
+	QueuedItem,
 } from '../../types';
 import type { FileTreeChanges } from '../../utils/fileExplorer';
 import type { TabCompletionSuggestion, TabCompletionFilter } from '../input/useTabCompletion';
@@ -159,6 +160,11 @@ export interface UseMainPanelPropsDeps {
 	handleStopBatchRun: (sessionId?: string) => void;
 	handleDeleteLog: (logId: string) => number | null;
 	handleRemoveQueuedItem: (itemId: string) => void;
+	handleForceSendQueuedItem: (itemId: string) => void;
+	forcedParallelEnabled: boolean;
+	getForceSendContext: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	handleOpenQueueBrowser: () => void;
 
 	// Tab management handlers
@@ -363,6 +369,9 @@ export function useMainPanelProps(deps: UseMainPanelPropsDeps) {
 			onStopBatchRun: deps.handleStopBatchRun,
 			onDeleteLog: deps.handleDeleteLog,
 			onRemoveQueuedItem: deps.handleRemoveQueuedItem,
+			onForceSendQueuedItem: deps.handleForceSendQueuedItem,
+			forcedParallelEnabled: deps.forcedParallelEnabled,
+			getForceSendContext: deps.getForceSendContext,
 			onOpenQueueBrowser: deps.handleOpenQueueBrowser,
 			// Tab management handlers
 			onTabSelect: deps.handleTabSelect,
@@ -584,6 +593,9 @@ export function useMainPanelProps(deps: UseMainPanelPropsDeps) {
 			deps.handleStopBatchRun,
 			deps.handleDeleteLog,
 			deps.handleRemoveQueuedItem,
+			deps.handleForceSendQueuedItem,
+			deps.forcedParallelEnabled,
+			deps.getForceSendContext,
 			deps.handleOpenQueueBrowser,
 			deps.handleTabSelect,
 			deps.handleTabClose,
