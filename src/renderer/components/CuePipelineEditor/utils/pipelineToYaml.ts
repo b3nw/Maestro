@@ -456,6 +456,17 @@ export function pipelinesToYaml(
 				const filePath = cuePromptFilePath(agentName, promptSuffix);
 				record.prompt_file = filePath;
 				promptFiles.set(filePath, sub.prompt);
+			} else {
+				// Defensive: the loader-side validator rejects subscriptions with
+				// neither `prompt` nor `prompt_file`. A pipeline whose prompts
+				// haven't been filled in yet (or where a debounce race wiped the
+				// value before save) would otherwise yield YAML that loads
+				// cleanly on the editor but is rejected on the engine side —
+				// producing the "pipeline vanished after save" symptom. Emit an
+				// empty inline prompt so the subscription round-trips and the
+				// editor can still surface a "missing prompt" validation error
+				// to the user on the next save attempt.
+				record.prompt = '';
 			}
 
 			if (sub.output_prompt) {

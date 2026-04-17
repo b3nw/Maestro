@@ -124,6 +124,13 @@ export function usePipelineState({
 		pipelines: [],
 		selectedPipelineId: null,
 	});
+	// Mirror of pipelineState.pipelines updated during render so handleSave can
+	// read the latest value after flushing debounced edits — React's setState
+	// from a flush callback is batched and NOT visible in handleSave's closure,
+	// so reading through this ref after yielding to the microtask queue is the
+	// only way to observe the freshly-flushed prompt writes in the save path.
+	const pipelinesRef = useRef(pipelineState.pipelines);
+	pipelinesRef.current = pipelineState.pipelines;
 	const [isDirty, setIsDirty] = useState(false);
 	const savedStateRef = useRef<string>('');
 	// Project roots that the most recent successful save (or initial load)
@@ -167,7 +174,7 @@ export function usePipelineState({
 	});
 
 	const persistence = usePipelinePersistence({
-		state: { pipelineState, savedStateRef, lastWrittenRootsRef },
+		state: { pipelineState, pipelinesRef, savedStateRef, lastWrittenRootsRef },
 		deps: { sessions, cueSettings, settingsLoaded },
 		actions: { setPipelineState, setIsDirty, persistLayout, onSaveSuccess },
 	});

@@ -22,6 +22,7 @@ import {
 	type PipelineNode,
 } from '../../../../shared/cue-pipeline-types';
 import { useDebouncedCallback } from '../../../hooks/utils';
+import { registerPendingEdit } from '../../../hooks/cue/pendingEditsRegistry';
 import { getInputStyle, getLabelStyle } from './triggers/triggerConfigStyles';
 import { CueSelect } from './CueSelect';
 
@@ -82,12 +83,23 @@ export function CommandConfigPanel({
 	// Flush any pending edits on unmount. Combined with `key={node.id}` on the
 	// parent render, this guarantees the user's last keystrokes commit to THIS
 	// node before the component is torn down on selection change.
+	//
+	// Also register with the pending-edits registry so `handleSave` can flush
+	// this panel's pending writes before it reads pipelineState — clicking Save
+	// within 300ms of a keystroke would otherwise persist stale values.
 	useEffect(() => {
+		const unregister = registerPendingEdit(() => {
+			flushName();
+			flushShell();
+			flushTarget();
+			flushMessage();
+		});
 		return () => {
 			flushName();
 			flushShell();
 			flushTarget();
 			flushMessage();
+			unregister();
 		};
 	}, [flushName, flushShell, flushTarget, flushMessage]);
 

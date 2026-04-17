@@ -363,6 +363,47 @@ describe('pipelinesToYaml', () => {
 		expect(promptFiles.get('.maestro/prompts/worker-test-pipeline.md')).toBe('Do stuff');
 	});
 
+	it('writes prompt: "" inline when the subscription has no prompt (defensive)', () => {
+		// Empty prompts can reach pipelinesToYaml if a debounce race wipes the
+		// node's inputPrompt before handleSave reads state. Without the
+		// inline-empty fallback, the loader-side validator rejects the whole
+		// YAML ("prompt or prompt_file is required") and the user sees their
+		// pipeline "vanish" on the next modal open. Writing an empty string
+		// keeps the YAML valid so the editor can reload it and surface a
+		// proper "missing prompt" validation error on the next save attempt.
+		const pipeline = makePipeline({
+			nodes: [
+				{
+					id: 't1',
+					type: 'trigger',
+					position: { x: 0, y: 0 },
+					data: {
+						eventType: 'time.heartbeat',
+						label: 'Timer',
+						config: { interval_minutes: 5 },
+					},
+				},
+				{
+					id: 'a1',
+					type: 'agent',
+					position: { x: 300, y: 0 },
+					data: {
+						sessionId: 's1',
+						sessionName: 'worker',
+						toolType: 'claude-code',
+						inputPrompt: '',
+					},
+				},
+			],
+			edges: [{ id: 'e1', source: 't1', target: 'a1', mode: 'pass' }],
+		});
+
+		const { yaml: yamlStr, promptFiles } = pipelinesToYaml([pipeline]);
+		expect(yamlStr).toContain("prompt: ''");
+		expect(yamlStr).not.toContain('prompt_file:');
+		expect(promptFiles.size).toBe(0);
+	});
+
 	it('includes settings block when provided', () => {
 		const pipeline = makePipeline({
 			nodes: [
