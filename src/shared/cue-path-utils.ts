@@ -15,9 +15,21 @@
  * they reach here, so we only need collapse/trim + prefix comparison.
  */
 
+// Paths are assumed to use ONE separator consistently within a single input
+// (sourced from `session.projectRoot`, which the main process resolves to an
+// os-native path before it reaches here). When detection sees both separators
+// in the same string — a degenerate case we've seen when users hand-author
+// test fixtures — we pick whichever appears first in the input so the rest of
+// the pipeline at least operates on a coherent split.
 function detectSeparator(p: string): '\\' | '/' {
-	// Windows drive letter (`C:\...`) or any backslash in the input → '\'.
-	if (/^[a-zA-Z]:\\/.test(p) || p.includes('\\')) return '\\';
+	const firstFwd = p.indexOf('/');
+	const firstBack = p.indexOf('\\');
+	if (firstFwd !== -1 && firstBack !== -1) {
+		return firstBack < firstFwd ? '\\' : '/';
+	}
+	// Windows drive letter (`C:\...`), UNC prefix (`\\server\share`), or any
+	// backslash in the input → '\'.
+	if (/^[a-zA-Z]:\\/.test(p) || p.startsWith('\\\\') || p.includes('\\')) return '\\';
 	return '/';
 }
 
@@ -26,16 +38,37 @@ function isWindowsRoot(p: string): boolean {
 	return /^[a-zA-Z]:\\?$/.test(p);
 }
 
+function isUncRoot(p: string): boolean {
+	// `\\server\share` — the share component is mandatory and we must not
+	// collapse the leading `\\` or strip the share as a trailing separator.
+	return /^\\\\[^\\]+\\[^\\]+$/.test(p);
+}
+
 /**
  * Collapse consecutive separators and strip a single trailing separator (but
- * preserve roots like `/` and `C:\`). Does NOT resolve `..`/`.` segments —
- * inputs are pre-resolved absolute paths from the Electron main process.
+ * preserve roots like `/`, `C:\`, and UNC shares `\\server\share`). Does NOT
+ * resolve `..`/`.` segments — inputs are pre-resolved absolute paths from the
+ * Electron main process.
  */
 function normalize(p: string, sep: '\\' | '/'): string {
 	if (!p) return p;
+
+	// UNC paths (`\\server\share\...`) MUST retain their leading double
+	// backslash — collapsing it via the general `\\+` rule would truncate to
+	// `\server\share\...` and break every downstream comparison. We carve off
+	// the `\\` prefix, collapse the rest, then reattach.
+	if (sep === '\\' && p.startsWith('\\\\')) {
+		const rest = p.slice(2).replace(/\\+/g, '\\');
+		let out = '\\\\' + rest;
+		if (out.length > 2 && out.endsWith('\\') && !isUncRoot(out.slice(0, -1))) {
+			out = out.slice(0, -1);
+		}
+		return out;
+	}
+
 	const collapseRe = sep === '\\' ? /\\+/g : /\/+/g;
 	let out = p.replace(collapseRe, sep);
-	if (out.length > 1 && out.endsWith(sep) && !isWindowsRoot(out)) {
+	if (out.length > 1 && out.endsWith(sep) && !isWindowsRoot(out) && !isUncRoot(out)) {
 		out = out.slice(0, -1);
 	}
 	return out;

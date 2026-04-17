@@ -138,6 +138,9 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 				// *why* their queued run never fired — previously these events
 				// disappeared with only a log line, making it look like a bug.
 				const droppedRunId = crypto.randomUUID();
+				// We record the event directly in its final `timeout` state, so
+				// there's no separate running→timeout flip needed — the row is
+				// born finalized (unlike normal runs, which start as `running`).
 				safeRecordCueEvent({
 					id: droppedRunId,
 					type: entry.event.type,
@@ -151,7 +154,6 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 						queuedForMs: ageMs,
 					}),
 				});
-				safeUpdateCueEventStatus(droppedRunId, 'timeout');
 				deps.onLog(
 					'cue',
 					`[CUE] Dropping stale queued event for "${sessionName}" (queued ${ageMinutes}m ago) — recorded as timeout in activity log`,
@@ -248,9 +250,20 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 				// having this run, so without an explicit DB write the row
 				// would stay `running` forever in the activity log.
 				safeUpdateCueEventStatus(runId, runResult.status);
+				// Emit with the structured runFinished payload so live
+				// listeners (activity log, queue indicators) observe the
+				// transition identically to a normal completion — this is
+				// what renderer subscribers key off of.
 				deps.onLog(
 					'cue',
-					`[CUE] Run "${subscriptionName}" completed after engine stop — status recorded (${runResult.status}), result discarded`
+					`[CUE] Run "${subscriptionName}" completed after engine stop — status recorded (${runResult.status}), result discarded`,
+					{
+						type: 'runFinished',
+						runId,
+						sessionId,
+						subscriptionName,
+						status: runResult.status,
+					}
 				);
 				return;
 			}

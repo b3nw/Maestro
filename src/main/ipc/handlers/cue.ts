@@ -250,9 +250,15 @@ export function registerCueHandlers(deps: CueHandlerDependencies): void {
 						// prompts/ directory next save.
 						const normalizedKey =
 							path.sep === '/' ? relativePath.replace(/\\/g, '/') : relativePath;
-						if (normalizedKey.split(/[/\\]/).some((segment) => segment === '..')) {
+						// Reject both '..' (escapes the prompts dir) and '.' (harmless
+						// but ambiguous — `foo/.` and `foo` refer to the same file,
+						// so accepting both breaks the keep-set invariant that
+						// distinct keys map to distinct files on disk).
+						if (
+							normalizedKey.split(/[/\\]/).some((segment) => segment === '..' || segment === '.')
+						) {
 							throw new Error(
-								`cue:writeYaml: promptFiles key "${relativePath}" contains parent-directory segment`
+								`cue:writeYaml: promptFiles key "${relativePath}" contains "." or ".." segment`
 							);
 						}
 						const target = path.resolve(options.projectRoot, normalizedKey);

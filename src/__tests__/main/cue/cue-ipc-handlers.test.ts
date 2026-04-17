@@ -335,6 +335,11 @@ describe('Cue IPC Handlers', () => {
 		// could write outside the .maestro/prompts/ directory. The handler
 		// validates and throws synchronously from inside the async callback —
 		// vi.mock's `withIpcErrorLogging` preserves the rejection.
+		//
+		// Every negative case must also assert that writeCueConfigFile was
+		// NOT called — rejecting the promptFile loop must abort the whole
+		// save, otherwise the YAML would land on disk while referencing a
+		// prompt file that was never written.
 		describe('prompt-file path hardening', () => {
 			it('rejects empty string keys', async () => {
 				const handler = registerAndGetHandler('cue:writeYaml');
@@ -346,6 +351,7 @@ describe('Cue IPC Handlers', () => {
 					})
 				).rejects.toThrow(/must be a non-empty string/);
 				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('rejects absolute paths', async () => {
@@ -358,6 +364,7 @@ describe('Cue IPC Handlers', () => {
 					})
 				).rejects.toThrow(/must be a relative path/);
 				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('rejects paths with parent-directory segments', async () => {
@@ -368,8 +375,22 @@ describe('Cue IPC Handlers', () => {
 						content: 'subscriptions: []',
 						promptFiles: { '../../escape.md': 'x' },
 					})
-				).rejects.toThrow(/parent-directory segment/);
+				).rejects.toThrow(/"\." or "\.\." segment/);
 				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
+			});
+
+			it('rejects paths with single-dot segments', async () => {
+				const handler = registerAndGetHandler('cue:writeYaml');
+				await expect(
+					handler(null, {
+						projectRoot: '/projects/test',
+						content: 'subscriptions: []',
+						promptFiles: { '.maestro/prompts/./sub.md': 'x' },
+					})
+				).rejects.toThrow(/"\." or "\.\." segment/);
+				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('rejects paths that resolve outside .maestro/prompts/', async () => {
@@ -382,6 +403,7 @@ describe('Cue IPC Handlers', () => {
 					})
 				).rejects.toThrow(/resolves outside the .maestro\/prompts directory/);
 				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('rejects paths with mixed-in parent segments that pre-normalize to a valid location', async () => {
@@ -394,7 +416,9 @@ describe('Cue IPC Handlers', () => {
 						content: 'subscriptions: []',
 						promptFiles: { '.maestro/prompts/../../escape.md': 'x' },
 					})
-				).rejects.toThrow(/parent-directory segment/);
+				).rejects.toThrow(/"\." or "\.\." segment/);
+				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('rejects non-.md extensions', async () => {
@@ -407,6 +431,7 @@ describe('Cue IPC Handlers', () => {
 					})
 				).rejects.toThrow(/must end with .md/);
 				expect(writeCuePromptFile).not.toHaveBeenCalled();
+				expect(writeCueConfigFile).not.toHaveBeenCalled();
 			});
 
 			it('normalizes Windows backslash paths to forward-slash before writing', async () => {

@@ -77,11 +77,22 @@ describe('watchCueConfigFile torn-flag guard', () => {
 		const onChange = vi.fn();
 		const cleanup = watchCueConfigFile(projectRoot, onChange);
 
-		// No change events fired — cleanup immediately.
+		// Give chokidar a moment to register the watcher paths.
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		// Trigger a real change so the debounced callback is scheduled — this
+		// exercises the path the torn flag actually protects. Writing the
+		// canonical .maestro/cue.yaml is exactly what the session runtime does.
+		const maestroDir = path.join(projectRoot, '.maestro');
+		fs.mkdirSync(maestroDir, { recursive: true });
+		fs.writeFileSync(path.join(maestroDir, 'cue.yaml'), 'subscriptions: []', 'utf-8');
+
+		// Cleanup IMMEDIATELY — the debounced setTimeout is already scheduled
+		// (or about to be). The torn flag must reject it when it fires.
 		cleanup();
 
 		// Wait beyond the 1s debounce window — nothing should fire.
-		await new Promise((resolve) => setTimeout(resolve, 1100));
+		await new Promise((resolve) => setTimeout(resolve, 1200));
 		expect(onChange).not.toHaveBeenCalled();
 	});
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Session, EncoreFeatureFlags } from '../types';
 import { useSessionStore } from '../stores/sessionStore';
 import { notifyToast } from '../stores/notificationStore';
+import { captureException } from '../utils/sentry';
 
 /**
  * useCueAutoDiscovery — auto-discovers .maestro/cue.yaml files for sessions.
@@ -96,6 +97,7 @@ export function useCueAutoDiscovery(sessions: Session[], encoreFeatures: EncoreF
 					);
 				} catch (err) {
 					console.error('[CueAutoDiscovery] Failed to enable Cue:', err);
+					captureException(err, { extra: { action: 'maestro.cue.enable' } });
 					notifyToast({
 						type: 'error',
 						title: 'Cue engine failed to start',
@@ -110,6 +112,7 @@ export function useCueAutoDiscovery(sessions: Session[], encoreFeatures: EncoreF
 					await window.maestro.cue.disable();
 				} catch (err) {
 					console.error('[CueAutoDiscovery] Failed to disable Cue:', err);
+					captureException(err, { extra: { action: 'maestro.cue.disable' } });
 					notifyToast({
 						type: 'error',
 						title: 'Cue engine failed to stop',

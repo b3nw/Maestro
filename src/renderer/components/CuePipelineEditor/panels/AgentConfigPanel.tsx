@@ -5,7 +5,7 @@
  * upstream output inclusion, and pipeline membership display.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { Theme } from '../../../types';
 import {
@@ -102,11 +102,26 @@ export function AgentConfigPanel({
 		[debouncedUpdateOutput]
 	);
 
-	// Find which pipelines contain this agent
-	const agentPipelines = pipelines.filter((p) =>
-		p.nodes.some(
-			(n) => n.type === 'agent' && (n.data as AgentNodeData).sessionId === data.sessionId
-		)
+	// Find which pipelines contain this agent. Memoized so the derived value
+	// stays referentially stable across renders — UpstreamSourcesPanel treats
+	// the `pipeline` prop as identity-stable, and a fresh object on each
+	// render would defeat its memoization downstream.
+	const agentPipelines = useMemo(
+		() =>
+			pipelines.filter((p) =>
+				p.nodes.some(
+					(n) => n.type === 'agent' && (n.data as AgentNodeData).sessionId === data.sessionId
+				)
+			),
+		[pipelines, data.sessionId]
+	);
+
+	// The specific pipeline that owns THIS node (by node.id, not sessionId —
+	// the same agent can appear in multiple pipelines). Memoized with the
+	// same reasoning as agentPipelines above.
+	const owningPipeline = useMemo(
+		() => pipelines.find((p) => p.nodes.some((n) => n.id === node.id)),
+		[pipelines, node.id]
 	);
 
 	// Detect if this agent has an incoming edge from a GitHub trigger
@@ -357,7 +372,7 @@ export function AgentConfigPanel({
 				theme={theme}
 				incomingAgentEdges={incomingAgentEdges ?? []}
 				onUpdateEdge={onUpdateEdge}
-				pipeline={pipelines.find((p) => p.nodes.some((n) => n.id === node.id))}
+				pipeline={owningPipeline}
 				targetNodeId={node.id}
 			/>
 

@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { computeCommonAncestorPath, isDescendantOrEqual } from '../../shared/cue-path-utils';
 
 describe('computeCommonAncestorPath', () => {
@@ -81,7 +83,18 @@ describe('isDescendantOrEqual', () => {
 describe('cue-path-utils (renderer-safe)', () => {
 	it('does not reference Node built-in modules at import time', async () => {
 		// A pure-JS module imports and evaluates without `require`/`import` of
-		// Node built-ins; this assertion just re-executes the module to confirm.
+		// Node built-ins. Dynamic import alone only catches crashes — a silent
+		// tree-shake could still hide a `path` reference the renderer rejects
+		// at runtime. Assert against the source too so a review can't miss it.
+		const sourcePath = path.resolve(__dirname, '../../shared/cue-path-utils.ts');
+		const source = fs.readFileSync(sourcePath, 'utf-8');
+		// Matches:  from 'path' | from "path" | from 'node:path' | require('path')
+		// Does NOT match comments / strings that happen to include the word `path`.
+		const nodePathImport =
+			/(?:require\(\s*['"]|from\s+['"])(?:node:)?(?:path|fs|os|child_process|stream|zlib|crypto|http|https|net|dns|url)['"]/;
+		expect(source).not.toMatch(nodePathImport);
+
+		// Still import the module so a parse/eval regression surfaces here.
 		await expect(import('../../shared/cue-path-utils')).resolves.toBeDefined();
 	});
 
@@ -96,6 +109,36 @@ describe('cue-path-utils (renderer-safe)', () => {
 
 		it('rejects non-boundary Windows prefix matches', () => {
 			expect(isDescendantOrEqual('C:\\proj2', 'C:\\proj')).toBe(false);
+		});
+	});
+
+	// Regression: the original normalize() used /\\+/g which collapsed the
+	// leading `\\` of UNC paths down to `\`, breaking every downstream
+	// comparison for network shares. The fix preserves the UNC prefix.
+	describe('UNC paths', () => {
+		it('preserves the `\\\\` UNC prefix through normalize', () => {
+			// A path that equals itself is the cheapest proof the prefix
+			// didn't get collapsed — if normalize mangled `\\\\`, this
+			// isDescendantOrEqual call would return false.
+			expect(isDescendantOrEqual('\\\\server\\share\\path', '\\\\server\\share\\path')).toBe(true);
+		});
+
+		it('detects descendant under a UNC share', () => {
+			expect(isDescendantOrEqual('\\\\server\\share\\sub', '\\\\server\\share')).toBe(true);
+		});
+
+		it('rejects descendant check across different UNC shares', () => {
+			expect(isDescendantOrEqual('\\\\server\\other\\sub', '\\\\server\\share')).toBe(false);
+		});
+
+		it('computes common ancestor for UNC siblings', () => {
+			expect(computeCommonAncestorPath(['\\\\server\\share\\a', '\\\\server\\share\\b'])).toBe(
+				'\\\\server\\share'
+			);
+		});
+
+		it('treats a bare UNC root as its own common ancestor', () => {
+			expect(computeCommonAncestorPath(['\\\\server\\share'])).toBe('\\\\server\\share');
 		});
 	});
 });

@@ -72,9 +72,19 @@ describe('pipeline-layout-store — v1 → v2 migration', () => {
 			selectedPipelineId: 'p1',
 			viewport: { x: 10, y: 20, zoom: 1.5 },
 		});
-		// Preserves the original top-level fields as v1 fallback
-		expect(loaded!.selectedPipelineId).toBe('p1');
-		expect(loaded!.viewport).toEqual({ x: 10, y: 20, zoom: 1.5 });
+		// The v1 top-level fields are stripped after migration so re-saves
+		// can't drift out of sync with the authoritative perProject entries.
+		expect(loaded!.selectedPipelineId).toBeNull();
+		expect(loaded!.viewport).toBeUndefined();
+	});
+
+	it('returns null for JSON that parses to non-object values', () => {
+		// Ensures corrupt-but-valid JSON (null / array / primitive) doesn't
+		// crash the migrator on property access — we treat them as absent.
+		for (const contents of ['null', '[]', '"just a string"', '42', 'true']) {
+			fs.writeFileSync(path.join(scratchDir, 'cue-pipeline-layout.json'), contents, 'utf-8');
+			expect(loadPipelineLayout()).toBeNull();
+		}
 	});
 
 	it('leaves v2 files alone on load', () => {

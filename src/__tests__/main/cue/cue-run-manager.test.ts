@@ -488,11 +488,13 @@ describe('createCueRunManager', () => {
 			// DB status MUST be updated to the final result state so the
 			// activity log doesn't show a phantom never-ending run.
 			expect(safeUpdateCueEventStatus).toHaveBeenCalledWith(expect.any(String), 'completed');
-			// And a log should explain the run was recorded post-stop so
-			// operators can tell this apart from a normal completion.
+			// And a log should explain the run was recorded post-stop AND
+			// include the structured runFinished payload so the renderer
+			// observes the transition identically to a normal completion.
 			expect(deps.onLog).toHaveBeenCalledWith(
 				'cue',
-				expect.stringContaining('completed after engine stop')
+				expect.stringContaining('completed after engine stop'),
+				expect.objectContaining({ type: 'runFinished', status: 'completed' })
 			);
 		});
 

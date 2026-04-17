@@ -57,7 +57,22 @@ function migrateLegacyLayout(layout: PipelineLayoutState): PipelineLayoutState {
 		}
 	}
 
-	return { ...layout, version: 2, perProject };
+	// Strip the legacy top-level fields now that we've folded them into
+	// `perProject`. Leaving them in place meant every save re-serialized
+	// stale values that drifted out of sync with the per-project entries,
+	// and re-opening in a new build would re-migrate the stale copies.
+	const { selectedPipelineId: _legacySelected, viewport: _legacyViewport, ...rest } = layout;
+	void _legacySelected;
+	void _legacyViewport;
+	return {
+		...rest,
+		version: 2,
+		// Preserve selectedPipelineId on the return type (it's required, not
+		// optional, to keep v1 readers compiling) but set it to null since
+		// the authoritative value now lives under perProject.
+		selectedPipelineId: null,
+		perProject,
+	};
 }
 
 export function savePipelineLayout(layout: PipelineLayoutState): void {
@@ -79,8 +94,24 @@ export function loadPipelineLayout(): PipelineLayoutState | null {
 	}
 	try {
 		const content = fs.readFileSync(filePath, 'utf-8');
-		const parsed = JSON.parse(content) as PipelineLayoutState;
-		return migrateLegacyLayout(parsed);
+		const parsed = JSON.parse(content) as unknown;
+		// Defend against valid-JSON-but-wrong-shape files: `null`, arrays,
+		// strings, and primitives all parse successfully but would crash
+		// migrateLegacyLayout's spread/property access. Treat them as if
+		// the file didn't exist — a fresh empty state is safer than a hard
+		// error on app launch.
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			captureException(new Error('pipeline layout JSON was not a plain object'), {
+				extra: {
+					filePath,
+					operation: 'cue.loadPipelineLayout',
+					reason: 'invalid parsed type',
+					parsedType: Array.isArray(parsed) ? 'array' : typeof parsed,
+				},
+			});
+			return null;
+		}
+		return migrateLegacyLayout(parsed as PipelineLayoutState);
 	} catch (error) {
 		const err = error instanceof Error ? error : new Error(String(error));
 		captureException(err, { extra: { filePath, operation: 'cue.loadPipelineLayout' } });
