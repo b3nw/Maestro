@@ -86,6 +86,11 @@ export function mergeUpstreamForwarded(
 ): Record<string, string> {
 	if (!upstreamForwarded) return forwardedOutputs;
 	const forwardSet = sub.forward_output_from ? new Set(sub.forward_output_from) : null;
+	// Invariant: `forwardedOutputs` has already been filtered by
+	// `buildFilteredOutputs` against this same `sub.forward_output_from`, so
+	// every entry copied from it into `merged` is already allow-listed. We
+	// don't re-check it here — only the `upstreamForwarded` entries need the
+	// forwardSet filter applied.
 	const merged = { ...forwardedOutputs };
 	for (const [name, output] of Object.entries(upstreamForwarded)) {
 		if (!forwardSet || forwardSet.has(name)) {

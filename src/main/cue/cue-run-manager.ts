@@ -322,8 +322,15 @@ export function createCueRunManager(deps: CueRunManagerDeps): CueRunManager {
 					});
 					outputStatus = outputResult.status;
 				} finally {
+					// Use the raw (throwing) updateCueEventStatus with our own
+					// try/catch so the Sentry `operation` tag is specific to
+					// this call site — distinguishing "output-phase finalize
+					// failed" from generic "status update failed" when
+					// triaging reports. The `safe*` wrappers tag everything
+					// as `safeUpdateCueEventStatus`, which is too coarse to
+					// tell this failure mode apart from a normal run update.
 					try {
-						safeUpdateCueEventStatus(outputRunId, outputStatus);
+						updateCueEventStatus(outputRunId, outputStatus);
 					} catch (finalizeErr) {
 						captureException(finalizeErr, {
 							operation: 'cue:finalizeOutputRunStatus',

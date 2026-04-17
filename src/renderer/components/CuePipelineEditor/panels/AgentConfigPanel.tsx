@@ -22,6 +22,7 @@ import type { IncomingTriggerEdgeInfo } from './NodeConfigPanel';
 import { EdgePromptRow } from './EdgePromptRow';
 import { CueSelect } from './CueSelect';
 import { UpstreamSourcesPanel } from './UpstreamSourcesPanel';
+import { computeTransitiveUpstream } from '../utils/transitiveUpstream';
 import { getInputStyle, getLabelStyle } from './triggers/triggerConfigStyles';
 
 interface AgentConfigPanelProps {
@@ -102,27 +103,48 @@ export function AgentConfigPanel({
 		[debouncedUpdateOutput]
 	);
 
-	// Find which pipelines contain this agent. Memoized so the derived value
-	// stays referentially stable across renders — UpstreamSourcesPanel treats
-	// the `pipeline` prop as identity-stable, and a fresh object on each
-	// render would defeat its memoization downstream.
-	const agentPipelines = useMemo(
-		() =>
-			pipelines.filter((p) =>
-				p.nodes.some(
-					(n) => n.type === 'agent' && (n.data as AgentNodeData).sessionId === data.sessionId
-				)
-			),
-		[pipelines, data.sessionId]
-	);
+	// Single pass over `pipelines` derives both values we need downstream:
+	//   - `owningPipeline`: the pipeline containing THIS node by node.id.
+	//     UpstreamSourcesPanel treats its `pipeline` prop as identity-stable,
+	//     so we memoize to avoid defeating its downstream memoization with a
+	//     fresh object each render.
+	//   - `agentPipelines`: every pipeline containing this AGENT (by
+	//     sessionId). The same agent can appear in multiple pipelines, so
+	//     this is a superset of `owningPipeline`.
+	// Previously these were two separate `useMemo` calls that each scanned
+	// `pipelines` independently — merging them halves the work.
+	const { owningPipeline, agentPipelines } = useMemo(() => {
+		let owning: CuePipeline | undefined;
+		const matching: CuePipeline[] = [];
+		for (const p of pipelines) {
+			let ownsThisNode = false;
+			let containsAgent = false;
+			for (const n of p.nodes) {
+				if (n.id === node.id) ownsThisNode = true;
+				if (n.type === 'agent' && (n.data as AgentNodeData).sessionId === data.sessionId) {
+					containsAgent = true;
+				}
+				if (ownsThisNode && containsAgent) break;
+			}
+			if (ownsThisNode && !owning) owning = p;
+			if (containsAgent) matching.push(p);
+		}
+		return { owningPipeline: owning, agentPipelines: matching };
+	}, [pipelines, node.id, data.sessionId]);
 
-	// The specific pipeline that owns THIS node (by node.id, not sessionId —
-	// the same agent can appear in multiple pipelines). Memoized with the
-	// same reasoning as agentPipelines above.
-	const owningPipeline = useMemo(
-		() => pipelines.find((p) => p.nodes.some((n) => n.id === node.id)),
-		[pipelines, node.id]
+	// Forwarded upstream sources — these agents relay output through an
+	// intermediate node rather than having a direct edge. The layout and
+	// input-prompt hints treat direct + forwarded identically (both expose
+	// per-source template variables and render the UpstreamSourcesPanel),
+	// so we compute this once here and derive `hasAnyUpstream` from it.
+	const forwardedUpstream = useMemo(
+		() =>
+			owningPipeline
+				? computeTransitiveUpstream(owningPipeline, node.id).filter((r) => !r.isDirect)
+				: [],
+		[owningPipeline, node.id]
 	);
+	const hasAnyUpstream = !!hasIncomingAgentEdges || forwardedUpstream.length > 0;
 
 	// Detect if this agent has an incoming edge from a GitHub trigger
 	const hasGitHubTrigger = agentPipelines.some((p) => {
@@ -185,9 +207,12 @@ export function AgentConfigPanel({
 					// When upstream-sources or fan-in cards sit below, the prompts
 					// row must not greedily eat all available height. Use flex: 1
 					// with a sane minHeight so the row shrinks and the panel scrolls
-					// if needed, keeping the cards reachable.
+					// if needed, keeping the cards reachable. `hasAnyUpstream` —
+					// not just direct edges — because UpstreamSourcesPanel also
+					// renders when only forwarded sources exist, and the layout
+					// must reserve space for it in that case too.
 					flex: 1,
-					minHeight: hasIncomingAgentEdges ? 100 : 0,
+					minHeight: hasAnyUpstream ? 100 : 0,
 					minWidth: 0,
 				}}
 			>
@@ -267,8 +292,12 @@ export function AgentConfigPanel({
 								placeholder={
 									hasIncomingAgentEdges && incomingAgentEdges?.some((e) => e.includeUpstreamOutput)
 										? 'Optional — upstream output is auto-included. Add instructions to guide how the agent processes it.'
-										: hasIncomingAgentEdges
-											? 'Instructions for this agent. Use per-source variables from the card below.'
+										: hasAnyUpstream
+											? // Direct AND forwarded-only cases both show the upstream
+												// card below, so the "use per-source variables" hint
+												// applies equally — forwarded sources are reached via
+												// {{CUE_FORWARDED_<NAME>}} vars listed in the card.
+												'Instructions for this agent. Use per-source variables from the card below.'
 											: hasGitHubTrigger
 												? 'Use {{CUE_GH_URL}}, {{CUE_GH_NUMBER}}, {{CUE_GH_TITLE}}, {{CUE_GH_BODY}} etc. for GitHub context...'
 												: 'Prompt sent when this agent receives data from the pipeline...'

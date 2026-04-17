@@ -75,10 +75,14 @@ describe('watchCueConfigFile torn-flag guard', () => {
 		// change could re-trigger refreshSession on a session that no longer
 		// exists.
 		const onChange = vi.fn();
-		const cleanup = watchCueConfigFile(projectRoot, onChange);
-
-		// Give chokidar a moment to register the watcher paths.
-		await new Promise((resolve) => setTimeout(resolve, 50));
+		// Deterministic setup: wait for chokidar's 'ready' event via the
+		// opt-in hook instead of sleeping on a timer. The prior 50ms sleep
+		// raced with chokidar's initial scan on slow CI runners and made
+		// this assertion trivially pass when no change event ever fired.
+		let cleanup!: () => void;
+		await new Promise<void>((resolve) => {
+			cleanup = watchCueConfigFile(projectRoot, onChange, { onReady: resolve });
+		});
 
 		// Trigger a real change so the debounced callback is scheduled — this
 		// exercises the path the torn flag actually protects. Writing the
@@ -96,13 +100,30 @@ describe('watchCueConfigFile torn-flag guard', () => {
 		expect(onChange).not.toHaveBeenCalled();
 	});
 
-	it('cleanup is idempotent', () => {
+	it('cleanup is idempotent and does not leak an unhandled rejection', async () => {
 		const onChange = vi.fn();
 		const cleanup = watchCueConfigFile(projectRoot, onChange);
-		cleanup();
-		// Calling cleanup twice should not throw even though chokidar.close()
-		// has already run.
-		expect(() => cleanup()).not.toThrow();
+
+		// chokidar.close() returns a Promise. We don't await it, so any
+		// rejection on a double-close would surface as an unhandled rejection
+		// rather than a synchronous throw — watch for both.
+		const unhandled: unknown[] = [];
+		const onUnhandled = (event: { reason?: unknown } | PromiseRejectionEvent) => {
+			unhandled.push((event as { reason?: unknown }).reason);
+		};
+		process.on('unhandledRejection', onUnhandled);
+
+		try {
+			cleanup();
+			// Second call must not throw synchronously…
+			expect(() => cleanup()).not.toThrow();
+			// …and must not produce an async rejection either. Give the
+			// microtask queue a tick to surface one if it's going to.
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			expect(unhandled).toEqual([]);
+		} finally {
+			process.off('unhandledRejection', onUnhandled);
+		}
 	});
 });
 

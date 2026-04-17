@@ -185,8 +185,18 @@ export function pruneOrphanedPromptFiles(
  * `watcher.close()` (chokidar emits an `unlink` for in-flight events on some
  * platforms) is rejected — preventing a stale watcher from triggering a
  * refresh on a session that has been torn down or re-registered.
+ *
+ * `opts.onReady` fires once chokidar finishes its initial scan — use it in
+ * tests so they don't have to sleep on a timer while chokidar registers
+ * watched paths (that sleep was a flakiness source on slow CI runners).
+ * Production callers can ignore the opt; file changes before `ready` are
+ * uncommon for config reloads triggered by the user.
  */
-export function watchCueConfigFile(projectRoot: string, onChange: () => void): () => void {
+export function watchCueConfigFile(
+	projectRoot: string,
+	onChange: () => void,
+	opts?: { onReady?: () => void }
+): () => void {
 	const canonicalPath = path.join(projectRoot, CUE_CONFIG_PATH);
 	const legacyPath = path.join(projectRoot, LEGACY_CUE_CONFIG_PATH);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -212,6 +222,9 @@ export function watchCueConfigFile(projectRoot: string, onChange: () => void): (
 	watcher.on('add', debouncedOnChange);
 	watcher.on('change', debouncedOnChange);
 	watcher.on('unlink', debouncedOnChange);
+	if (opts?.onReady) {
+		watcher.once('ready', opts.onReady);
+	}
 
 	return () => {
 		torn = true;
