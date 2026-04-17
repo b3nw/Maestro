@@ -44,6 +44,52 @@ Read or change any Maestro setting or per-agent configuration. Changes take effe
 
 For per-agent overrides (e.g., `nudge`, `model`, `effort`, `customArgs`), use `settings agent set <agent-id> <key> <value>` — those override the global value for that one agent only.
 
+#### Encore Features (gated capabilities)
+
+Several optional surfaces ship behind feature flags so users opt in deliberately. The flags live under `encoreFeatures.*` and gate four capabilities:
+
+| Flag                           | Surface                 | Status | One-line pitch                                                                                                                              |
+| ------------------------------ | ----------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `encoreFeatures.maestroCue`    | Maestro Cue automation  | Beta   | Event-driven automation — trigger agent prompts on timers, file changes, agent completions, GitHub PRs/issues, pending tasks, and CLI hooks |
+| `encoreFeatures.directorNotes` | Director's Notes        | Beta   | Unified history view across all sessions plus AI-generated synopses of recent activity                                                      |
+| `encoreFeatures.symphony`      | Maestro Symphony        | Stable | Contribute to open source projects through curated playbook registries                                                                      |
+| `encoreFeatures.usageStats`    | Usage & Stats Dashboard | Stable | Track queries, Auto Run sessions, model usage, and view the Usage Dashboard                                                                 |
+
+**Gating workflow.** When the user describes an intent that maps to one of these surfaces:
+
+1. **Check** — `maestro-cli settings get encoreFeatures.<flag>`. If `true`, proceed.
+2. **Pitch** — if `false`, do NOT silently enable the feature. Tell the user what they're asking for needs an Encore feature, give a brief pitch from the per-flag copy below, and offer to enable it. Frame it as a one-command opt-in, not a setup chore.
+3. **Enable on confirm** — `maestro-cli settings set encoreFeatures.<flag> true`. Effect is instant — no restart.
+4. **Verify and continue** — re-read with `settings get`, then carry out the original request.
+
+If the user declines, offer a fallback (e.g., for "remind me every morning" without Cue, suggest a manual reminder pattern or a one-shot `maestro-cli send` triggered later).
+
+**Per-flag pitch copy** (adapt to the actual request — don't read verbatim):
+
+- **Maestro Cue:** "What you're asking for is event-driven automation — Maestro can do this natively, but it lives behind an Encore feature called **Maestro Cue** that's currently disabled. Cue lets you wire any agent to fire on a schedule, when a file changes, when another agent finishes, when a PR opens, or when pending `- [ ]` tasks pile up in a watched file. The whole config is one YAML file at the project root, and changes hot-reload — no restart. I can flip it on for you in one command and then build the [time-based / file-watch / chained] subscription you described. Want me to enable it?"
+  Trigger phrases: "every morning", "every Friday", "every N minutes", "remind me", "watch this file", "when this PR opens", "after agent X finishes", "kick off when…".
+- **Director's Notes:** "I can pull a unified view of what your fleet has been doing, but the cross-agent history view and AI-generated daily synopsis live behind an Encore feature called **Director's Notes**, which is currently off. With it on, I can give you a real briefing — what each agent shipped today, what's still in flight, and a short AI summary you can read in 30 seconds. Want me to enable it?"
+  Trigger phrases: "summarize today", "what did the fleet do", "give me a briefing", "what changed across agents", "weekly recap".
+- **Maestro Symphony:** "What you're describing taps into **Maestro Symphony**, an Encore feature for browsing and contributing to curated open-source playbook registries. It's currently disabled. Turn it on and you can pull community-vetted playbooks straight into your fleet, or publish your own. Want me to enable it?"
+  Trigger phrases: "contribute to open source", "find a playbook for X", "browse playbooks", "publish my playbook".
+- **Usage & Stats:** "I can track that for you, but the Usage & Stats Dashboard — token use, session counts, Auto Run timing — is an Encore feature called **Usage & Stats** and it's currently off. Enabling it also turns on the underlying stats collection so you'll have real numbers to look at next time. Want me to flip it on?"
+  Trigger phrases: "how much have I used", "token usage", "show my stats", "model spend", "usage dashboard", "how long was that run".
+
+**Toggle commands.** Set each flag individually with dot-notation (auto-detects boolean):
+
+```bash
+maestro-cli settings set encoreFeatures.maestroCue true
+maestro-cli settings set encoreFeatures.directorNotes true
+```
+
+Or set the whole object at once (positional value parsed as JSON because it starts with `{`):
+
+```bash
+maestro-cli settings set encoreFeatures '{"maestroCue":true,"directorNotes":true,"symphony":false,"usageStats":true}'
+```
+
+Reverse with `false` or `maestro-cli settings reset encoreFeatures.<flag>`.
+
 ### Send Message to Agent
 
 Send a message to another agent and receive a JSON response. Useful for inter-agent coordination.
@@ -154,7 +200,7 @@ Unified history and AI-generated synopses across all agents.
 
 ### Prompts (Self-Reference)
 
-Read Maestro's own system prompts. Agents use this to follow `{{REF:_name}}` pointers in their context — the parent prompt gives a one-line hint, the agent fetches the full include on demand.
+Read Maestro's own system prompts. `{{REF:_name}}` pointers in a parent prompt expand to nothing more than the bundled file's absolute on-disk path; the agent reads the file directly. Use the CLI here when you need the **customized** version (i.e., honors edits made in Settings → Maestro Prompts) rather than the bundled default.
 
 ```bash
 # List every available prompt id with description

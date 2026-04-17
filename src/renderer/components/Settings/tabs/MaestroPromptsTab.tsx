@@ -167,15 +167,24 @@ function PromptsHelpPanel({ theme, onClose }: { theme: Theme; onClose?: () => vo
 					>
 						{'{{REF:name}}'}
 					</code>{' '}
-					expands to a one-line pointer telling the agent how to fetch the include on demand via{' '}
+					expands to the absolute on-disk path of the bundled{' '}
+					<code
+						className="prompts-help-code"
+						style={{ backgroundColor: theme.colors.bgMain, color: theme.colors.accent }}
+					>
+						.md
+					</code>{' '}
+					(native separators for the host OS) — nothing else, no description or formatting. Wrap the
+					directive with whatever prose, list markers, or context you want; the agent reads the file
+					directly. Use this for heavy reference material only some sessions need. The path resolves
+					to bundled content; to honor your customizations on this tab, agents should fetch via{' '}
 					<code
 						className="prompts-help-code"
 						style={{ backgroundColor: theme.colors.bgMain, color: theme.colors.accent }}
 					>
 						maestro-cli prompts get &lt;name&gt;
-					</code>
-					. Use this for heavy reference material only some sessions need — it keeps the parent
-					prompt small and lets the agent pull the detail when relevant.
+					</code>{' '}
+					instead.
 				</p>
 			</div>
 

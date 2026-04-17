@@ -14,10 +14,13 @@
  * Directives:
  * - {{INCLUDE:name}} — full inlining. Resolves recursively (max depth 3) with cycle detection.
  *   Use for foundational content the recipient must always have (e.g., file-access rules).
- * - {{REF:name}} — pointer-style. Expands to a one-line bullet with the include's description
- *   plus a `maestro-cli prompts get <name>` fetch instruction. Use for heavy reference material
- *   the agent only needs in some sessions; keeps the parent prompt small and lets the agent
- *   self-fetch on demand.
+ * - {{REF:name}} — expands to just the absolute on-disk path of the bundled `.md`, in the host
+ *   OS's native separator format. Nothing else — no bullet, no description, no quoting. Authors
+ *   wrap the directive with whatever surrounding prose, list markers, or context they want.
+ *   Use for heavy reference material the agent only needs in some sessions; the agent reads the
+ *   file on demand. NOTE: the path serves the bundled file, not user customizations from
+ *   Settings → Maestro Prompts. Agents that need customization-aware content should fetch via
+ *   `maestro-cli prompts get <name>` instead.
  */
 
 import { app } from 'electron';
@@ -318,14 +321,18 @@ const REF_PATTERN = /\{\{REF:([a-zA-Z0-9_-]+)\}\}/g;
 const MAX_INCLUDE_DEPTH = 3;
 
 /**
- * Expand {{REF:name}} into a single-line pointer the agent can act on. The
- * description is sourced from CORE_PROMPTS so updating the registry keeps
- * pointers in sync. Refs are resolved before includes and are not recursive —
- * a ref produces literal text, not a fetch the resolver follows.
+ * Expand {{REF:name}} into the absolute on-disk path of the bundled `.md`.
+ * `path.resolve` guarantees an absolute path on every OS and emits native
+ * separators (`/` on macOS/Linux, `\` on Windows). Nothing else is emitted —
+ * authors supply their own surrounding prose. Refs are resolved before
+ * includes and are not recursive: a ref produces literal text, not a fetch
+ * the resolver follows.
  */
 function resolveRefs(content: string): string {
 	if (!REF_PATTERN.test(content)) return content;
 	REF_PATTERN.lastIndex = 0;
+
+	const promptsPath = getBundledPromptsPath();
 
 	return content.replace(REF_PATTERN, (match, name: string) => {
 		const def = CORE_PROMPTS.find((p) => p.id === name);
@@ -333,7 +340,7 @@ function resolveRefs(content: string): string {
 			logger.warn(`REF target not found in registry: ${name}`, LOG_CONTEXT);
 			return match;
 		}
-		return `- **\`${name}\`** — ${def.description}. Fetch with \`maestro-cli prompts get ${name}\`.`;
+		return path.resolve(promptsPath, def.filename);
 	});
 }
 

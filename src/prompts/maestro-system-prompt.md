@@ -22,12 +22,12 @@ The reference material below is split into focused includes. The TOC enumerates 
 
 ### Pointer-style includes
 
-Pull these only when the task touches the relevant area:
+Pull these only when the task touches the relevant area. Each path below points at a bundled `.md`; read it with your file tools when the TOC above tells you it's relevant.
 
-{{REF:_documentation-index}}
-{{REF:_autorun-playbooks}}
-{{REF:_maestro-cli}}
-{{REF:_maestro-cue}}
+- External docs index: {{REF:_documentation-index}}
+- Auto Run / Playbooks reference: {{REF:_autorun-playbooks}}
+- `maestro-cli` full reference: {{REF:_maestro-cli}}
+- Maestro Cue (automation) reference: {{REF:_maestro-cue}}
 
 ## Full Interface Access
 

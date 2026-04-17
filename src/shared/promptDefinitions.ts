@@ -206,7 +206,7 @@ export const CORE_PROMPTS: PromptDefinition[] = [
 		id: '_maestro-cli',
 		filename: '_maestro-cli.md',
 		description:
-			'Full `maestro-cli` reference: settings, send, list/show, agents, ssh-remotes, auto-run, playbooks, cue, director-notes, prompts, status, open-file, refresh-files, refresh-auto-run',
+			'Full `maestro-cli` reference: settings (incl. the Encore feature flags gating workflow + pitch copy), send, list/show, agents, ssh-remotes, auto-run, playbooks, cue, director-notes, prompts, status, open-file, refresh-files, refresh-auto-run',
 		category: 'includes',
 	},
 	{

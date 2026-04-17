@@ -7,7 +7,7 @@ Master index of Maestro prompt includes. Agents: scan this to discover what refe
 Two assembly directives shape what reaches you:
 
 - `{{INCLUDE:name}}` — fully inlined into the parent prompt before delivery. You already have the content.
-- `{{REF:name}}` — replaced with a one-line pointer. Fetch on demand: `maestro-cli prompts get <name>` (add `--json` for metadata + content). Honors any user customizations made in Settings → Maestro Prompts.
+- `{{REF:name}}` — replaced with the absolute on-disk path of the bundled `.md` (native separators for the host OS). Nothing else is emitted; the parent prompt supplies any surrounding prose. Read the file directly with your file tools. **Note:** the path serves bundled content — to honor user customizations from Settings → Maestro Prompts, fetch via `maestro-cli prompts get <name>` instead.
 
 | Include                 | Covers                                                                                                                                                                                                  | Pull when...                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
