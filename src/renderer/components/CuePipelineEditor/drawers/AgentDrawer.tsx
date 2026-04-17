@@ -31,16 +31,10 @@ function handleDragStart(e: React.DragEvent, session: AgentSessionInfo) {
 	e.dataTransfer.effectAllowed = 'move';
 }
 
-function handleCommandDragStart(e: React.DragEvent, session: AgentSessionInfo) {
-	e.stopPropagation();
-	e.dataTransfer.setData(
-		'application/cue-pipeline',
-		JSON.stringify({
-			type: 'command',
-			owningSessionId: session.id,
-			owningSessionName: session.name,
-		})
-	);
+function handleStandaloneCommandDragStart(e: React.DragEvent) {
+	// Unbound command: user picks the owning session in the config panel after
+	// dropping. The drop handler creates a CommandNode with owningSessionId=''.
+	e.dataTransfer.setData('application/cue-pipeline', JSON.stringify({ type: 'command' }));
 	e.dataTransfer.effectAllowed = 'move';
 }
 
@@ -192,6 +186,66 @@ export const AgentDrawer = memo(function AgentDrawer({
 
 			{/* Agent list */}
 			<div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 8px' }}>
+				{/* Nodes section — drag the Command pill to add an unbound command
+				 *  node (shell or maestro-cli). The owning agent is picked in the
+				 *  node's config panel after drop. Hidden when the user is searching
+				 *  to avoid clutter. */}
+				{!search.trim() && (
+					<div style={{ marginBottom: 4 }}>
+						<div
+							style={{
+								color: theme.colors.textDim,
+								fontSize: 10,
+								fontWeight: 600,
+								textTransform: 'uppercase',
+								letterSpacing: '0.05em',
+								padding: '8px 4px 4px',
+							}}
+						>
+							Nodes
+						</div>
+						<div
+							data-testid="command-pill"
+							draggable
+							onDragStart={handleStandaloneCommandDragStart}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 8,
+								padding: '8px 10px',
+								marginBottom: 4,
+								borderRadius: 6,
+								backgroundColor: theme.colors.bgActivity,
+								borderLeft: `3px solid ${theme.colors.warning}`,
+								cursor: 'grab',
+								transition: 'filter 0.15s',
+							}}
+							onMouseEnter={(e) => {
+								(e.currentTarget as HTMLElement).style.filter = 'brightness(1.2)';
+							}}
+							onMouseLeave={(e) => {
+								(e.currentTarget as HTMLElement).style.filter = 'brightness(1)';
+							}}
+						>
+							<Terminal size={14} style={{ color: theme.colors.warning, flexShrink: 0 }} />
+							<div style={{ flex: 1, minWidth: 0 }}>
+								<div
+									style={{
+										color: theme.colors.textMain,
+										fontSize: 12,
+										fontWeight: 500,
+									}}
+								>
+									Command
+								</div>
+								<div style={{ color: theme.colors.textDim, fontSize: 10 }}>
+									shell or maestro-cli
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+
 				{Array.from(grouped.entries()).map(([key, { label, sessions: agents }]) => (
 					<div key={key}>
 						{grouped.size > 1 && (
@@ -251,33 +305,6 @@ export const AgentDrawer = memo(function AgentDrawer({
 											{session.toolType}
 										</div>
 									</div>
-									<div
-										draggable
-										onDragStart={(e) => handleCommandDragStart(e, session)}
-										onClick={(e) => e.stopPropagation()}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											justifyContent: 'center',
-											width: 22,
-											height: 22,
-											borderRadius: 4,
-											backgroundColor: theme.colors.bgMain,
-											border: `1px solid ${theme.colors.border}`,
-											cursor: 'grab',
-											color: theme.colors.textDim,
-											flexShrink: 0,
-										}}
-										title={`Drag to add a command node bound to ${session.name}'s project root`}
-										onMouseEnter={(e) => {
-											(e.currentTarget as HTMLElement).style.color = theme.colors.textMain;
-										}}
-										onMouseLeave={(e) => {
-											(e.currentTarget as HTMLElement).style.color = theme.colors.textDim;
-										}}
-									>
-										<Terminal size={11} />
-									</div>
 									{isOnCanvas && (
 										<div
 											style={{
@@ -322,26 +349,6 @@ export const AgentDrawer = memo(function AgentDrawer({
 						}}
 					>
 						{search ? 'No agents match' : 'No agents available'}
-					</div>
-				)}
-
-				{/* Command nodes: drag the terminal pill on a session row to add a
-				 *  command node bound to that session's project root. Replaces the
-				 *  legacy "CLI Output" item — command nodes can run shell commands
-				 *  or maestro-cli sub-commands like `send`. */}
-				{!search.trim() && filtered.length > 0 && (
-					<div
-						style={{
-							color: theme.colors.textDim,
-							fontSize: 10,
-							padding: '8px 6px 4px',
-							borderTop: `1px solid ${theme.colors.border}`,
-							marginTop: 8,
-							lineHeight: 1.4,
-						}}
-					>
-						Drag the <Terminal size={9} style={{ verticalAlign: 'middle' }} /> on a session row to
-						add a command node (shell or maestro-cli) bound to that project.
 					</div>
 				)}
 			</div>

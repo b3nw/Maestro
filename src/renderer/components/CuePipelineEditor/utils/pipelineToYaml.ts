@@ -125,7 +125,14 @@ export function pipelineToYamlSubscriptions(pipeline: CuePipeline): CueSubscript
 		const directTargets = triggerOutgoing
 			.map((e) => nodeMap.get(e.target))
 			.filter(Boolean) as PipelineNode[];
-		const agentTargets = directTargets.filter((n) => n.type === 'agent' || n.type === 'command');
+		// Filter out unbound commands (no owning session). They can't be serialized
+		// — `agent_id` on the subscription would be empty and the engine rejects
+		// the config. Validation catches this at save time; this is defense-in-depth.
+		const agentTargets = directTargets.filter(
+			(n) =>
+				n.type === 'agent' ||
+				(n.type === 'command' && !!(n.data as CommandNodeData).owningSessionId)
+		);
 
 		if (agentTargets.length === 0) continue;
 
@@ -267,7 +274,12 @@ function buildChain(
 
 	const targets = fromOutgoing
 		.map((e) => nodeMap.get(e.target))
-		.filter((n): n is PipelineNode => n != null && (n.type === 'agent' || n.type === 'command'));
+		.filter(
+			(n): n is PipelineNode =>
+				n != null &&
+				(n.type === 'agent' ||
+					(n.type === 'command' && !!(n.data as CommandNodeData).owningSessionId))
+		);
 
 	if (targets.length === 0) return;
 

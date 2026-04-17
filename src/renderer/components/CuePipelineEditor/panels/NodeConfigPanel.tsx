@@ -15,6 +15,7 @@ import type {
 	AgentNodeData,
 	CommandNodeData,
 	CuePipeline,
+	CuePipelineSessionInfo as SessionInfo,
 	IncomingTriggerEdgeInfo,
 	IncomingAgentEdgeInfo,
 } from '../../../../shared/cue-pipeline-types';
@@ -29,6 +30,9 @@ interface NodeConfigPanelProps {
 	selectedNode: PipelineNode | null;
 	theme: Theme;
 	pipelines: CuePipeline[];
+	/** Available sessions — used by CommandConfigPanel's owning-session picker when
+	 *  the command node was dropped without a pre-bound session. */
+	sessions?: SessionInfo[];
 	hasOutgoingEdge?: boolean;
 	/** Whether the selected agent has incoming edges from other agents (not triggers) */
 	hasIncomingAgentEdges?: boolean;
@@ -62,6 +66,7 @@ export function NodeConfigPanel({
 	selectedNode,
 	theme,
 	pipelines,
+	sessions,
 	hasOutgoingEdge,
 	hasIncomingAgentEdges,
 	incomingAgentEdgeCount,
@@ -304,14 +309,17 @@ export function NodeConfigPanel({
 				)}
 				{isCommand && (
 					<CommandConfigPanel
+						key={selectedNode.id}
 						node={selectedNode}
 						theme={theme}
+						sessions={sessions}
 						onUpdateNode={onUpdateNode}
 						onSwitchToAgent={onSwitchToAgent}
 					/>
 				)}
 				{isAgent && (
 					<AgentConfigPanel
+						key={selectedNode.id}
 						node={selectedNode}
 						theme={theme}
 						pipelines={pipelines}

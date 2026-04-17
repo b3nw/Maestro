@@ -119,4 +119,45 @@ describe('NodeConfigPanel', () => {
 		fireEvent.click(deleteBtn);
 		expect(onDeleteNode).toHaveBeenCalledWith('trigger-1');
 	});
+
+	it('remounts AgentConfigPanel when the selected node changes (prevents debounce race)', () => {
+		// Regression guard for the "switching agents swaps/erases prompts"
+		// bug: without `key={selectedNode.id}`, a pending debounced write from
+		// agent A's panel could commit to agent B after the panel reparents.
+		// The cheapest observable is that the child AgentConfigPanel mock's
+		// text content changes to the new node id — which requires a real
+		// DOM update per render — and that the container's child is the
+		// same element when the SAME id is passed twice (no needless remount).
+		const otherAgent: PipelineNode = {
+			...agentNode,
+			id: 'agent-2',
+			data: {
+				...(agentNode.data as AgentNodeData),
+				sessionName: 'Other Agent',
+				sessionId: 'sess-2',
+			},
+		};
+
+		const { rerender, getByTestId } = render(
+			<NodeConfigPanel
+				selectedNode={agentNode}
+				pipelines={defaultPipelines}
+				theme={darkTheme}
+				onUpdateNode={vi.fn()}
+				onDeleteNode={vi.fn()}
+			/>
+		);
+		expect(getByTestId('agent-config').textContent).toBe('agent-1');
+
+		rerender(
+			<NodeConfigPanel
+				selectedNode={otherAgent}
+				pipelines={defaultPipelines}
+				theme={darkTheme}
+				onUpdateNode={vi.fn()}
+				onDeleteNode={vi.fn()}
+			/>
+		);
+		expect(getByTestId('agent-config').textContent).toBe('agent-2');
+	});
 });

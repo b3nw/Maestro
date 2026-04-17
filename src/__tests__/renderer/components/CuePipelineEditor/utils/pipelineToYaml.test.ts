@@ -1412,4 +1412,80 @@ describe('command node serialization', () => {
 		expect(cmdSub!.source_session).toBe('researcher');
 		expect(cmdSub!.command).toEqual({ mode: 'shell', shell: 'echo done >> log.txt' });
 	});
+
+	describe('unbound command nodes', () => {
+		it('excludes unbound commands dropped from the standalone pill', () => {
+			// Pipeline validation flags this case at save time; this is a
+			// defense-in-depth check that YAML output never contains a
+			// subscription with an empty agent_id. Without the filter the engine
+			// would reject the whole config on load.
+			const pipeline = makePipeline({
+				nodes: [
+					{
+						id: 't1',
+						type: 'trigger',
+						position: { x: 0, y: 0 },
+						data: {
+							eventType: 'time.heartbeat',
+							label: 'tick',
+							config: { interval_minutes: 1 },
+						},
+					},
+					{
+						id: 'cmd1',
+						type: 'command',
+						position: { x: 300, y: 0 },
+						data: {
+							name: 'unbound-lint',
+							mode: 'shell',
+							shell: 'npm run lint',
+							owningSessionId: '',
+							owningSessionName: '',
+						},
+					},
+				],
+				edges: [{ id: 'e1', source: 't1', target: 'cmd1', mode: 'pass' }],
+			});
+
+			const subs = pipelineToYamlSubscriptions(pipeline);
+			// Unbound command is filtered; trigger becomes a dangling trigger
+			// with no targets, which also yields no subscriptions.
+			expect(subs).toEqual([]);
+		});
+
+		it('serializes a bound command node normally', () => {
+			const pipeline = makePipeline({
+				nodes: [
+					{
+						id: 't1',
+						type: 'trigger',
+						position: { x: 0, y: 0 },
+						data: {
+							eventType: 'time.heartbeat',
+							label: 'tick',
+							config: { interval_minutes: 1 },
+						},
+					},
+					{
+						id: 'cmd1',
+						type: 'command',
+						position: { x: 300, y: 0 },
+						data: {
+							name: 'bound-lint',
+							mode: 'shell',
+							shell: 'npm run lint',
+							owningSessionId: 's-owner',
+							owningSessionName: 'Lint Owner',
+						},
+					},
+				],
+				edges: [{ id: 'e1', source: 't1', target: 'cmd1', mode: 'pass' }],
+			});
+
+			const subs = pipelineToYamlSubscriptions(pipeline);
+			expect(subs).toHaveLength(1);
+			expect(subs[0].action).toBe('command');
+			expect(subs[0].command).toEqual({ mode: 'shell', shell: 'npm run lint' });
+		});
+	});
 });

@@ -52,7 +52,7 @@ export interface CueSessionRuntimeServiceDeps {
 		event: CueEvent,
 		sourceSessionName: string,
 		chainDepth?: number
-	) => void;
+	) => number;
 	clearQueue: (sessionId: string, preserveStartup?: boolean) => void;
 	clearFanInState: (sessionId: string) => void;
 }

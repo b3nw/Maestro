@@ -316,17 +316,22 @@ export function usePipelineCanvasCallbacks({
 						position,
 						data: agentData,
 					};
-				} else if (dropData.type === 'command' && dropData.owningSessionId) {
+				} else if (dropData.type === 'command') {
+					// Two drop sources:
+					//   1) standalone "Command" pill — no owningSessionId; the user picks
+					//      the owning agent in CommandConfigPanel after dropping.
+					//   2) legacy per-session terminal pill (no longer rendered) — pre-binds.
 					const suffix = Date.now().toString(36).slice(-5);
+					const ownerId = dropData.owningSessionId ?? '';
 					const commandData: CommandNodeData = {
 						name: `${targetPipeline.name}-cmd-${suffix}`,
 						mode: 'shell',
 						shell: '',
-						owningSessionId: dropData.owningSessionId,
-						owningSessionName: dropData.owningSessionName ?? 'Unknown',
+						owningSessionId: ownerId,
+						owningSessionName: dropData.owningSessionName ?? '',
 					};
 					newNode = {
-						id: `command-${dropData.owningSessionId}-${Date.now()}`,
+						id: `command-${ownerId || 'unbound'}-${Date.now()}`,
 						type: 'command',
 						position,
 						data: commandData,

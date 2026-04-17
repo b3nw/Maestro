@@ -407,6 +407,7 @@ export const PipelineCanvas = React.memo(function PipelineCanvas({
 							selectedNode={selectedNode}
 							theme={theme}
 							pipelines={pipelines}
+							sessions={sessions}
 							hasOutgoingEdge={selectedNodeHasOutgoingEdge}
 							hasIncomingAgentEdges={hasIncomingAgentEdges}
 							incomingAgentEdgeCount={incomingAgentEdgeCount}

@@ -132,7 +132,7 @@ export class CueEngine {
 			onLog: deps.onLog,
 			getSessions: deps.getSessions,
 			dispatchSubscription: (ownerSessionId, sub, event, sourceSessionName, chainDepth) => {
-				this.dispatchService.dispatchSubscription(
+				return this.dispatchService.dispatchSubscription(
 					ownerSessionId,
 					sub,
 					event,
@@ -179,7 +179,7 @@ export class CueEngine {
 			onAllowSleep: deps.onAllowSleep,
 			registry: this.registry,
 			dispatchSubscription: (ownerSessionId, sub, event, sourceSessionName, chainDepth) => {
-				this.dispatchService.dispatchSubscription(
+				return this.dispatchService.dispatchSubscription(
 					ownerSessionId,
 					sub,
 					event,
@@ -395,7 +395,10 @@ export class CueEngine {
 	/**
 	 * Manually trigger a subscription by name, bypassing its event conditions.
 	 * Creates a synthetic event and dispatches through the normal execution path.
-	 * Returns true if the subscription was found and triggered.
+	 * Returns true if the subscription was found AND at least one run was queued.
+	 * Returns false if the subscription wasn't found OR every dispatch was skipped
+	 * (e.g. empty prompts on every fan-out target) — callers can surface this to
+	 * the user instead of letting a silent no-op look like a successful trigger.
 	 */
 	triggerSubscription(
 		subscriptionName: string,
@@ -418,7 +421,7 @@ export class CueEngine {
 					`[CUE] "${sub.name}" manually triggered${promptOverride ? ' (with prompt override)' : ''}`
 				);
 				state.lastTriggered = event.timestamp;
-				this.dispatchService.dispatchSubscription(
+				const dispatched = this.dispatchService.dispatchSubscription(
 					sessionId,
 					sub,
 					event,
@@ -426,7 +429,7 @@ export class CueEngine {
 					undefined,
 					promptOverride
 				);
-				return true;
+				return dispatched > 0;
 			}
 		}
 		return false;

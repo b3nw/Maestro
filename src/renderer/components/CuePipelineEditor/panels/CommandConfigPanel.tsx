@@ -5,8 +5,10 @@
  *   - shell: arbitrary shell command (PATH-aware, runs in owning session's project root)
  *   - cli: structured maestro-cli call (currently only `send`)
  *
- * Owning session is shown read-only with a "Switch to agent" button. To re-bind
- * the node to a different session, delete and re-drag from the desired session.
+ * The owning session is either pre-bound (when dragged from a session row) or
+ * chosen via a dropdown on the node itself (when dragged from the standalone
+ * "Command" pill). Once bound, the pill shows read-only with a "Switch to agent"
+ * affordance; to re-bind, the user clears the selection via the dropdown.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,14 +18,17 @@ import {
 	CUE_COLOR,
 	type CommandNodeData,
 	type CueCommandMode,
+	type CuePipelineSessionInfo as SessionInfo,
 	type PipelineNode,
 } from '../../../../shared/cue-pipeline-types';
 import { useDebouncedCallback } from '../../../hooks/utils';
 import { getInputStyle, getLabelStyle } from './triggers/triggerConfigStyles';
+import { CueSelect } from './CueSelect';
 
 interface CommandConfigPanelProps {
 	node: PipelineNode;
 	theme: Theme;
+	sessions?: SessionInfo[];
 	onUpdateNode: (nodeId: string, data: Partial<CommandNodeData>) => void;
 	onSwitchToAgent?: (sessionId: string) => void;
 }
@@ -31,6 +36,7 @@ interface CommandConfigPanelProps {
 export function CommandConfigPanel({
 	node,
 	theme,
+	sessions,
 	onUpdateNode,
 	onSwitchToAgent,
 }: CommandConfigPanelProps) {
@@ -48,18 +54,53 @@ export function CommandConfigPanel({
 	useEffect(() => setLocalCliTarget(data.cliTarget ?? ''), [data.cliTarget]);
 	useEffect(() => setLocalCliMessage(data.cliMessage ?? ''), [data.cliMessage]);
 
-	const { debouncedCallback: debouncedSetName } = useDebouncedCallback((...args: unknown[]) => {
-		onUpdateNode(node.id, { name: args[0] as string });
-	}, 300);
-	const { debouncedCallback: debouncedSetShell } = useDebouncedCallback((...args: unknown[]) => {
-		onUpdateNode(node.id, { shell: args[0] as string });
-	}, 300);
-	const { debouncedCallback: debouncedSetTarget } = useDebouncedCallback((...args: unknown[]) => {
-		onUpdateNode(node.id, { cliTarget: args[0] as string });
-	}, 300);
-	const { debouncedCallback: debouncedSetMessage } = useDebouncedCallback((...args: unknown[]) => {
-		onUpdateNode(node.id, { cliMessage: args[0] as string });
-	}, 300);
+	const { debouncedCallback: debouncedSetName, flush: flushName } = useDebouncedCallback(
+		(...args: unknown[]) => {
+			onUpdateNode(node.id, { name: args[0] as string });
+		},
+		300
+	);
+	const { debouncedCallback: debouncedSetShell, flush: flushShell } = useDebouncedCallback(
+		(...args: unknown[]) => {
+			onUpdateNode(node.id, { shell: args[0] as string });
+		},
+		300
+	);
+	const { debouncedCallback: debouncedSetTarget, flush: flushTarget } = useDebouncedCallback(
+		(...args: unknown[]) => {
+			onUpdateNode(node.id, { cliTarget: args[0] as string });
+		},
+		300
+	);
+	const { debouncedCallback: debouncedSetMessage, flush: flushMessage } = useDebouncedCallback(
+		(...args: unknown[]) => {
+			onUpdateNode(node.id, { cliMessage: args[0] as string });
+		},
+		300
+	);
+
+	// Flush any pending edits on unmount. Combined with `key={node.id}` on the
+	// parent render, this guarantees the user's last keystrokes commit to THIS
+	// node before the component is torn down on selection change.
+	useEffect(() => {
+		return () => {
+			flushName();
+			flushShell();
+			flushTarget();
+			flushMessage();
+		};
+	}, [flushName, flushShell, flushTarget, flushMessage]);
+
+	const setOwningSession = useCallback(
+		(sessionId: string) => {
+			const session = sessions?.find((s) => s.id === sessionId);
+			onUpdateNode(node.id, {
+				owningSessionId: sessionId,
+				owningSessionName: session?.name ?? sessionId,
+			});
+		},
+		[node.id, onUpdateNode, sessions]
+	);
 
 	const handleNameChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,49 +185,109 @@ export function CommandConfigPanel({
 				minWidth: 0,
 			}}
 		>
-			{/* Owning session row */}
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 8,
-					padding: '6px 10px',
-					backgroundColor: `${CUE_COLOR}08`,
-					border: `1px solid ${theme.colors.border}`,
-					borderRadius: 6,
-					flexShrink: 0,
-				}}
-			>
-				<Terminal size={12} style={{ color: theme.colors.textDim, flexShrink: 0 }} />
-				<span style={{ fontSize: 11, color: theme.colors.textDim }}>Runs in:</span>
-				<span style={{ fontSize: 12, fontWeight: 500, color: theme.colors.textMain }}>
-					{data.owningSessionName}
-				</span>
-				<span style={{ fontSize: 10, color: theme.colors.textDim, flex: 1 }}>
-					— project root provides cwd and PATH
-				</span>
-				{onSwitchToAgent && (
-					<button
-						onClick={() => onSwitchToAgent(data.owningSessionId)}
-						style={{
-							display: 'inline-flex',
-							alignItems: 'center',
-							gap: 4,
-							padding: '2px 8px',
-							fontSize: 10,
-							color: CUE_COLOR,
-							backgroundColor: 'transparent',
-							border: `1px solid ${CUE_COLOR}40`,
-							borderRadius: 4,
-							cursor: 'pointer',
-							flexShrink: 0,
-						}}
-					>
-						<ExternalLink size={10} />
-						Switch to agent
-					</button>
-				)}
-			</div>
+			{/* Owning session row — picker when unbound, read-only pill once chosen.
+			 *  The "Commands" drawer pill drops nodes with owningSessionId="" so the
+			 *  user picks the owner here. Dragging from a session row pre-binds. */}
+			{data.owningSessionId ? (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 8,
+						padding: '6px 10px',
+						backgroundColor: `${CUE_COLOR}08`,
+						border: `1px solid ${theme.colors.border}`,
+						borderRadius: 6,
+						flexShrink: 0,
+					}}
+				>
+					<Terminal size={12} style={{ color: theme.colors.textDim, flexShrink: 0 }} />
+					<span style={{ fontSize: 11, color: theme.colors.textDim }}>Runs in:</span>
+					<span style={{ fontSize: 12, fontWeight: 500, color: theme.colors.textMain }}>
+						{data.owningSessionName}
+					</span>
+					<span style={{ fontSize: 10, color: theme.colors.textDim, flex: 1 }}>
+						— project root provides cwd and PATH
+					</span>
+					{sessions && sessions.length > 0 && (
+						<button
+							onClick={() => setOwningSession('')}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								padding: '2px 8px',
+								fontSize: 10,
+								color: theme.colors.textDim,
+								backgroundColor: 'transparent',
+								border: `1px solid ${theme.colors.border}`,
+								borderRadius: 4,
+								cursor: 'pointer',
+								flexShrink: 0,
+							}}
+							title="Unbind to pick a different session"
+						>
+							Change
+						</button>
+					)}
+					{onSwitchToAgent && (
+						<button
+							onClick={() => onSwitchToAgent(data.owningSessionId)}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 4,
+								padding: '2px 8px',
+								fontSize: 10,
+								color: CUE_COLOR,
+								backgroundColor: 'transparent',
+								border: `1px solid ${CUE_COLOR}40`,
+								borderRadius: 4,
+								cursor: 'pointer',
+								flexShrink: 0,
+							}}
+						>
+							<ExternalLink size={10} />
+							Switch to agent
+						</button>
+					)}
+				</div>
+			) : (
+				<div
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 4,
+						padding: '8px 10px',
+						backgroundColor: `${theme.colors.warning}08`,
+						border: `1px dashed ${theme.colors.warning}60`,
+						borderRadius: 6,
+						flexShrink: 0,
+					}}
+				>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+						<Terminal size={12} style={{ color: theme.colors.warning, flexShrink: 0 }} />
+						<span style={{ fontSize: 11, fontWeight: 600, color: theme.colors.textMain }}>
+							Choose an owning agent
+						</span>
+					</div>
+					<span style={{ fontSize: 10, color: theme.colors.textDim }}>
+						The owning agent provides the project root (cwd) and PATH used when this command runs.
+						Pick one to continue.
+					</span>
+					<CueSelect
+						value={data.owningSessionId}
+						onChange={(v) => setOwningSession(v)}
+						options={[
+							{ value: '', label: 'Select an agent…' },
+							...(sessions ?? []).map((s) => ({
+								value: s.id,
+								label: `${s.name} · ${s.toolType}`,
+							})),
+						]}
+						theme={theme}
+					/>
+				</div>
+			)}
 
 			{/* Mode toggle */}
 			<div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
