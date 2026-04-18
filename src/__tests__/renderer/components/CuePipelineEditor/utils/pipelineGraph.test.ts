@@ -604,7 +604,7 @@ describe('convertToReactFlowEdges', () => {
 			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a1', 'sess-1', 'Alice')],
 			edges: [makeEdge('e1', 't1', 'a1')],
 		});
-		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, 'p1:e1');
+		const edges = convertToReactFlowEdges([pipeline], 'p1', 'p1:e1');
 		expect(edges[0].selected).toBe(true);
 	});
 
@@ -613,27 +613,39 @@ describe('convertToReactFlowEdges', () => {
 			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a1', 'sess-1', 'Alice')],
 			edges: [makeEdge('e1', 't1', 'a1')],
 		});
-		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, 'p1:e2');
+		const edges = convertToReactFlowEdges([pipeline], 'p1', 'p1:e2');
 		expect(edges[0].selected).toBe(false);
 	});
 
-	it('marks edge data as isRunning when pipeline is in runningPipelineIds', () => {
+	it('marks edge as isRunning when its TARGET agent is currently executing', () => {
 		const pipeline = makePipeline('p1', {
 			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a1', 'sess-1', 'Alice')],
 			edges: [makeEdge('e1', 't1', 'a1')],
 		});
-		const running = new Set(['p1']);
-		const edges = convertToReactFlowEdges([pipeline], 'p1', running);
+		const runningByPipeline = new Map<string, Set<string>>([['p1', new Set(['Alice'])]]);
+		const edges = convertToReactFlowEdges(
+			[pipeline],
+			'p1',
+			undefined,
+			undefined,
+			runningByPipeline
+		);
 		expect((edges[0].data as { isRunning: boolean }).isRunning).toBe(true);
 	});
 
-	it('does not mark edge as running when pipeline is not in runningPipelineIds', () => {
+	it('does not mark edge as running when no agents are running in this pipeline', () => {
 		const pipeline = makePipeline('p1', {
 			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a1', 'sess-1', 'Alice')],
 			edges: [makeEdge('e1', 't1', 'a1')],
 		});
-		const running = new Set(['p2']);
-		const edges = convertToReactFlowEdges([pipeline], 'p1', running);
+		const runningByPipeline = new Map<string, Set<string>>([['p2', new Set(['Alice'])]]);
+		const edges = convertToReactFlowEdges(
+			[pipeline],
+			'p1',
+			undefined,
+			undefined,
+			runningByPipeline
+		);
 		expect((edges[0].data as { isRunning: boolean }).isRunning).toBe(false);
 	});
 
@@ -656,7 +668,7 @@ describe('convertToReactFlowEdges', () => {
 			],
 			edges: [makeEdge('e1', 't1', 'a1'), makeEdge('e2', 'a1', 'a2')],
 		});
-		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, 'p1:e1');
+		const edges = convertToReactFlowEdges([pipeline], 'p1', 'p1:e1');
 		const e1 = edges.find((e) => e.id === 'p1:e1')!;
 		const e2 = edges.find((e) => e.id === 'p1:e2')!;
 		const e1Marker = e1.markerEnd as { width: number; height: number };
@@ -678,6 +690,225 @@ describe('convertToReactFlowEdges', () => {
 		expect(edges).toHaveLength(2);
 		expect(edges.map((e) => e.id)).toContain('p1:e1');
 		expect(edges.map((e) => e.id)).toContain('p2:e2');
+	});
+});
+
+// ─── Edge-animation edge cases (per-agent, not pipeline-wide) ────────────────
+
+describe('convertToReactFlowEdges — per-agent edge animation', () => {
+	// Regression guard for the "all edges animate when ANY run is active" bug.
+	// Rule: an edge animates iff its target is an agent whose sessionName
+	// appears in the pipeline's active-agents set.
+
+	it('linear chain: only the edge feeding the running agent animates', () => {
+		// Pipeline: trigger → A → B → C. Only B is running.
+		// Expected: edge A→B animates, trigger→A and B→C are static.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				makeAgent('b', 'sess-b', 'B'),
+				makeAgent('c', 'sess-c', 'C'),
+			],
+			edges: [makeEdge('e1', 't1', 'a'), makeEdge('e2', 'a', 'b'), makeEdge('e3', 'b', 'c')],
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['B'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+
+		const running01 = (edges.find((e) => e.id === 'p1:e1')!.data as { isRunning: boolean })
+			.isRunning;
+		const running02 = (edges.find((e) => e.id === 'p1:e2')!.data as { isRunning: boolean })
+			.isRunning;
+		const running03 = (edges.find((e) => e.id === 'p1:e3')!.data as { isRunning: boolean })
+			.isRunning;
+		expect(running01).toBe(false);
+		expect(running02).toBe(true);
+		expect(running03).toBe(false);
+	});
+
+	it('linear chain: animation moves forward as the running agent advances', () => {
+		// Simulate two ticks: first A running, then B running, then C running.
+		// At each tick the animating edge shifts one step down the chain.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				makeAgent('b', 'sess-b', 'B'),
+				makeAgent('c', 'sess-c', 'C'),
+			],
+			edges: [makeEdge('e1', 't1', 'a'), makeEdge('e2', 'a', 'b'), makeEdge('e3', 'b', 'c')],
+		});
+
+		const ranges = [
+			{ running: 'A', expect: { 'p1:e1': true, 'p1:e2': false, 'p1:e3': false } },
+			{ running: 'B', expect: { 'p1:e1': false, 'p1:e2': true, 'p1:e3': false } },
+			{ running: 'C', expect: { 'p1:e1': false, 'p1:e2': false, 'p1:e3': true } },
+		];
+		for (const { running: runName, expect: expected } of ranges) {
+			const runningMap = new Map<string, Set<string>>([['p1', new Set([runName])]]);
+			const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, runningMap);
+			for (const [edgeId, expectedRunning] of Object.entries(expected)) {
+				const d = edges.find((e) => e.id === edgeId)!.data as { isRunning: boolean };
+				expect(d.isRunning).toBe(expectedRunning);
+			}
+		}
+	});
+
+	it('fan-out: every edge feeding a running target animates concurrently', () => {
+		// trigger → [A, B, C] and all three are running in parallel → all three edges animate.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				makeAgent('b', 'sess-b', 'B'),
+				makeAgent('c', 'sess-c', 'C'),
+			],
+			edges: [makeEdge('e1', 't1', 'a'), makeEdge('e2', 't1', 'b'), makeEdge('e3', 't1', 'c')],
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['A', 'B', 'C'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+		for (const e of edges) {
+			expect((e.data as { isRunning: boolean }).isRunning).toBe(true);
+		}
+	});
+
+	it('fan-out: only edges to running targets animate when some are still queued', () => {
+		// trigger → [A, B, C]. A is running, B and C are still queued.
+		// Expected: only trigger→A animates.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				makeAgent('b', 'sess-b', 'B'),
+				makeAgent('c', 'sess-c', 'C'),
+			],
+			edges: [makeEdge('e1', 't1', 'a'), makeEdge('e2', 't1', 'b'), makeEdge('e3', 't1', 'c')],
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['A'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+		expect((edges.find((e) => e.id === 'p1:e1')!.data as { isRunning: boolean }).isRunning).toBe(
+			true
+		);
+		expect((edges.find((e) => e.id === 'p1:e2')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+		expect((edges.find((e) => e.id === 'p1:e3')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+	});
+
+	it('fan-in: all incoming edges to the running target animate simultaneously', () => {
+		// [A, B] → C (fan-in). When C is running, both A→C and B→C animate.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				makeAgent('b', 'sess-b', 'B'),
+				makeAgent('c', 'sess-c', 'C'),
+			],
+			edges: [
+				makeEdge('e1', 't1', 'a'),
+				makeEdge('e2', 't1', 'b'),
+				makeEdge('e3', 'a', 'c'),
+				makeEdge('e4', 'b', 'c'),
+			],
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['C'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+		expect((edges.find((e) => e.id === 'p1:e3')!.data as { isRunning: boolean }).isRunning).toBe(
+			true
+		);
+		expect((edges.find((e) => e.id === 'p1:e4')!.data as { isRunning: boolean }).isRunning).toBe(
+			true
+		);
+		// Feeds into A/B (not running) stay static.
+		expect((edges.find((e) => e.id === 'p1:e1')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+		expect((edges.find((e) => e.id === 'p1:e2')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+	});
+
+	it('no animation when no agent is running in the pipeline', () => {
+		const pipeline = makePipeline('p1', {
+			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a', 'sess-a', 'A')],
+			edges: [makeEdge('e1', 't1', 'a')],
+		});
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, new Map());
+		expect((edges[0].data as { isRunning: boolean }).isRunning).toBe(false);
+	});
+
+	it('edges whose target is NOT an agent (cli_output, error) never animate', () => {
+		// Edges pointing at non-agent nodes can't correspond to an active run —
+		// don't animate them even if an agent with a matching name is running.
+		const pipeline = makePipeline('p1', {
+			nodes: [
+				makeTrigger('t1', 'time.heartbeat'),
+				makeAgent('a', 'sess-a', 'A'),
+				{
+					id: 'cli',
+					type: 'cli_output',
+					position: { x: 0, y: 0 },
+					data: { target: 'some-target' } as { target: string },
+				},
+			],
+			edges: [makeEdge('e1', 't1', 'a'), makeEdge('e2', 'a', 'cli')],
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['A'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+		// Edge to A (agent) animates; edge to cli (non-agent) does not.
+		expect((edges.find((e) => e.id === 'p1:e1')!.data as { isRunning: boolean }).isRunning).toBe(
+			true
+		);
+		expect((edges.find((e) => e.id === 'p1:e2')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+	});
+
+	it('multi-pipeline: a run in pipeline A does not animate edges in pipeline B', () => {
+		// Pipeline A and B both contain an agent named "Worker". Only pipeline A
+		// has an active run. Pipeline B's identically-named agent must NOT
+		// have its incoming edge animated — the map is keyed by pipeline id.
+		const pA = makePipeline('pA', {
+			nodes: [makeTrigger('tA', 'time.heartbeat'), makeAgent('a', 'sess-shared', 'Worker')],
+			edges: [makeEdge('eA', 'tA', 'a')],
+		});
+		const pB = makePipeline('pB', {
+			nodes: [makeTrigger('tB', 'time.heartbeat'), makeAgent('b', 'sess-shared', 'Worker')],
+			edges: [makeEdge('eB', 'tB', 'b')],
+		});
+		const running = new Map<string, Set<string>>([['pA', new Set(['Worker'])]]);
+		const edges = convertToReactFlowEdges([pA, pB], null, undefined, undefined, running);
+		expect((edges.find((e) => e.id === 'pA:eA')!.data as { isRunning: boolean }).isRunning).toBe(
+			true
+		);
+		expect((edges.find((e) => e.id === 'pB:eB')!.data as { isRunning: boolean }).isRunning).toBe(
+			false
+		);
+	});
+
+	it('omitted runningAgentsByPipeline means no edges animate (no accidental global fallback)', () => {
+		// Defensive: passing `undefined` must not re-activate a pipeline-wide
+		// animation path. Absence of the argument = "no known running agents".
+		const pipeline = makePipeline('p1', {
+			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a', 'sess-a', 'A')],
+			edges: [makeEdge('e1', 't1', 'a')],
+		});
+		const edges = convertToReactFlowEdges([pipeline], 'p1');
+		expect((edges[0].data as { isRunning: boolean }).isRunning).toBe(false);
+	});
+
+	it('running agent with no incoming edges (hypothetical orphan) does not crash', () => {
+		// Defensive guard: an orphan agent isn't in `pipeline.edges`, so there's
+		// nothing to animate anyway. No edge-level crash.
+		const pipeline = makePipeline('p1', {
+			nodes: [makeTrigger('t1', 'time.heartbeat'), makeAgent('a', 'sess-a', 'A')],
+			edges: [], // no edges
+		});
+		const running = new Map<string, Set<string>>([['p1', new Set(['A'])]]);
+		const edges = convertToReactFlowEdges([pipeline], 'p1', undefined, undefined, running);
+		expect(edges).toEqual([]);
 	});
 });
 

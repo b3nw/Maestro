@@ -295,13 +295,24 @@ export function convertToReactFlowNodes(
  *
  * Edges from non-active pipelines are rendered with `isActivePipeline: false`
  * so the PipelineEdge component can dim them appropriately.
+ *
+ * Edge animation rule: an edge is flagged `isRunning` iff its TARGET is an
+ * agent node whose `sessionName` appears in this pipeline's active-agents
+ * set (`runningAgentsByPipeline`). This makes only the edges feeding into
+ * the currently-executing agent(s) animate — rather than every edge in a
+ * pipeline where any run is active. Works identically for linear chains
+ * (one target per hop), fan-out (multiple targets concurrently), and
+ * fan-in (multiple incoming edges to one running target).
+ *
+ * Non-agent targets (cli_output, error nodes) never animate — they don't
+ * correspond to a dispatchable run.
  */
 export function convertToReactFlowEdges(
 	pipelines: CuePipelineState['pipelines'],
 	selectedPipelineId: string | null,
-	runningPipelineIds?: Set<string>,
 	selectedEdgeId?: string | null,
-	theme?: Theme
+	theme?: Theme,
+	runningAgentsByPipeline?: Map<string, Set<string>>
 ): Edge[] {
 	const edges: Edge[] = [];
 
@@ -314,10 +325,19 @@ export function convertToReactFlowEdges(
 		// causing them to not re-appear when switching back to All Pipelines view.
 		if (!isActive) continue;
 
-		const isRunning = runningPipelineIds?.has(pipeline.id) ?? false;
+		const runningAgents = runningAgentsByPipeline?.get(pipeline.id);
+		// Build node lookup once per pipeline so the per-edge target lookup is O(1).
+		const nodeById = new Map<string, (typeof pipeline.nodes)[number]>();
+		for (const n of pipeline.nodes) nodeById.set(n.id, n);
 
 		for (const pEdge of pipeline.edges) {
 			const compositeId = `${pipeline.id}:${pEdge.id}`;
+			const targetNode = nodeById.get(pEdge.target);
+			const targetSessionName =
+				targetNode?.type === 'agent' ? (targetNode.data as AgentNodeData).sessionName : undefined;
+			const isRunning =
+				!!targetSessionName && !!runningAgents && runningAgents.has(targetSessionName);
+
 			const edgeData: PipelineEdgeData = {
 				pipelineColor: pipeline.color,
 				mode: pEdge.mode,
