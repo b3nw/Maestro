@@ -372,12 +372,22 @@ export function subscriptionsToPipelines(
 		// swap agents that shared a session name — the "two agents swapped"
 		// bug vector that ID-based `sessionToNode` keying (below) also guards
 		// against.
+		// Fan-in subscriptions terminate a pipeline (they collect from many
+		// upstream sources and converge on a single target). `pipelineToYaml`
+		// emits fan-in subs with the `-chain-N` suffix, but legacy / hand-
+		// written YAML may use the `-fanin` suffix convention instead. Under
+		// that legacy convention, `getChainIndex` returns 0 for `-fanin` names
+		// (no `-chain-N` suffix to parse), which would place them BEFORE
+		// `-chain-1` in the sort — reversing the intended flow. Treat any
+		// `-fanin` suffix as a very high chain index so fan-in always sorts
+		// last among non-initial subs.
+		const isLegacyFanIn = (name: string) => /-fanin$/.test(name);
 		const sorted = [...subs].sort((a, b) => {
 			const aInit = isInitialTrigger(a) ? 0 : 1;
 			const bInit = isInitialTrigger(b) ? 0 : 1;
 			if (aInit !== bInit) return aInit - bInit;
-			const aIdx = getChainIndex(a.name);
-			const bIdx = getChainIndex(b.name);
+			const aIdx = isLegacyFanIn(a.name) ? Number.MAX_SAFE_INTEGER : getChainIndex(a.name);
+			const bIdx = isLegacyFanIn(b.name) ? Number.MAX_SAFE_INTEGER : getChainIndex(b.name);
 			if (aIdx !== bIdx) return aIdx - bIdx;
 			return a.name.localeCompare(b.name);
 		});
@@ -813,6 +823,25 @@ function findTargetSession(
 		const otherIndex = getChainIndex(other.name);
 
 		if (otherKey === pipelineKey && otherIndex === chainIndex + 1) {
+			// Prefer `source_session_ids` when present — it's the stable
+			// identity anchor that survives renames, and using the name
+			// here would re-introduce the silent-swap failure mode that
+			// `resolveChainSourcePositions` already protects against. Look
+			// up the live session by id and return its CURRENT name so the
+			// caller's "return session name" contract is preserved.
+			const sourceIds = Array.isArray(other.source_session_ids)
+				? other.source_session_ids
+				: other.source_session_ids
+					? [other.source_session_ids]
+					: [];
+			if (sourceIds.length > 0) {
+				const matched = sessions.find((s) => s.id === sourceIds[0]);
+				if (matched) return matched.name;
+				// Stable id didn't resolve — fall through to legacy name
+				// resolution rather than silently returning a possibly-
+				// stale legacy name as if it matched.
+			}
+
 			const sources = Array.isArray(other.source_session)
 				? other.source_session
 				: other.source_session

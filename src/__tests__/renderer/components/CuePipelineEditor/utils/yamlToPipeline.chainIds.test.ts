@@ -181,6 +181,31 @@ describe('chain source resolution by stable agent_id', () => {
 		// Downstream agent still wired; Current still present (owns trigger sub);
 		// no silent adoption of the StillPresent agent as the chain source.
 		expect(agentNames).toContain('Downstream');
+
+		// Topology guard: checking node presence alone isn't enough — a buggy
+		// resolver could still render the error node AND wire the Downstream
+		// chain edge to the live StillPresent agent. Walk the downstream
+		// agent's incoming edges and verify none of them originates from the
+		// live-sessionName agent; the only valid source for the chain-1 sub
+		// is the error node.
+		const downstreamNode = pipeline.nodes.find(
+			(n) => n.type === 'agent' && (n.data as { sessionName: string }).sessionName === 'Downstream'
+		);
+		expect(downstreamNode).toBeDefined();
+		const stillPresentNode = pipeline.nodes.find(
+			(n) =>
+				n.type === 'agent' && (n.data as { sessionName: string }).sessionName === 'StillPresent'
+		);
+		const incomingToDownstream = pipeline.edges.filter((e) => e.target === downstreamNode!.id);
+		expect(incomingToDownstream.length).toBeGreaterThan(0);
+		for (const edge of incomingToDownstream) {
+			// Must NOT be adopted from the StillPresent live agent.
+			if (stillPresentNode) {
+				expect(edge.source).not.toBe(stillPresentNode.id);
+			}
+			// AND the only valid source is the emitted error node.
+			expect(edge.source).toBe(sourceError!.id);
+		}
 	});
 
 	it('ID wins over name when both resolve to different sessions', () => {

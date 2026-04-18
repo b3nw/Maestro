@@ -47,6 +47,7 @@ import {
 } from '../../../main/cue/config/cue-config-normalizer';
 import type {
 	AgentNodeData,
+	CueGraphSession,
 	CuePipeline,
 	PipelineEdge,
 	PipelineNode,
@@ -208,7 +209,11 @@ describe('fan-out pipeline survives a save with differing per-agent prompts (reg
 		// `graphSessionsToPipelines` dedupes by name but must still
 		// reconstruct the full pipeline.
 		const sharedSubs = detailed.config.subscriptions;
-		const graphSessions = [
+		// Explicit type annotation so the compiler catches any drift in the
+		// CueGraphSession shape (e.g. a new required field) right here at
+		// the call site rather than at the far-removed `graphSessionsToPipelines`
+		// signature mismatch.
+		const graphSessions: CueGraphSession[] = [
 			{
 				sessionId: 's-codex',
 				sessionName: 'Codex 1',

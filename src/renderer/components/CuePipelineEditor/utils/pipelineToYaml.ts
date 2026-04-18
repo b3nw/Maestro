@@ -216,16 +216,22 @@ export function pipelineToYamlSubscriptions(pipeline: CuePipeline): CueSubscript
 				// array which bloated the YAML and read asymmetrically.
 				sub.prompt = perAgentPrompts[0]; // engine fallback if files go missing
 				sub.fan_out_prompts = perAgentPrompts; // carries content to assembly
-				// Path is keyed by (agentName, pipelineName). When two fan-out
-				// targets share the same sessionName (pathological but possible
-				// — e.g. a user dragged the same agent into fan-out twice) the
-				// base path would collide and the SECOND write would silently
-				// overwrite the FIRST, merging two distinct prompts onto disk
-				// as one file. We detect collisions up-front and suffix the
-				// duplicates with their positional index in the fan-out so each
-				// agent gets its own file. Non-colliding fan-outs (the 99% case)
-				// keep the original unsuffixed filename, so this is backward
-				// compatible for the normal path.
+				// Path is keyed by (agentName, subName). `subName` — not
+				// `pipeline.name` — is what disambiguates prompt files
+				// across subscriptions within the same pipeline. A pipeline
+				// may have multiple triggers that each fan-out to the same
+				// agents (e.g. a GitHub-PR trigger and a heartbeat trigger
+				// both fanning out to [Codex, OpenCode]); both subs would
+				// otherwise write to the same `.maestro/prompts/codex-pipeline.md`
+				// and the SECOND write would silently overwrite the FIRST.
+				// Using the subscription name keeps each sub's prompts
+				// isolated on disk, mirroring how single-prompt subs are
+				// keyed (see `promptSuffix = sub.name` below).
+				//
+				// Additional disambiguator: when two fan-out targets within
+				// the SAME sub share a sessionName (pathological — user
+				// dragged the same agent in twice), append the positional
+				// index so each agent still gets its own file.
 				const baseNameCounts = new Map<string, number>();
 				for (const agent of agentTargets) {
 					const name = (agent.data as AgentNodeData).sessionName;
@@ -235,8 +241,8 @@ export function pipelineToYamlSubscriptions(pipeline: CuePipeline): CueSubscript
 					const agentName = (agent.data as AgentNodeData).sessionName;
 					const collides = (baseNameCounts.get(agentName) ?? 0) > 1;
 					return collides
-						? cuePromptFilePath(agentName, pipeline.name, `${idx}`)
-						: cuePromptFilePath(agentName, pipeline.name);
+						? cuePromptFilePath(agentName, subName, `${idx}`)
+						: cuePromptFilePath(agentName, subName);
 				});
 			}
 			subscriptions.push(sub);

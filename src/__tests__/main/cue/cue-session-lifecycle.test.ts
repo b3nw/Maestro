@@ -780,6 +780,11 @@ describe('CueEngine session lifecycle', () => {
 
 			const cleared = mockClearGitHubSeenForSubscription.mock.calls.map(([id]) => id);
 			expect(cleared).toEqual(['session-1:drop-me']);
+			// Explicit invariant: the surviving subscription's seen rows must
+			// not be cleared. Redundant with the strict-equality check above,
+			// but makes the intent obvious and catches future regressions
+			// where someone loosens the above to `toEqual(expect.arrayContaining(...))`.
+			expect(cleared).not.toContain('session-1:keep-me');
 		});
 
 		it('refreshSession PRESERVES cue_github_seen rows on parse errors (mid-edit YAML)', () => {
@@ -849,6 +854,50 @@ describe('CueEngine session lifecycle', () => {
 			engine.refreshSession('session-1', '/projects/test');
 
 			expect(mockClearGitHubSeenForSubscription).not.toHaveBeenCalled();
+		});
+
+		it('refreshSession CLEARS cue_github_seen rows when the config file is truly gone', () => {
+			// Positive-path counterpart to the parse-error/invalid tests above.
+			// When the config is actually missing from disk (user deleted
+			// cue.yaml, or the session moved away from its project root), we
+			// SHOULD clear the seen rows — otherwise the GitHub poller retains
+			// stale state for a session that no longer has any subs.
+			mockClearGitHubSeenForSubscription.mockClear();
+			const initialConfig = createMockConfig({
+				subscriptions: [
+					{
+						name: 'watch-prs',
+						event: 'github.pull_request',
+						enabled: true,
+						prompt: '',
+						repo: 'org/repo',
+						poll_minutes: 5,
+					},
+					{
+						name: 'watch-issues',
+						event: 'github.issue',
+						enabled: true,
+						prompt: '',
+						repo: 'org/repo',
+						poll_minutes: 5,
+					},
+				],
+			});
+			mockLoadCueConfig.mockReturnValue(initialConfig);
+			const deps = createMockDeps();
+			const engine = new CueEngine(deps);
+			engine.start();
+
+			// Config is gone. Both loader paths return the 'missing' shape.
+			mockLoadCueConfig.mockReturnValue(null);
+			mockDetailedResult = { ok: false, reason: 'missing' };
+			engine.refreshSession('session-1', '/projects/test');
+
+			const cleared = mockClearGitHubSeenForSubscription.mock.calls.map(([id]) => id).sort();
+			// BOTH GitHub subs' seen rows cleared; no heartbeat/non-github
+			// subs are involved here so the entire old GitHub-sub set
+			// should appear exactly once.
+			expect(cleared).toEqual(['session-1:watch-issues', 'session-1:watch-prs']);
 		});
 
 		it('removeSession clears startup keys so re-adding the session can re-fire', () => {
