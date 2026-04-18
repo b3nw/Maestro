@@ -488,6 +488,15 @@ export function subscriptionsToPipelines(
 
 		// Track the agent node for each session name for deduplication
 		const sessionToNode = new Map<string, PipelineNode>();
+		// Map YAML subscription name → the work node (agent or command) that
+		// subscription produces. Used by chain-sub source resolution to
+		// locate a specific upstream by its `source_sub` name instead of by
+		// session name. Critical for the `Cmd(owner=S) → Agent(S)` shape:
+		// the command node and its downstream agent share a session, so
+		// session-name lookup alone cannot tell them apart — it either
+		// picks the wrong node or silently invents a duplicate agent. The
+		// sub-name reference is unambiguous.
+		const subNameToNode = new Map<string, PipelineNode>();
 		// Group parallel branch subs (same event config, emitted by the
 		// serializer's per-branch path) back under one visual trigger node.
 		// Keyed by `triggerGroupKey(sub)` so any divergence in event-specific
@@ -598,6 +607,7 @@ export function subscriptionsToPipelines(
 					const commandNode = createCommandNode(sub, sessions, nodeMap, pos);
 					sessionColumn.set(commandNode.id, 1);
 					sessionRow.set(commandNode.id, branchRow);
+					subNameToNode.set(sub.name, commandNode);
 					edges.push({
 						id: `edge-${edgeCount++}`,
 						source: triggerId,
@@ -651,6 +661,7 @@ export function subscriptionsToPipelines(
 					const agentNode = getOrCreateAgentNode(targetSessionName, sessions, nodeMap, pos);
 					const isReusedAgent = sessionToNode.has(targetSessionName);
 					sessionToNode.set(targetSessionName, agentNode);
+					subNameToNode.set(sub.name, agentNode);
 					sessionColumn.set(targetSessionName, 1);
 					sessionRow.set(targetSessionName, branchRow);
 
@@ -690,6 +701,16 @@ export function subscriptionsToPipelines(
 				// Chain subscription (agent.completed): connect source to target.
 				columnIndex++;
 				const sourcePositions = resolveChainSourcePositions(sub, sessions);
+				// `source_sub` carries explicit upstream subscription names,
+				// one per source position. Used below to resolve the source
+				// to the exact node that sub produced (command vs agent vs
+				// chain-agent) — session-name lookup alone cannot tell a
+				// command node apart from an agent that shares its session.
+				const sourceSubNames: (string | undefined)[] = Array.isArray(sub.source_sub)
+					? sub.source_sub
+					: sub.source_sub
+						? [sub.source_sub]
+						: [];
 
 				// Command-node chain target: create a command node and edges from
 				// each source. Skip the agent-target branch entirely.
@@ -705,6 +726,7 @@ export function subscriptionsToPipelines(
 					const commandNode = createCommandNode(sub, sessions, nodeMap, pos);
 					sessionColumn.set(commandNode.id, targetCol);
 					sessionRow.set(commandNode.id, existingRows);
+					subNameToNode.set(sub.name, commandNode);
 
 					// Resolve each source position to an agent node (when the source
 					// session exists) or an error node (when it doesn't), matching
@@ -713,7 +735,12 @@ export function subscriptionsToPipelines(
 					for (let i = 0; i < sourcePositions.length; i++) {
 						const position = sourcePositions[i];
 						let sourceNode: PipelineNode;
-						if (position.kind === 'resolved' && position.sessionName) {
+						// Prefer `source_sub`-based resolution when available.
+						const subRef = sourceSubNames[i];
+						const bySubRef = subRef ? subNameToNode.get(subRef) : undefined;
+						if (bySubRef) {
+							sourceNode = bySubRef;
+						} else if (position.kind === 'resolved' && position.sessionName) {
 							sourceNode =
 								sessionToNode.get(position.sessionName) ??
 								getOrCreateAgentNode(position.sessionName, sessions, nodeMap, {
@@ -777,13 +804,19 @@ export function subscriptionsToPipelines(
 				// Resolve source nodes BEFORE creating the target node (existing
 				// ordering contract: source/target may share a name, so target
 				// must not overwrite sessionToNode before sources are resolved).
-				// For each source position, resolved → reuse/create agent node;
-				// unresolved → create a visible error node so the user can see
-				// which upstream is missing instead of getting a silent drop.
+				// For each source position, prefer `source_sub` → subNameToNode
+				// lookup (needed to route Cmd → Agent edges correctly when cmd
+				// and agent share a session); otherwise fall back to resolved
+				// session name; otherwise emit a visible error node so the
+				// user sees which upstream is missing.
 				const resolvedSources: PipelineNode[] = [];
 				for (let i = 0; i < sourcePositions.length; i++) {
 					const position = sourcePositions[i];
-					if (position.kind === 'resolved' && position.sessionName) {
+					const subRef = sourceSubNames[i];
+					const bySubRef = subRef ? subNameToNode.get(subRef) : undefined;
+					if (bySubRef) {
+						resolvedSources.push(bySubRef);
+					} else if (position.kind === 'resolved' && position.sessionName) {
 						const sourceNode =
 							sessionToNode.get(position.sessionName) ??
 							getOrCreateAgentNode(position.sessionName, sessions, nodeMap, {
@@ -853,6 +886,7 @@ export function subscriptionsToPipelines(
 					alreadyInChain
 				);
 				sessionToNode.set(targetSessionName, targetNode);
+				subNameToNode.set(sub.name, targetNode);
 				sessionColumn.set(targetSessionName, targetCol);
 				sessionRow.set(targetSessionName, existingRows);
 
