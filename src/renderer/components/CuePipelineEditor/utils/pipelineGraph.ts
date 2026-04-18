@@ -110,7 +110,17 @@ export function convertToReactFlowNodes(
 	triggerOptions?: {
 		onTriggerPipeline?: (pipelineName: string) => void;
 		isSaved?: boolean;
+		/** Pipeline-wide running state — kept for components (e.g. the
+		 *  NodeConfigPanel on the right rail) that only need a yes/no per
+		 *  pipeline. Trigger-node animation should prefer
+		 *  `runningSubscriptionsByPipeline` for per-sub precision. */
 		runningPipelineIds?: Set<string>;
+		/** Per-pipeline set of exact subscription names with active runs.
+		 *  A trigger node animates iff its own `subscriptionName` is in the
+		 *  set for its owning pipeline. Falls back to `runningPipelineIds`
+		 *  when the trigger has no `subscriptionName` stamped (legacy
+		 *  never-saved pipelines) so the spinner still surfaces something. */
+		runningSubscriptionsByPipeline?: Map<string, Set<string>>;
 	},
 	theme?: Theme,
 	/** Pre-computed Y-offsets to use instead of recomputing from bounding boxes.
@@ -183,6 +193,22 @@ export function convertToReactFlowNodes(
 			if (pNode.type === 'trigger') {
 				const triggerData = pNode.data as TriggerNodeData;
 				const fanOutCount = pipeline.edges.filter((e) => e.source === pNode.id).length;
+
+				// Per-trigger running state: a trigger node only shows the
+				// spinner when its OWN subscription has an active run. In a
+				// multi-trigger pipeline (e.g. startup + scheduled + GitHub PR
+				// all under "Pipeline 1") this prevents every trigger icon from
+				// spinning just because one sub fired.
+				//
+				// Fallback: when the trigger has no `subscriptionName` (legacy
+				// never-saved pipelines), fall back to the pipeline-wide flag
+				// so the spinner still surfaces something rather than going
+				// silent entirely.
+				const runningSubs = triggerOptions?.runningSubscriptionsByPipeline?.get(pipeline.id);
+				const isRunning = triggerData.subscriptionName
+					? !!runningSubs?.has(triggerData.subscriptionName)
+					: (triggerOptions?.runningPipelineIds?.has(pipeline.id) ?? false);
+
 				const nodeData: TriggerNodeDataProps = {
 					compositeId,
 					eventType: triggerData.eventType,
@@ -196,7 +222,7 @@ export function convertToReactFlowNodes(
 					// never-saved pipelines (Play button is hidden in that case).
 					subscriptionName: triggerData.subscriptionName,
 					isSaved: triggerOptions?.isSaved,
-					isRunning: triggerOptions?.runningPipelineIds?.has(pipeline.id),
+					isRunning,
 					fanOutCount: fanOutCount > 1 ? fanOutCount : undefined,
 					theme,
 				};

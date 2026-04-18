@@ -959,7 +959,181 @@ describe('convertToReactFlowNodes triggerOptions', () => {
 		expect(triggerData.onTriggerPipeline).toBeUndefined();
 		expect(triggerData.pipelineName).toBe('Pipeline p1');
 		expect(triggerData.isSaved).toBeUndefined();
-		expect(triggerData.isRunning).toBeUndefined();
+		// `isRunning` is now always a boolean (false when no running info
+		// is supplied) so the Play button renders a stable initial state.
+		// Falsy matches the old `undefined` semantics for the Play button.
+		expect(triggerData.isRunning).toBe(false);
+	});
+});
+
+// ─── Per-trigger isRunning (one sub → one trigger spinner) ───────────────────
+
+describe('convertToReactFlowNodes — per-trigger isRunning', () => {
+	// Regression guard for the "all trigger icons spin when any sub runs" bug.
+	// A multi-trigger pipeline (startup + scheduled + GitHub PR) generates
+	// three trigger nodes sharing one pipeline. Only the trigger whose own
+	// subscription has an active run should animate.
+
+	function triggerWithSub(id: string, eventType: TriggerNodeData['eventType'], subName: string) {
+		const t = makeTrigger(id, eventType);
+		(t.data as TriggerNodeData).subscriptionName = subName;
+		return t;
+	}
+
+	it('in a multi-trigger pipeline, only the trigger whose sub is running animates', () => {
+		// Pipeline 1 has three triggers: the startup sub ("Pipeline 1"),
+		// the scheduled chain-1 sub, and the GitHub chain-2 sub. Only the
+		// scheduled chain-1 sub is actively running in this tick.
+		const t1 = triggerWithSub('t1', 'app.startup', 'Pipeline 1');
+		const t2 = triggerWithSub('t2', 'time.scheduled', 'Pipeline 1-chain-1');
+		const t3 = triggerWithSub('t3', 'github.pull_request', 'Pipeline 1-chain-2');
+		const pipeline: CuePipeline = {
+			id: 'p1',
+			name: 'Pipeline 1',
+			color: '#06b6d4',
+			nodes: [t1, t2, t3],
+			edges: [],
+		};
+
+		const runningByPipeline = new Map<string, Set<string>>([
+			['p1', new Set(['Pipeline 1-chain-1'])],
+		]);
+		const nodes = convertToReactFlowNodes([pipeline], 'p1', undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: true,
+			runningPipelineIds: new Set(['p1']),
+			runningSubscriptionsByPipeline: runningByPipeline,
+		});
+
+		const byId = Object.fromEntries(
+			nodes.map((n) => [n.id, (n.data as { isRunning: boolean }).isRunning])
+		);
+		expect(byId['p1:t1']).toBe(false);
+		expect(byId['p1:t2']).toBe(true);
+		expect(byId['p1:t3']).toBe(false);
+	});
+
+	it('single-trigger pipeline: the only trigger animates when its sub runs', () => {
+		const t = triggerWithSub('t1', 'time.heartbeat', 'solo');
+		const pipeline: CuePipeline = {
+			id: 'p1',
+			name: 'solo',
+			color: '#06b6d4',
+			nodes: [t],
+			edges: [],
+		};
+		const runningByPipeline = new Map<string, Set<string>>([['p1', new Set(['solo'])]]);
+		const nodes = convertToReactFlowNodes([pipeline], 'p1', undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: true,
+			runningPipelineIds: new Set(['p1']),
+			runningSubscriptionsByPipeline: runningByPipeline,
+		});
+		expect((nodes[0].data as { isRunning: boolean }).isRunning).toBe(true);
+	});
+
+	it('concurrent: two trigger subs running together → both triggers animate, third stays static', () => {
+		// Startup and GitHub both have live runs; scheduled does not.
+		const t1 = triggerWithSub('t1', 'app.startup', 'Pipeline 1');
+		const t2 = triggerWithSub('t2', 'time.scheduled', 'Pipeline 1-chain-1');
+		const t3 = triggerWithSub('t3', 'github.pull_request', 'Pipeline 1-chain-2');
+		const pipeline: CuePipeline = {
+			id: 'p1',
+			name: 'Pipeline 1',
+			color: '#06b6d4',
+			nodes: [t1, t2, t3],
+			edges: [],
+		};
+		const runningByPipeline = new Map<string, Set<string>>([
+			['p1', new Set(['Pipeline 1', 'Pipeline 1-chain-2'])],
+		]);
+		const nodes = convertToReactFlowNodes([pipeline], 'p1', undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: true,
+			runningPipelineIds: new Set(['p1']),
+			runningSubscriptionsByPipeline: runningByPipeline,
+		});
+		const byId = Object.fromEntries(
+			nodes.map((n) => [n.id, (n.data as { isRunning: boolean }).isRunning])
+		);
+		expect(byId['p1:t1']).toBe(true);
+		expect(byId['p1:t2']).toBe(false);
+		expect(byId['p1:t3']).toBe(true);
+	});
+
+	it('no active runs → no trigger animates even when the pipeline was in runningPipelineIds', () => {
+		// Defensive: runningPipelineIds is a broader signal that may linger
+		// momentarily. When the per-sub map is empty, no trigger should spin.
+		const t = triggerWithSub('t1', 'time.heartbeat', 'solo');
+		const pipeline: CuePipeline = {
+			id: 'p1',
+			name: 'solo',
+			color: '#06b6d4',
+			nodes: [t],
+			edges: [],
+		};
+		const nodes = convertToReactFlowNodes([pipeline], 'p1', undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: true,
+			runningPipelineIds: new Set(['p1']),
+			runningSubscriptionsByPipeline: new Map(),
+		});
+		expect((nodes[0].data as { isRunning: boolean }).isRunning).toBe(false);
+	});
+
+	it('legacy trigger without subscriptionName falls back to pipeline-wide running flag', () => {
+		// Never-saved pipelines won't have `subscriptionName` stamped on the
+		// trigger. The Play button is hidden in that case anyway, but the
+		// `isRunning` state should still reflect pipeline-wide activity for
+		// any consumer that reads it (e.g. legacy config-panel bindings).
+		const t = makeTrigger('t1', 'time.heartbeat'); // no subscriptionName
+		const pipeline: CuePipeline = {
+			id: 'p1',
+			name: 'legacy',
+			color: '#06b6d4',
+			nodes: [t],
+			edges: [],
+		};
+		const nodes = convertToReactFlowNodes([pipeline], 'p1', undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: false, // unsaved — Play button hidden, but isRunning still resolves
+			runningPipelineIds: new Set(['p1']),
+			runningSubscriptionsByPipeline: new Map(),
+		});
+		expect((nodes[0].data as { isRunning: boolean }).isRunning).toBe(true);
+	});
+
+	it('multi-pipeline: trigger animation is scoped to its own pipeline', () => {
+		// Pipeline A has a sub "shared-sub". Pipeline B also has a sub
+		// "shared-sub" (impossible in practice, but tests isolation by pipeline id).
+		const tA = triggerWithSub('tA', 'app.startup', 'A');
+		const tB = triggerWithSub('tB', 'app.startup', 'B');
+		const pA: CuePipeline = {
+			id: 'pA',
+			name: 'A',
+			color: '#ef4444',
+			nodes: [tA],
+			edges: [],
+		};
+		const pB: CuePipeline = {
+			id: 'pB',
+			name: 'B',
+			color: '#06b6d4',
+			nodes: [tB],
+			edges: [],
+		};
+		const runningByPipeline = new Map<string, Set<string>>([['pA', new Set(['A'])]]);
+		const nodes = convertToReactFlowNodes([pA, pB], null, undefined, {
+			onTriggerPipeline: vi.fn(),
+			isSaved: true,
+			runningPipelineIds: new Set(['pA']),
+			runningSubscriptionsByPipeline: runningByPipeline,
+		});
+		const byId = Object.fromEntries(
+			nodes.map((n) => [n.id, (n.data as { isRunning: boolean }).isRunning])
+		);
+		expect(byId['pA:tA']).toBe(true);
+		expect(byId['pB:tB']).toBe(false);
 	});
 });
 

@@ -93,6 +93,16 @@ export interface UsePipelineStateReturn {
 	 * Empty/absent when no runs are active for the pipeline.
 	 */
 	runningAgentsByPipeline: Map<string, Set<string>>;
+	/**
+	 * Per-pipeline set of exact subscription names that currently have at
+	 * least one active run. Used to animate ONLY the trigger node whose
+	 * subscription actually fired — rather than every trigger in a pipeline
+	 * where any sub is running.
+	 *
+	 * Key: `pipeline.id`. Value: set of full `subscriptionName` strings
+	 * (not stripped) so per-trigger matching is exact.
+	 */
+	runningSubscriptionsByPipeline: Map<string, Set<string>>;
 	persistLayout: () => void;
 	/** Saved viewport awaiting application once ReactFlow has measured nodes. */
 	pendingSavedViewportRef: React.MutableRefObject<Viewport | null>;
@@ -268,6 +278,30 @@ export function usePipelineState({
 		return map;
 	}, [activeRuns, pipelineState.pipelines]);
 
+	// Per-pipeline set of exact subscription names with active runs. Used by
+	// `convertToReactFlowNodes` to animate only the trigger node whose
+	// subscription fired — not every trigger in a multi-trigger pipeline
+	// when any sub is running. We store the FULL subscription name (e.g.
+	// "Pipeline 1-chain-2") so trigger nodes can match exactly via their
+	// own `subscriptionName` field (populated by yamlToPipeline on load).
+	const runningSubscriptionsByPipeline = useMemo(() => {
+		const map = new Map<string, Set<string>>();
+		if (!activeRuns || activeRuns.length === 0) return map;
+		for (const run of activeRuns) {
+			const baseName = run.subscriptionName.replace(/-chain-\d+$/, '').replace(/-fanin$/, '');
+			for (const pipeline of pipelineState.pipelines) {
+				if (pipeline.name !== baseName) continue;
+				let set = map.get(pipeline.id);
+				if (!set) {
+					set = new Set<string>();
+					map.set(pipeline.id, set);
+				}
+				set.add(run.subscriptionName);
+			}
+		}
+		return map;
+	}, [activeRuns, pipelineState.pipelines]);
+
 	return {
 		pipelineState,
 		setPipelineState,
@@ -283,6 +317,7 @@ export function usePipelineState({
 		setShowSettings,
 		runningPipelineIds,
 		runningAgentsByPipeline,
+		runningSubscriptionsByPipeline,
 		persistLayout,
 		pendingSavedViewportRef,
 		handleSave: persistence.handleSave,

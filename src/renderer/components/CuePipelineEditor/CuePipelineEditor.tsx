@@ -137,6 +137,7 @@ function CuePipelineEditorInner({
 		setShowSettings,
 		runningPipelineIds,
 		runningAgentsByPipeline,
+		runningSubscriptionsByPipeline,
 		persistLayout,
 		pendingSavedViewportRef,
 		handleSave,
@@ -222,6 +223,7 @@ function CuePipelineEditorInner({
 					onTriggerPipeline,
 					isSaved: !isDirty,
 					runningPipelineIds,
+					runningSubscriptionsByPipeline,
 				},
 				theme,
 				stableYOffsets
@@ -233,6 +235,7 @@ function CuePipelineEditorInner({
 			onTriggerPipeline,
 			isDirty,
 			runningPipelineIds,
+			runningSubscriptionsByPipeline,
 			theme,
 			stableYOffsets,
 		]

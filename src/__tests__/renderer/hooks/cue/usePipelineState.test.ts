@@ -910,6 +910,61 @@ describe('usePipelineState', () => {
 		expect(result.current.runningAgentsByPipeline.size).toBe(0);
 	});
 
+	it('runningSubscriptionsByPipeline carries exact subscription names (no suffix stripping)', () => {
+		// Used by trigger-node animation: each trigger node knows its exact
+		// subscription name (e.g. "Pipeline 1-chain-2") and compares against
+		// the pipeline's running-subs set. Stripping the suffix would collapse
+		// chain triggers with the initial trigger — making every trigger icon
+		// spin when any sub in the pipeline runs (the pre-fix bug).
+		const { result } = renderHook(() =>
+			usePipelineState(
+				createDefaultParams({
+					activeRuns: [
+						{ subscriptionName: 'Pipeline 1', sessionName: 'Alice' },
+						{ subscriptionName: 'Pipeline 1-chain-2', sessionName: 'Bob' },
+					],
+				})
+			)
+		);
+
+		act(() => {
+			result.current.setPipelineState({
+				pipelines: [makePipeline({ id: 'p1', name: 'Pipeline 1' })],
+				selectedPipelineId: null,
+			});
+		});
+
+		const subs = result.current.runningSubscriptionsByPipeline.get('p1');
+		expect(subs).toBeDefined();
+		expect([...subs!].sort()).toEqual(['Pipeline 1', 'Pipeline 1-chain-2']);
+	});
+
+	it('runningSubscriptionsByPipeline is empty when no activeRuns', () => {
+		const { result } = renderHook(() => usePipelineState(createDefaultParams({ activeRuns: [] })));
+		expect(result.current.runningSubscriptionsByPipeline.size).toBe(0);
+	});
+
+	it('runningSubscriptionsByPipeline does not include pipelines with no matching runs', () => {
+		const { result } = renderHook(() =>
+			usePipelineState(
+				createDefaultParams({
+					activeRuns: [{ subscriptionName: 'Alpha', sessionName: 'A' }],
+				})
+			)
+		);
+		act(() => {
+			result.current.setPipelineState({
+				pipelines: [
+					makePipeline({ id: 'pAlpha', name: 'Alpha' }),
+					makePipeline({ id: 'pBravo', name: 'Bravo' }),
+				],
+				selectedPipelineId: null,
+			});
+		});
+		expect(result.current.runningSubscriptionsByPipeline.has('pAlpha')).toBe(true);
+		expect(result.current.runningSubscriptionsByPipeline.has('pBravo')).toBe(false);
+	});
+
 	it('runningAgentsByPipeline does not include pipelines with no matching active runs', () => {
 		const { result } = renderHook(() =>
 			usePipelineState(
