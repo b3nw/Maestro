@@ -23,6 +23,7 @@ import { buildAgentArgs, applyAgentConfigOverrides } from '../../utils/agent-arg
 import { getSshRemoteConfig, createSshRemoteStoreAdapter } from '../../utils/ssh-remote-resolver';
 import { buildSshCommand } from '../../utils/ssh-command-builder';
 import { getPrompt } from '../../prompt-manager';
+import { isWindows } from '../../../shared/platformDetection';
 import type { ProcessManager } from '../../process-manager';
 import type { AgentDetector } from '../../agents';
 import type { MaestroSettings } from './persistence';
@@ -292,6 +293,12 @@ export function registerTabNamingHandlers(deps: TabNamingHandlerDependencies): v
 						processManager.on('data', onData);
 						processManager.on('exit', onExit);
 
+						// On Windows (non-SSH), route the prompt via raw stdin to avoid
+						// cmd.exe's ~8KB command-line limit (ENAMETOOLONG on spawn).
+						// Tab naming concatenates a multi-KB system prompt with the user
+						// message, so a long first message easily exceeds the limit.
+						const sendPromptViaStdinRaw = isWindows() && !config.sessionSshRemoteConfig?.enabled;
+
 						// Spawn the process
 						// When using SSH with stdin, pass the flag so ChildProcessSpawner
 						// sends the prompt via stdin instead of command line args
@@ -304,6 +311,7 @@ export function registerTabNamingHandlers(deps: TabNamingHandlerDependencies): v
 							prompt: fullPrompt,
 							customEnvVars,
 							sendPromptViaStdin: shouldSendPromptViaStdin,
+							sendPromptViaStdinRaw,
 						});
 					});
 				} catch (error) {
