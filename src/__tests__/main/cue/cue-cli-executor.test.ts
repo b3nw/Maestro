@@ -140,6 +140,36 @@ describe('cue-cli-executor', () => {
 		expect(result.status).toBe('completed');
 	});
 
+	it('caps argv message length to stay under the platform spawn limit', async () => {
+		// Windows `CreateProcessW` has a 32K command-line ceiling; on POSIX
+		// `ARG_MAX` is much higher. Either way, the message passed as argv
+		// must be truncated to CLI_SEND_OUTPUT_MAX_CHARS before spawn so the
+		// call doesn't fail with ENAMETOOLONG on Windows. A warn-level log
+		// is emitted whenever truncation kicks in.
+		const onLog = vi.fn();
+		const longMessage = 'x'.repeat(200_000);
+		const config = createConfig({
+			cli: {
+				command: 'send' as const,
+				target: 'session-A',
+				message: longMessage,
+			},
+			onLog,
+		});
+		const promise = executeCueCli(config as any);
+		await Promise.resolve();
+		mockChild.emit('close', 0);
+		await promise;
+
+		const args = mockSpawn.mock.calls[0][1] as string[];
+		const sentMessage = args[3];
+		// Should not exceed either platform cap (POSIX: 100K, Windows: 30K).
+		expect(sentMessage.length).toBeLessThanOrEqual(100_000);
+		expect(sentMessage.length).toBeGreaterThan(0);
+		// Truncation warning surfaced to the user.
+		expect(onLog).toHaveBeenCalledWith('warn', expect.stringMatching(/truncated/i));
+	});
+
 	it('spawns with ELECTRON_RUN_AS_NODE=1 so packaged Electron runs Node, not the app', async () => {
 		// In packaged Electron, `process.execPath` is the app binary. Without
 		// this env flag the spawn would relaunch the app instead of running

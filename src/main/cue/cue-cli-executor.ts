@@ -23,8 +23,22 @@ import { isWindows } from '../../shared/platformDetection';
 
 /** Timeout for a single maestro-cli send invocation. */
 const CLI_SEND_TIMEOUT_MS = 30_000;
-/** Cap on how much of the source output we forward — protects the CLI argv. */
-const CLI_SEND_OUTPUT_MAX_CHARS = 100_000;
+/**
+ * Cap on how much of the source output we forward — protects the CLI argv.
+ *
+ * Platform-aware because `maestro-cli send <agent-id> <message>` takes the
+ * message as a positional argv. On Windows, `CreateProcessW` imposes a hard
+ * 32,767-char ceiling on the entire command line (process path + script
+ * path + all argv + quoting), so a 100K message would fail with
+ * `ENAMETOOLONG`/`EINVAL` before the CLI even runs. 30K leaves ~2.7K of
+ * headroom for the rest of the argv. POSIX `ARG_MAX` is typically
+ * 128K–2MB, so the historic 100K cap is preserved there.
+ */
+const CLI_SEND_OUTPUT_MAX_CHARS_POSIX = 100_000;
+const CLI_SEND_OUTPUT_MAX_CHARS_WINDOWS = 30_000;
+const CLI_SEND_OUTPUT_MAX_CHARS = isWindows()
+	? CLI_SEND_OUTPUT_MAX_CHARS_WINDOWS
+	: CLI_SEND_OUTPUT_MAX_CHARS_POSIX;
 /** Default message body when the user didn't override it. */
 const DEFAULT_CLI_MESSAGE_TEMPLATE = '{{CUE_SOURCE_OUTPUT}}';
 
@@ -268,6 +282,16 @@ export async function executeCueCli(config: CueCliExecutionConfig): Promise<CueR
 
 	const messageTemplate = cli.message ?? DEFAULT_CLI_MESSAGE_TEMPLATE;
 	const resolvedMessage = substituteTemplateVariables(messageTemplate, templateContext);
+
+	// Surface argv truncation so users notice when output is cut — on
+	// Windows this cap is much tighter (30K vs 100K on POSIX) to stay
+	// under the 32K CreateProcessW command-line ceiling.
+	if (resolvedMessage.length > CLI_SEND_OUTPUT_MAX_CHARS) {
+		onLog(
+			'warn',
+			`[CUE] "${subscription.name}" cli message truncated from ${resolvedMessage.length} to ${CLI_SEND_OUTPUT_MAX_CHARS} chars (platform argv cap)`
+		);
+	}
 
 	onLog(
 		'cue',
