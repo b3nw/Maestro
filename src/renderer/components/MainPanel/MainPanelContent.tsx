@@ -21,6 +21,7 @@ import type {
 	BrowserTab,
 	FilePreviewTab,
 	ThinkingItem,
+	QueuedItem,
 } from '../../types';
 import type { SlashCommand } from './types';
 import type { TabCompletionSuggestion, TabCompletionFilter } from '../../hooks';
@@ -144,6 +145,11 @@ export interface MainPanelContentProps {
 	thinkingItems: ThinkingItem[];
 	onStopBatchRun?: (sessionId?: string) => void;
 	onRemoveQueuedItem?: (itemId: string) => void;
+	onForceSendQueuedItem?: (itemId: string) => void;
+	forcedParallelEnabled?: boolean;
+	getForceSendContext?: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	onOpenQueueBrowser?: () => void;
 	showFlashNotification?: (message: string) => void;
 
@@ -307,6 +313,9 @@ export const MainPanelContent = React.memo(function MainPanelContent(props: Main
 		thinkingItems,
 		onStopBatchRun,
 		onRemoveQueuedItem,
+		onForceSendQueuedItem,
+		forcedParallelEnabled,
+		getForceSendContext,
 		onOpenQueueBrowser,
 		showFlashNotification,
 		summarizeProgress,
@@ -546,6 +555,9 @@ export const MainPanelContent = React.memo(function MainPanelContent(props: Main
 								maxOutputLines={maxOutputLines}
 								onDeleteLog={onDeleteLog}
 								onRemoveQueuedItem={onRemoveQueuedItem}
+								onForceSendQueuedItem={onForceSendQueuedItem}
+								forcedParallelEnabled={forcedParallelEnabled}
+								getForceSendContext={getForceSendContext}
 								onInterrupt={handleInterrupt}
 								onScrollPositionChange={onScrollPositionChange}
 								onAtBottomChange={onAtBottomChange}

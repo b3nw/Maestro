@@ -9,6 +9,7 @@
 
 import { BrowserWindow, App } from 'electron';
 import Store from 'electron-store';
+import type { AgentConfigsData, ClaudeSessionOriginsData } from '../../stores/types';
 import { registerGitHandlers, GitHandlerDependencies } from './git';
 import { registerAutorunHandlers } from './autorun';
 import { registerPlaybooksHandlers } from './playbooks';
@@ -127,26 +128,9 @@ export type { GitHandlerDependencies };
 export type { SymphonyHandlerDependencies };
 export type { MaestroSettings, SessionsData, GroupsData };
 
-/**
- * Interface for agent configuration store data
- */
-interface AgentConfigsData {
-	configs: Record<string, Record<string, any>>;
-}
+// AgentConfigsData imported from stores/types
 
-/**
- * Interface for Claude session origins store
- */
-type ClaudeSessionOrigin = 'user' | 'auto';
-interface ClaudeSessionOriginInfo {
-	origin: ClaudeSessionOrigin;
-	sessionName?: string;
-	starred?: boolean;
-	contextUsage?: number;
-}
-interface ClaudeSessionOriginsData {
-	origins: Record<string, Record<string, ClaudeSessionOrigin | ClaudeSessionOriginInfo>>;
-}
+// ClaudeSessionOriginInfo and ClaudeSessionOriginsData imported from stores/types
 
 /**
  * Dependencies required for handler registration
@@ -190,6 +174,12 @@ export function registerAllHandlers(deps: HandlerDependencies): void {
 		safeSend: createSafeSend(deps.getMainWindow),
 		getMaxEntries: () => deps.settingsStore.get('maxLogBuffer', 5000) as number,
 		getSshRemoteById,
+		getSessionById: (id: string) => {
+			const sessions = (
+				deps.sessionsStore.get('sessions', []) as Array<Record<string, unknown>>
+			).filter((s) => typeof s === 'object' && s !== null);
+			return sessions.find((s) => s.id === id);
+		},
 	});
 	registerAgentsHandlers({
 		getAgentDetector: deps.getAgentDetector,

@@ -22,6 +22,7 @@ import type {
 	FilePreviewTab,
 	ThinkingItem,
 	AgentError,
+	QueuedItem,
 } from '../../types';
 import type { FileTreeChanges } from '../../utils/fileExplorer';
 import type { TabCompletionSuggestion, TabCompletionFilter } from '../input/useTabCompletion';
@@ -159,6 +160,11 @@ export interface UseMainPanelPropsDeps {
 	handleStopBatchRun: (sessionId?: string) => void;
 	handleDeleteLog: (logId: string) => number | null;
 	handleRemoveQueuedItem: (itemId: string) => void;
+	handleForceSendQueuedItem: (itemId: string) => void;
+	forcedParallelEnabled: boolean;
+	getForceSendContext: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	handleOpenQueueBrowser: () => void;
 
 	// Tab management handlers
@@ -241,6 +247,12 @@ export interface UseMainPanelPropsDeps {
 	handleCopyContext: (tabId: string) => void;
 	handleExportHtml: (tabId: string) => void;
 	handlePublishTabGist: (tabId: string) => void;
+	/** Copy arbitrary text to the clipboard (used by terminal buffer actions) */
+	handleCopyText: (text: string, subject?: string) => void;
+	/** Queue arbitrary text for the Gist publish modal (used by terminal buffer actions) */
+	handlePublishTextAsGist: (text: string, filenameStem: string) => void;
+	/** Queue arbitrary text for Send to Agent transfer (used by terminal buffer actions) */
+	handleSendTextToAgent: (text: string, sourceName: string) => void;
 	cancelTab: (tabId: string) => void;
 	cancelMergeTab: (tabId: string) => void;
 	recordShortcutUsage: (shortcutId: string) => { newLevel: number | null };
@@ -363,6 +375,9 @@ export function useMainPanelProps(deps: UseMainPanelPropsDeps) {
 			onStopBatchRun: deps.handleStopBatchRun,
 			onDeleteLog: deps.handleDeleteLog,
 			onRemoveQueuedItem: deps.handleRemoveQueuedItem,
+			onForceSendQueuedItem: deps.handleForceSendQueuedItem,
+			forcedParallelEnabled: deps.forcedParallelEnabled,
+			getForceSendContext: deps.getForceSendContext,
 			onOpenQueueBrowser: deps.handleOpenQueueBrowser,
 			// Tab management handlers
 			onTabSelect: deps.handleTabSelect,
@@ -439,6 +454,9 @@ export function useMainPanelProps(deps: UseMainPanelPropsDeps) {
 			onCopyContext: deps.handleCopyContext,
 			onExportHtml: deps.handleExportHtml,
 			onPublishTabGist: deps.handlePublishTabGist,
+			onCopyText: deps.handleCopyText,
+			onPublishTextAsGist: deps.handlePublishTextAsGist,
+			onSendTextToAgent: deps.handleSendTextToAgent,
 			// Summarization progress props
 			summarizeProgress: deps.summarizeProgress,
 			summarizeResult: deps.summarizeResult,
@@ -584,6 +602,9 @@ export function useMainPanelProps(deps: UseMainPanelPropsDeps) {
 			deps.handleStopBatchRun,
 			deps.handleDeleteLog,
 			deps.handleRemoveQueuedItem,
+			deps.handleForceSendQueuedItem,
+			deps.forcedParallelEnabled,
+			deps.getForceSendContext,
 			deps.handleOpenQueueBrowser,
 			deps.handleTabSelect,
 			deps.handleTabClose,
