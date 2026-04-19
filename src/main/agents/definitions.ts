@@ -440,6 +440,70 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
 		command: 'aider',
 		args: [], // Base args (placeholder - to be configured when implemented)
 	},
+	{
+		id: 'pi',
+		name: 'Pi',
+		binaryName: 'pi',
+		command: 'pi',
+		args: [],
+		jsonOutputArgs: ['--mode', 'json'],
+		resumeArgs: (sessionId: string) => ['--resume', sessionId],
+		readOnlyArgs: ['--tools', 'read,grep,find,ls', '-p'],
+		readOnlyCliEnforced: false,
+		workingDirArgs: (dir: string) => ['--session-dir', dir],
+		modelArgs: (modelId: string) => ['--model', modelId],
+		promptArgs: (prompt: string) => [prompt],
+		configOptions: [
+			{
+				key: 'model',
+				type: 'text',
+				label: 'Model',
+				description:
+					'Model to use (e.g., "anthropic/sonnet", "openai/gpt-4o"). Leave empty for default.',
+				default: '',
+				argBuilder: (value: string) => {
+					if (value && value.trim()) {
+						return ['--model', value.trim()];
+					}
+					return [];
+				},
+			},
+			{
+				key: 'thinking',
+				type: 'select',
+				label: 'Thinking Level',
+				description: 'How much the model should reason',
+				options: ['', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+				default: '',
+				argBuilder: (value: string) => (value && value.trim() ? ['--thinking', value.trim()] : []),
+			},
+			{
+				key: 'provider',
+				type: 'select',
+				label: 'Provider',
+				description: 'LLM provider to use',
+				options: [
+					'',
+					'anthropic',
+					'openai',
+					'google',
+					'github-copilot',
+					'groq',
+					'cerebras',
+					'openrouter',
+				],
+				default: '',
+				argBuilder: (value: string) => (value && value.trim() ? ['--provider', value.trim()] : []),
+			},
+			{
+				key: 'contextWindow',
+				type: 'number',
+				label: 'Context Window Size',
+				description: 'Maximum context window in tokens',
+				default: 2000000,
+			},
+		],
+	},
 ];
 
 /**

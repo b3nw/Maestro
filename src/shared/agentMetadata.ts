@@ -23,6 +23,7 @@ const AGENT_DISPLAY_NAMES: Record<AgentId, string> = {
 	opencode: 'OpenCode',
 	'factory-droid': 'Factory Droid',
 	aider: 'Aider',
+	pi: 'Pi',
 };
 
 /**

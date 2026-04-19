@@ -19,6 +19,7 @@ export const DEFAULT_CONTEXT_WINDOWS: Partial<Record<AgentId, number>> = {
 	opencode: 128000, // OpenCode (depends on model, 128k is conservative default)
 	'factory-droid': 200000, // Factory Droid (varies by model, defaults to Claude Opus)
 	terminal: 0, // Terminal has no context window
+	pi: 2000000, // Pi (varies by model, 2M is conservative default for Claude models)
 };
 
 /**
