@@ -99,7 +99,7 @@ export function validatePipelines(pipelines: CuePipeline[]): string[] {
 		// Silent-skipping them here led to saves that appeared to succeed but
 		// wrote nothing to disk — flag them so the user gets clear feedback.
 		if (triggers.length === 0 && agents.length === 0 && commands.length === 0) {
-			errors.push(`"${pipeline.name}": add a trigger and an agent before saving`);
+			errors.push(`"${pipeline.name}": add a trigger and an agent or command before saving`);
 			continue;
 		}
 

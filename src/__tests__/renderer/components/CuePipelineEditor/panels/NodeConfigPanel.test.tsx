@@ -147,8 +147,22 @@ describe('NodeConfigPanel', () => {
 				onDeleteNode={vi.fn()}
 			/>
 		);
-		expect(getByTestId('agent-config').textContent).toBe('agent-1');
+		const firstPanel = getByTestId('agent-config');
+		expect(firstPanel.textContent).toBe('agent-1');
 
+		// Same id → React should reuse the DOM node (no remount).
+		rerender(
+			<NodeConfigPanel
+				selectedNode={{ ...agentNode }}
+				pipelines={defaultPipelines}
+				theme={darkTheme}
+				onUpdateNode={vi.fn()}
+				onDeleteNode={vi.fn()}
+			/>
+		);
+		expect(getByTestId('agent-config')).toBe(firstPanel);
+
+		// Different id → React must swap the DOM node (actual remount).
 		rerender(
 			<NodeConfigPanel
 				selectedNode={otherAgent}
@@ -158,6 +172,8 @@ describe('NodeConfigPanel', () => {
 				onDeleteNode={vi.fn()}
 			/>
 		);
-		expect(getByTestId('agent-config').textContent).toBe('agent-2');
+		const secondPanel = getByTestId('agent-config');
+		expect(secondPanel.textContent).toBe('agent-2');
+		expect(secondPanel).not.toBe(firstPanel);
 	});
 });

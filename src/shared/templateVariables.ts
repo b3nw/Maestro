@@ -93,7 +93,7 @@ import { buildSessionDeepLink, buildGroupDeepLink } from './deep-link-urls';
  *
  *   {{CUE_CLI_PROMPT}}      - Prompt text passed via --prompt flag (cli.trigger events)
  *   {{CUE_SOURCE_AGENT_ID}} - Source agent ID passed via --source-agent-id (cli.trigger events)
- *   {{CUE_FROM_AGENT}}      - Triggering agent session ID (agent.completed + cli.trigger events)
+ *   {{CUE_FROM_AGENT}}      - Triggering upstream agent ID or session ID — populated from sourceSessionId (agent.completed) or sourceAgentId (cli.trigger)
  */
 
 /**
@@ -239,7 +239,7 @@ export const TEMPLATE_VARIABLES = [
 	{
 		variable: '{{CUE_FROM_AGENT}}',
 		description:
-			'Triggering agent session ID — populated for both agent.completed and cli.trigger events',
+			'Upstream agent/session ID — populated from sourceSessionId (agent.completed) or sourceAgentId (cli.trigger)',
 		cueOnly: true,
 	},
 	{ variable: '{{CUE_EVENT_TIMESTAMP}}', description: 'Cue event timestamp', cueOnly: true },

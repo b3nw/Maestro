@@ -27,6 +27,7 @@ export interface CueSubscriptionDocument extends CueSubscription {
 export interface CueConfigDocument {
 	subscriptions: CueSubscriptionDocument[];
 	settings: CueSettings;
+	no_ancestor_fallback?: boolean;
 }
 
 function readPromptFile(projectRoot: string, promptFile: string): string | undefined {
@@ -294,6 +295,8 @@ export function parseCueConfigDocument(raw: string, projectRoot: string): CueCon
 	return {
 		subscriptions,
 		settings: normalizeSettings(parsed.settings as Record<string, unknown> | undefined),
+		no_ancestor_fallback:
+			typeof parsed.no_ancestor_fallback === 'boolean' ? parsed.no_ancestor_fallback : undefined,
 	};
 }
 
@@ -331,6 +334,9 @@ export function materializeCueConfig(document: CueConfigDocument): MaterializedC
 		config: {
 			subscriptions,
 			settings: document.settings,
+			...(document.no_ancestor_fallback !== undefined
+				? { no_ancestor_fallback: document.no_ancestor_fallback }
+				: {}),
 		},
 		warnings,
 	};

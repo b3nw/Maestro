@@ -203,6 +203,13 @@ export const DEFAULT_CUE_SETTINGS: CueSettings = {
 export interface CueConfig {
 	subscriptions: CueSubscription[];
 	settings: CueSettings;
+	/**
+	 * When true, a local cue.yaml with `subscriptions: []` will NOT walk to
+	 * an ancestor cue.yaml looking for shared pipelines. Lets a sub-project
+	 * deliberately opt out of inherited pipelines without having to delete
+	 * the file. Defaults to false (legacy fallback behaviour).
+	 */
+	no_ancestor_fallback?: boolean;
 }
 
 /** An event instance produced by a trigger */

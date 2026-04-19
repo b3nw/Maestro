@@ -62,14 +62,19 @@ function getAllowedSourceSubs(sub: CueSubscription): string[] {
  * Returns true iff this chain sub's `source_sub` filter allows a completion
  * produced by the given upstream sub. An unset filter permits everything.
  *
- * `triggeredBy` may be undefined for bootstrap events (e.g. the initial
- * manual-trigger entry point carries no upstream sub); in that case we
- * permit the fire so manual runs still propagate through the chain.
+ * When `source_sub` IS set, `triggeredBy` must also be set and present in
+ * the allowed list. An undefined `triggeredBy` here in practice means an
+ * external (non-Cue) completion of the source session — e.g. the user
+ * interacting with the agent directly, or a system process exit reported
+ * via exit-listener. Bypassing the filter for those would partially
+ * re-introduce the self-loop / cross-fire behaviour `source_sub` exists
+ * to prevent. Manual triggers and bootstrap events do NOT reach this
+ * function; they dispatch through `dispatchService` directly.
  */
 function allowsSourceSub(sub: CueSubscription, triggeredBy: string | undefined): boolean {
 	const allowed = getAllowedSourceSubs(sub);
 	if (allowed.length === 0) return true;
-	if (!triggeredBy) return true;
+	if (!triggeredBy) return false;
 	return allowed.includes(triggeredBy);
 }
 

@@ -74,6 +74,15 @@ function killShellProcess(
 		return undefined;
 	}
 	child.kill('SIGTERM');
+	if (sync) {
+		// Shutdown path: the event loop may drain before a deferred timer
+		// fires, leaving any child that ignores SIGTERM alive. Escalate
+		// immediately so the child is guaranteed to be reaped.
+		if (child.exitCode === null && child.signalCode === null) {
+			child.kill('SIGKILL');
+		}
+		return undefined;
+	}
 	return setTimeout(() => {
 		if (child.exitCode === null && child.signalCode === null) {
 			child.kill('SIGKILL');

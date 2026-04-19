@@ -1499,11 +1499,14 @@ describe('CueEngine completion chains', () => {
 			engine.stop();
 		});
 
-		it('fires when triggeredBy is undefined even with source_sub configured (manual trigger)', () => {
-			// Manual triggers and bootstrap events don't carry a
-			// `triggeredBy`. A strict filter would block them silently; we
-			// instead permit the fire so manual runs still propagate the
-			// chain. See `allowsSourceSub` in cue-completion-service.
+		it('blocks when triggeredBy is undefined and source_sub is configured (external completion)', () => {
+			// `notifyAgentCompleted` is reached only by Cue-tracked runs and
+			// by `exit-listener` for external (non-Cue) process exits. Manual
+			// triggers and bootstrap events dispatch through `dispatchService`
+			// directly, so they never land here. That means an undefined
+			// `triggeredBy` indicates an external completion — bypassing
+			// `source_sub` for those would partially re-open the self-loop /
+			// cross-fire window the filter exists to close.
 			const config = createMockConfig({
 				subscriptions: [
 					{
@@ -1527,7 +1530,7 @@ describe('CueEngine completion chains', () => {
 				// triggeredBy omitted intentionally.
 			});
 
-			expect(deps.onCueRun).toHaveBeenCalledTimes(1);
+			expect(deps.onCueRun).not.toHaveBeenCalled();
 			engine.stop();
 		});
 	});

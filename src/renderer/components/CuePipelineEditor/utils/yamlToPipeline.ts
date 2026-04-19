@@ -276,6 +276,17 @@ function isInitialTrigger(sub: CueSubscription): boolean {
  * wanted two independent triggers in the same pipeline.
  */
 function triggerGroupKey(sub: CueSubscription): string {
+	// Sort filter keys so two subs whose filter objects differ only in key
+	// insertion order (hand-written YAML or library-reordered round-trips)
+	// still collapse to the same visual trigger.
+	const filter = sub.filter
+		? Object.keys(sub.filter)
+				.sort()
+				.reduce<Record<string, unknown>>((acc, k) => {
+					acc[k] = (sub.filter as Record<string, unknown>)[k];
+					return acc;
+				}, {})
+		: null;
 	return JSON.stringify({
 		event: sub.event,
 		schedule_times: sub.schedule_times ?? null,
@@ -286,7 +297,7 @@ function triggerGroupKey(sub: CueSubscription): string {
 		poll_minutes: sub.poll_minutes ?? null,
 		gh_state: sub.gh_state ?? null,
 		label: sub.label ?? null,
-		filter: sub.filter ?? null,
+		filter,
 	});
 }
 
@@ -953,6 +964,12 @@ export function subscriptionsToPipelines(
 		// unmigrated YAML; saving the pipeline upgrades it to the new schema.
 		for (const sub of sorted) {
 			if (!sub.cli_output?.target) continue;
+			// Hand-written YAML (or a half-migrated normalizer pass) may carry
+			// legacy `cli_output` alongside the new `action: 'command'`. The
+			// command-action node was already created in the main loop above —
+			// synthesizing another one here produces a duplicate `-cli-out` node
+			// on every reload. Skip the migration in that case.
+			if (sub.action === 'command') continue;
 			const targetSessionName = findTargetSession(sub, subs, sessions);
 			const agentNode = targetSessionName ? sessionToNode.get(targetSessionName) : undefined;
 			if (!agentNode) continue;

@@ -47,6 +47,8 @@ export interface CliSendResult {
 	stdout: string;
 	stderr: string;
 	resolvedTarget: string;
+	/** True when the run was killed by the timeout timer (vs exiting on its own). */
+	timedOut?: boolean;
 }
 
 /**
@@ -151,6 +153,7 @@ export async function runMaestroCliSend(
 		let stdout = '';
 		let stderr = '';
 		let settled = false;
+		let timedOut = false;
 		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const finish = (exitCode: number | string, sawError: Error | null) => {
@@ -165,6 +168,7 @@ export async function runMaestroCliSend(
 				stdout,
 				stderr,
 				resolvedTarget: target,
+				timedOut,
 			});
 		};
 
@@ -187,6 +191,7 @@ export async function runMaestroCliSend(
 		if (effectiveTimeout > 0) {
 			timeoutTimer = setTimeout(() => {
 				if (settled) return;
+				timedOut = true;
 				killCliProcess(child);
 			}, effectiveTimeout);
 		}
@@ -253,12 +258,25 @@ export async function executeCueCli(config: CueCliExecutionConfig): Promise<CueR
 
 	try {
 		// Treat <=0 as "no explicit cap — use default" rather than clamping to
-		// 1ms (which would kill the process almost immediately).
+		// 1ms (which would kill the process almost immediately). When the
+		// caller-supplied timeout exceeds our hard cap, log it so the clamp is
+		// observable — a silent reduction would mask a surprising kill.
+		if (timeoutMs > CLI_SEND_TIMEOUT_MS) {
+			onLog(
+				'warn',
+				`[CUE] "${subscription.name}" cli timeout ${timeoutMs}ms clamped to ${CLI_SEND_TIMEOUT_MS}ms`
+			);
+		}
 		const clampedTimeout =
 			timeoutMs > 0 ? Math.min(timeoutMs, CLI_SEND_TIMEOUT_MS) : CLI_SEND_TIMEOUT_MS;
 		const result = await runMaestroCliSend(resolvedTarget, resolvedMessage, clampedTimeout, runId);
-		const status = result.ok ? 'completed' : 'failed';
-		if (!result.ok) {
+		const status = result.timedOut ? 'timeout' : result.ok ? 'completed' : 'failed';
+		if (result.timedOut) {
+			onLog(
+				'warn',
+				`[CUE] "${subscription.name}" cli send timed out after ${clampedTimeout}ms — process killed`
+			);
+		} else if (!result.ok) {
 			onLog(
 				'warn',
 				`[CUE] "${subscription.name}" cli send failed: exit=${result.exitCode} stderr=${result.stderr.slice(0, 500)}`

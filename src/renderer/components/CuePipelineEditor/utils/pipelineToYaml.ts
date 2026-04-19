@@ -399,6 +399,17 @@ export function pipelineToYamlSubscriptions(pipeline: CuePipeline): CueSubscript
 	// rationale).
 	const targetNodeBySubName = new Map<string, string>();
 	for (const [nodeId, name] of subNameForNode) {
+		// A second node owning the same sub name silently overwrites the
+		// first entry here, which would drop the first sub's `source_sub`
+		// population. Sub names are expected to be unique within a pipeline,
+		// but pathological YAML or a future refactor could break that — log
+		// loudly so the failure mode is visible instead of silent.
+		if (targetNodeBySubName.has(name)) {
+			// eslint-disable-next-line no-console
+			console.warn(
+				`[CUE] Duplicate sub name "${name}" while building source_sub map — earlier owner may not get its source_sub populated`
+			);
+		}
 		targetNodeBySubName.set(name, nodeId);
 	}
 	for (const sub of subscriptions) {

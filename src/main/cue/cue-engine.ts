@@ -72,6 +72,17 @@ const MAX_CHAIN_DEPTH = 10;
  * author intent when they configured truly independent triggers.
  */
 function triggerGroupKey(sub: CueSubscription): string {
+	// Sort filter keys so two subs whose filter objects differ only in key
+	// insertion order (hand-written YAML or library-reordered round-trips)
+	// still hash to the same group.
+	const filter = sub.filter
+		? Object.keys(sub.filter)
+				.sort()
+				.reduce<Record<string, unknown>>((acc, k) => {
+					acc[k] = (sub.filter as Record<string, unknown>)[k];
+					return acc;
+				}, {})
+		: null;
 	return JSON.stringify({
 		event: sub.event,
 		schedule_times: sub.schedule_times ?? null,
@@ -82,6 +93,7 @@ function triggerGroupKey(sub: CueSubscription): string {
 		poll_minutes: sub.poll_minutes ?? null,
 		gh_state: sub.gh_state ?? null,
 		label: sub.label ?? null,
+		filter,
 	});
 }
 

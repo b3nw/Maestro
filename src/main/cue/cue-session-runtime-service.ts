@@ -131,9 +131,17 @@ export function createCueSessionRuntimeService(
 		//      parseable file short-circuits the fallback — the sub-agent
 		//      sees zero subscriptions even though the ancestor has subs
 		//      explicitly targeting it, and manual triggers dispatch 0.
+		//
+		// A user who deliberately wants an empty-subs file to opt OUT of
+		// ancestor pipelines can set `no_ancestor_fallback: true` on the
+		// local cue.yaml. The fallback also logs whenever it overrides an
+		// existing-but-empty local file so the override is observable.
+		const localFileExistsButEmpty = loadResult.ok && loadResult.config.subscriptions.length === 0;
+		const localOptsOutOfAncestor =
+			loadResult.ok && loadResult.config.no_ancestor_fallback === true;
 		const localHasNoPipelines =
-			(!loadResult.ok && loadResult.reason === 'missing') ||
-			(loadResult.ok && loadResult.config.subscriptions.length === 0);
+			((!loadResult.ok && loadResult.reason === 'missing') || localFileExistsButEmpty) &&
+			!localOptsOutOfAncestor;
 		if (localHasNoPipelines) {
 			const ancestor = findAncestorCueConfigRoot(session.projectRoot);
 			if (ancestor) {
@@ -157,7 +165,9 @@ export function createCueSessionRuntimeService(
 						ancestorRoot = ancestor;
 						deps.onLog(
 							'cue',
-							`[CUE] "${session.name}" using ancestor config from "${ancestor}" (${targeted.length} targeted subscription(s))`
+							localFileExistsButEmpty
+								? `[CUE] "${session.name}" local cue.yaml is empty — overriding with ancestor "${ancestor}" (${targeted.length} targeted subscription(s)). Set no_ancestor_fallback: true on the local file to opt out.`
+								: `[CUE] "${session.name}" using ancestor config from "${ancestor}" (${targeted.length} targeted subscription(s))`
 						);
 					}
 				}
