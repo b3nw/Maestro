@@ -8,6 +8,7 @@ import type {
 	BrowserTab,
 	ThinkingItem,
 	AgentError,
+	QueuedItem,
 } from '../../types';
 
 export interface SlashCommand {
@@ -124,6 +125,11 @@ export interface MainPanelProps {
 	setActiveSessionId: (id: string) => void;
 	onDeleteLog?: (logId: string) => number | null;
 	onRemoveQueuedItem?: (itemId: string) => void;
+	onForceSendQueuedItem?: (itemId: string) => void;
+	forcedParallelEnabled?: boolean;
+	getForceSendContext?: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	onOpenQueueBrowser?: () => void;
 
 	// Auto mode props
@@ -250,6 +256,12 @@ export interface MainPanelProps {
 	onCopyContext?: (tabId: string) => void;
 	onExportHtml?: (tabId: string) => void;
 	onPublishTabGist?: (tabId: string) => void;
+	/** Copy arbitrary text to the clipboard (wired by MainPanel for terminal buffer actions). */
+	onCopyText?: (text: string, subject?: string) => void;
+	/** Queue arbitrary text for the Gist modal (wired by MainPanel for terminal buffer actions). */
+	onPublishTextAsGist?: (text: string, filenameStem: string) => void;
+	/** Queue arbitrary text for Send to Agent (wired by MainPanel for terminal buffer actions). */
+	onSendTextToAgent?: (text: string, sourceName: string) => void;
 
 	// Summarization progress props (non-blocking, per-tab)
 	summarizeProgress?: import('../../types/contextMerge').SummarizeProgress | null;

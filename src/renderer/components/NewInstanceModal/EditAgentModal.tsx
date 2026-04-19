@@ -183,13 +183,24 @@ export function EditAgentModal({
 			})
 			.catch((err) => logger.error('Failed to load agent config:', undefined, err));
 
-		// Load SSH remote config from session (per-session, not global)
-		if (session.sessionSshRemoteConfig?.enabled && session.sessionSshRemoteConfig?.remoteId) {
+		// Load SSH remote config from session (per-session, not global).
+		// Always surface the `shareHistoryToProjectDir` flag even when SSH is
+		// disabled, so the checkbox can stay toggled on for locally-executed
+		// agents that are controlled by another Maestro instance over SSH.
+		const persisted = session.sessionSshRemoteConfig;
+		if (persisted?.enabled && persisted.remoteId) {
 			setSshRemoteConfig({
 				enabled: true,
-				remoteId: session.sessionSshRemoteConfig.remoteId,
-				workingDirOverride: session.sessionSshRemoteConfig.workingDirOverride,
-				syncHistory: session.sessionSshRemoteConfig.syncHistory,
+				remoteId: persisted.remoteId,
+				workingDirOverride: persisted.workingDirOverride,
+				syncHistory: persisted.syncHistory,
+				shareHistoryToProjectDir: persisted.shareHistoryToProjectDir,
+			});
+		} else if (persisted?.shareHistoryToProjectDir) {
+			setSshRemoteConfig({
+				enabled: false,
+				remoteId: null,
+				shareHistoryToProjectDir: true,
 			});
 		} else {
 			setSshRemoteConfig(undefined);
@@ -282,8 +293,10 @@ export function EditAgentModal({
 				? agentConfig.contextWindow
 				: undefined;
 
-		// Build per-session SSH remote config: ALWAYS pass explicitly to override any agent-level config
-		// When disabled or no remoteId, we explicitly pass enabled: false to ensure local execution
+		// Build per-session SSH remote config: ALWAYS pass explicitly to override any agent-level config.
+		// When disabled or no remoteId, we explicitly pass enabled: false to ensure local execution.
+		// `shareHistoryToProjectDir` is preserved independently of SSH enablement so a
+		// locally-executed agent can still be flagged as remote-controlled.
 		const sessionSshRemoteConfig =
 			sshRemoteConfig?.enabled && sshRemoteConfig?.remoteId
 				? {
@@ -294,8 +307,13 @@ export function EditAgentModal({
 						workingDirOverride:
 							sshRemoteConfig.workingDirOverride || session?.projectRoot || undefined,
 						syncHistory: sshRemoteConfig.syncHistory,
+						shareHistoryToProjectDir: sshRemoteConfig.shareHistoryToProjectDir,
 					}
-				: { enabled: false, remoteId: null };
+				: {
+						enabled: false,
+						remoteId: null,
+						shareHistoryToProjectDir: sshRemoteConfig?.shareHistoryToProjectDir,
+					};
 
 		// Save with per-session config fields including model, contextWindow, and SSH config
 		onSave(

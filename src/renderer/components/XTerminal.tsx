@@ -180,6 +180,8 @@ export interface XTerminalHandle {
 	searchNext(): boolean;
 	searchPrevious(): boolean;
 	getSelection(): string;
+	/** Read the full scrollback + visible buffer as a newline-joined string (right-trimmed). */
+	getBuffer(): string;
 	resize(): void;
 	/** Force fit + full canvas repaint — call when the terminal becomes visible after being hidden */
 	refresh(): void;
@@ -260,6 +262,21 @@ export const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XT
 			getSelection(): string {
 				return terminalRef.current?.getSelection() ?? '';
 			},
+			getBuffer(): string {
+				const term = terminalRef.current;
+				if (!term) return '';
+				const buffer = term.buffer.active;
+				const lines: string[] = [];
+				for (let i = 0; i < buffer.length; i++) {
+					const line = buffer.getLine(i);
+					if (line) lines.push(line.translateToString(true));
+				}
+				// Drop trailing empty lines (xterm pads the viewport even when idle)
+				while (lines.length > 0 && lines[lines.length - 1] === '') {
+					lines.pop();
+				}
+				return lines.join('\n');
+			},
 			resize() {
 				fitAddonRef.current?.fit();
 			},
@@ -332,6 +349,21 @@ export const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XT
 			fontFamily,
 			fontSize,
 			theme: mapThemeToXterm(theme),
+			// Route OSC 8 hyperlinks (escape-code terminal links) through openUrl so they
+			// respect the useSystemBrowser setting. Without this, xterm's default activate
+			// shows a confirm() dialog and then calls window.open(), which Electron's
+			// setWindowOpenHandler blocks — clicks silently fail.
+			linkHandler: {
+				activate(event, text) {
+					openUrl(text, { ctrlKey: event.ctrlKey });
+				},
+				hover(_event, text) {
+					hoveredLinkRef.current = text;
+				},
+				leave() {
+					hoveredLinkRef.current = null;
+				},
+			},
 		});
 
 		const fitAddon = new FitAddon();

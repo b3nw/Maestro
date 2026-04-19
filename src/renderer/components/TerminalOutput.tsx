@@ -15,7 +15,7 @@ import {
 	Hammer,
 	GitFork,
 } from 'lucide-react';
-import type { Session, Theme, LogEntry, FocusArea, AgentError } from '../types';
+import type { Session, Theme, LogEntry, FocusArea, AgentError, QueuedItem } from '../types';
 import type { FileNode } from '../types/fileTree';
 import Convert from 'ansi-to-html';
 import { useLayerStack } from '../contexts/LayerStackContext';
@@ -980,6 +980,11 @@ interface TerminalOutputProps {
 	maxOutputLines: number;
 	onDeleteLog?: (logId: string) => number | null; // Returns the index to scroll to after deletion
 	onRemoveQueuedItem?: (itemId: string) => void; // Callback to remove a queued item from execution queue
+	onForceSendQueuedItem?: (itemId: string) => void; // Callback to Force Send a queued item (parallel execution)
+	forcedParallelEnabled?: boolean; // Whether forcedParallelExecution setting is on (gates Force Send button)
+	getForceSendContext?: (
+		item: QueuedItem
+	) => { targetTabBusy: boolean; otherBusyTabs: { id: string; displayName: string }[] } | null;
 	onInterrupt?: () => void; // Callback to interrupt the current process
 	onScrollPositionChange?: (scrollTop: number) => void; // Callback to save scroll position
 	onAtBottomChange?: (isAtBottom: boolean) => void; // Callback when user scrolls to/away from bottom
@@ -1028,6 +1033,9 @@ export const TerminalOutput = memo(
 			maxOutputLines,
 			onDeleteLog,
 			onRemoveQueuedItem,
+			onForceSendQueuedItem,
+			forcedParallelEnabled,
+			getForceSendContext,
 			onInterrupt: _onInterrupt,
 			onScrollPositionChange,
 			onAtBottomChange,
@@ -1793,7 +1801,10 @@ export const TerminalOutput = memo(
 				`}</style>
 				{/* Output Search */}
 				{outputSearchOpen && (
-					<div className="sticky top-0 z-10 pb-4">
+					<div
+						className="sticky top-0 z-10 px-3 pt-3 pb-4"
+						style={{ backgroundColor: theme.colors.bgMain }}
+					>
 						<div className="flex items-center gap-2">
 							<button
 								onClick={() => setOutputSearchRegex(!outputSearchRegex)}
@@ -1811,7 +1822,8 @@ export const TerminalOutput = memo(
 								}}
 								title={outputSearchRegex ? 'Switch to plain-text search' : 'Switch to regex search'}
 							>
-								.*
+								<span>.*</span>
+								<span>{outputSearchRegex ? 'Regex' : 'Plain Text'}</span>
 							</button>
 							<input
 								type="text"
@@ -1946,6 +1958,9 @@ export const TerminalOutput = memo(
 							executionQueue={session.executionQueue}
 							theme={theme}
 							onRemoveQueuedItem={onRemoveQueuedItem}
+							onForceSendQueuedItem={onForceSendQueuedItem}
+							forcedParallelEnabled={forcedParallelEnabled}
+							getForceSendContext={getForceSendContext}
 							activeTabId={activeTabId || undefined}
 						/>
 					)}

@@ -400,6 +400,22 @@ describe('TerminalOutput', () => {
 
 			expect(mockUnregisterLayer).toHaveBeenCalled();
 		});
+
+		it('shows "Plain Text" label on regex toggle when in plain mode', () => {
+			const props = createDefaultProps({ outputSearchOpen: true, outputSearchRegex: false });
+			render(<TerminalOutput {...props} />);
+
+			expect(screen.getByText('Plain Text')).toBeInTheDocument();
+			expect(screen.queryByText('Regex')).not.toBeInTheDocument();
+		});
+
+		it('shows "Regex" label on regex toggle when in regex mode', () => {
+			const props = createDefaultProps({ outputSearchOpen: true, outputSearchRegex: true });
+			render(<TerminalOutput {...props} />);
+
+			expect(screen.getByText('Regex')).toBeInTheDocument();
+			expect(screen.queryByText('Plain Text')).not.toBeInTheDocument();
+		});
 	});
 
 	describe('keyboard navigation', () => {
@@ -778,6 +794,183 @@ describe('TerminalOutput', () => {
 
 			// Modal should be closed
 			expect(screen.queryByText('Remove Queued Message?')).not.toBeInTheDocument();
+		});
+
+		describe('force send button', () => {
+			const forceSendSession = () =>
+				createDefaultSession({
+					executionQueue: [{ id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' }],
+				});
+
+			it('does not render Force Send button when forcedParallelEnabled is false', () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: false,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other Tab' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				expect(screen.queryByRole('button', { name: /Force Send/ })).not.toBeInTheDocument();
+			});
+
+			it('does not render Force Send button when target tab is busy', () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: true,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other Tab' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				expect(screen.queryByRole('button', { name: /Force Send/ })).not.toBeInTheDocument();
+			});
+
+			it('does not render Force Send button when no other tabs are busy', () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				expect(screen.queryByRole('button', { name: /Force Send/ })).not.toBeInTheDocument();
+			});
+
+			it('renders Force Send button when enabled, target idle, and another tab busy', () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other Tab' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				expect(screen.getByRole('button', { name: /Force Send/ })).toBeInTheDocument();
+			});
+
+			it('shows confirmation modal listing other busy tabs', async () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [
+							{ id: 'tab-2', displayName: 'Refactor' },
+							{ id: 'tab-3', displayName: 'A1B2C3D4' },
+						],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				const triggers = screen.getAllByRole('button', { name: /Force Send/ });
+				await act(async () => {
+					fireEvent.click(triggers[0]);
+				});
+				expect(screen.getByText('Force Send Message?')).toBeInTheDocument();
+				expect(screen.getByText('2 OTHER TABS WORKING')).toBeInTheDocument();
+				expect(screen.getByText('Refactor')).toBeInTheDocument();
+				expect(screen.getByText('A1B2C3D4')).toBeInTheDocument();
+			});
+
+			it('uses singular label when exactly one other tab is busy', async () => {
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				const triggers = screen.getAllByRole('button', { name: /Force Send/ });
+				await act(async () => {
+					fireEvent.click(triggers[0]);
+				});
+				expect(screen.getByText('1 OTHER TAB WORKING')).toBeInTheDocument();
+			});
+
+			it('calls onForceSendQueuedItem when confirmed', async () => {
+				const onForceSendQueuedItem = vi.fn();
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem,
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				const triggers = screen.getAllByRole('button', { name: /Force Send/ });
+				await act(async () => {
+					fireEvent.click(triggers[0]);
+				});
+				// Now click the "Force Send" confirm button inside the modal (the second occurrence).
+				const buttons = screen.getAllByRole('button', { name: /Force Send/ });
+				await act(async () => {
+					fireEvent.click(buttons[buttons.length - 1]);
+				});
+				expect(onForceSendQueuedItem).toHaveBeenCalledWith('q1');
+			});
+
+			it('dismisses Force Send modal on Escape without calling handler', async () => {
+				const onForceSendQueuedItem = vi.fn();
+				const props = createDefaultProps({
+					session: forceSendSession(),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem,
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				const triggers = screen.getAllByRole('button', { name: /Force Send/ });
+				await act(async () => {
+					fireEvent.click(triggers[0]);
+				});
+				const overlay = screen.getByText('Force Send Message?').closest('[class*="fixed inset-0"]');
+				await act(async () => {
+					fireEvent.keyDown(overlay!, { key: 'Escape' });
+				});
+				expect(screen.queryByText('Force Send Message?')).not.toBeInTheDocument();
+				expect(onForceSendQueuedItem).not.toHaveBeenCalled();
+			});
+
+			it('hides Force Send button when item already has forceParallel flag', () => {
+				const props = createDefaultProps({
+					session: createDefaultSession({
+						executionQueue: [
+							{
+								id: 'q1',
+								type: 'message',
+								text: 'already force-parallel',
+								tabId: 'tab-1',
+								forceParallel: true,
+							},
+						],
+					}),
+					forcedParallelEnabled: true,
+					onForceSendQueuedItem: vi.fn(),
+					getForceSendContext: () => ({
+						targetTabBusy: false,
+						otherBusyTabs: [{ id: 'tab-2', displayName: 'Other' }],
+					}),
+				});
+				render(<TerminalOutput {...props} />);
+				expect(screen.queryByRole('button', { name: /Force Send/ })).not.toBeInTheDocument();
+			});
 		});
 	});
 

@@ -26,6 +26,8 @@ export interface TerminalViewHandle {
 	searchActiveTerminal(query: string): boolean;
 	searchNext(): boolean;
 	searchPrevious(): boolean;
+	/** Read the full scrollback + visible buffer for the specified terminal tab. */
+	getTerminalBuffer(tabId: string): string;
 }
 
 interface TerminalViewProps {
@@ -143,6 +145,9 @@ export const TerminalView = memo(
 				searchPrevious(): boolean {
 					if (!activeTab) return false;
 					return terminalRefs.current.get(activeTab.id)?.searchPrevious() ?? false;
+				},
+				getTerminalBuffer(tabId: string): string {
+					return terminalRefs.current.get(tabId)?.getBuffer() ?? '';
 				},
 			}),
 			[activeTab]

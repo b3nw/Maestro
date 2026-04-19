@@ -111,9 +111,23 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
 	const [isPreparingWorktree, setIsPreparingWorktree] = useState(false);
 	const activeSession = useSessionStore(selectSessionById(sessionId));
 	const sessions = useSessionStore((state) => state.sessions);
+	// When the current session is a worktree child, worktree config lives on its parent.
+	// Resolve the parent so the WorktreeRunSection can read basePath and list siblings.
+	const worktreeParentSession = useMemo(() => {
+		if (!activeSession) return null;
+		if (activeSession.parentSessionId) {
+			return sessions.find((s) => s.id === activeSession.parentSessionId) ?? activeSession;
+		}
+		return activeSession;
+	}, [activeSession, sessions]);
 	const worktreeChildren = useMemo(
-		() => sessions.filter((s) => s.parentSessionId === sessionId),
-		[sessions, sessionId]
+		() =>
+			worktreeParentSession
+				? sessions.filter(
+						(s) => s.parentSessionId === worktreeParentSession.id && s.id !== sessionId
+					)
+				: [],
+		[sessions, worktreeParentSession, sessionId]
 	);
 
 	const handleOpenWorktreeConfig = useCallback(() => {
@@ -589,10 +603,10 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
 					/>
 
 					{/* Run in Worktree Section — hidden for non-git repos since worktrees require git */}
-					{activeSession?.isGitRepo && (
+					{worktreeParentSession?.isGitRepo && (
 						<WorktreeRunSection
 							theme={theme}
-							activeSession={activeSession}
+							activeSession={worktreeParentSession}
 							worktreeChildren={worktreeChildren}
 							worktreeTarget={worktreeTarget}
 							onWorktreeTargetChange={setWorktreeTarget}
