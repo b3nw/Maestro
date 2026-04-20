@@ -334,6 +334,12 @@ function getWindowsKnownPaths(binaryName: string): string[] {
 			// User local bin
 			...localBin('gh'),
 		],
+		pi: [
+			// npm global installation (primary method)
+			...npmGlobal('pi'),
+			// Possible standalone in .local/bin
+			...localBin('pi'),
+		],
 	};
 
 	return knownPaths[binaryName] || [];
@@ -453,6 +459,16 @@ function getUnixKnownPaths(binaryName: string): string[] {
 			path.join(home, 'bin', 'gh'),
 			// Linuxbrew
 			'/home/linuxbrew/.linuxbrew/bin/gh',
+		],
+		pi: [
+			// npm global paths (primary installation method)
+			...npmGlobal('pi'),
+			// User local bin
+			...localBin('pi'),
+			// Homebrew paths
+			...homebrew('pi'),
+			// Node version managers (nvm, fnm, volta, etc.)
+			...nodeVersionManagers('pi'),
 		],
 	};
 
