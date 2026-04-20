@@ -302,6 +302,36 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
 		supportsAppendSystemPrompt: false,
 		supportsProjectMemory: false,
 	},
+	/**
+	 * Pi - Minimal terminal coding harness
+	 * https://github.com/badlogic/pi-ono
+	 * CLI v0.67+ with --mode json
+	 */
+	pi: {
+		supportsResume: true,
+		supportsReadOnlyMode: true,
+		supportsJsonOutput: true,
+		supportsSessionId: true,
+		supportsImageInput: true,
+		supportsImageInputOnResume: false,
+		supportsSlashCommands: false,
+		supportsSessionStorage: true,
+		supportsCostTracking: true,
+		supportsUsageStats: true,
+		supportsBatchMode: true,
+		requiresPromptToStart: false,
+		supportsStreaming: true,
+		supportsResultMessages: true,
+		supportsModelSelection: true,
+		supportsStreamJsonInput: false,
+		supportsThinkingDisplay: true,
+		supportsContextMerge: true,
+		supportsContextExport: true,
+		supportsWizard: false,
+		supportsGroupChatModeration: false,
+		usesJsonLineOutput: true,
+		usesCombinedContextWindow: false,
+	},
 };
 
 /**
