@@ -215,32 +215,33 @@ function stripAgentFunctions(agent: any) {
  */
 function getSshKnownPaths(binaryName: string): string[] {
 	// Common path patterns for different installation methods
+	// Use $HOME instead of ~ because shell escape quotes args
 	switch (binaryName) {
 		case 'pi':
 			return [
-				'~/.npm-global/bin/pi',
-				'~/.local/bin/pi',
+				'$HOME/.npm-global/bin/pi',
+				'$HOME/.local/bin/pi',
 				'/opt/homebrew/bin/pi',
 				'/usr/local/bin/pi',
 			];
 		case 'claude':
 			return [
-				'~/.claude/local/claude',
-				'~/.local/bin/claude',
+				'$HOME/.claude/local/claude',
+				'$HOME/.local/bin/claude',
 				'/opt/homebrew/bin/claude',
 				'/usr/local/bin/claude',
 			];
 		case 'opencode':
 			return [
-				'~/.opencode/bin/opencode',
-				'~/go/bin/opencode',
-				'~/.local/bin/opencode',
+				'$HOME/.opencode/bin/opencode',
+				'$HOME/go/bin/opencode',
+				'$HOME/.local/bin/opencode',
 				'/opt/homebrew/bin/opencode',
 			];
 		case 'codex':
-			return ['~/.local/bin/codex', '/opt/homebrew/bin/codex', '/usr/local/bin/codex'];
+			return ['$HOME/.local/bin/codex', '/opt/homebrew/bin/codex', '/usr/local/bin/codex'];
 		case 'aider':
-			return ['~/.local/bin/aider', '/opt/homebrew/bin/aider', '/usr/local/bin/aider'];
+			return ['$HOME/.local/bin/aider', '/opt/homebrew/bin/aider', '/usr/local/bin/aider'];
 		default:
 			return [];
 	}
@@ -307,13 +308,14 @@ async function detectAgentsRemote(sshRemote: SshRemoteConfig): Promise<any[]> {
 			if (!available) {
 				const knownPaths = getSshKnownPaths(agentDef.binaryName);
 				for (const knownPath of knownPaths) {
+					// Use sh -c to allow tilde expansion (shellEscape quotes args preventing ~ expansion)
 					const testOptions: RemoteCommandOptions = {
-						command: 'test',
-						args: ['-x', knownPath],
+						command: 'sh',
+						args: ['-c', `test -x ${knownPath} && echo ${knownPath}`],
 					};
 					const testCommand = await buildSshCommand(sshRemote, testOptions);
 					const testResult = await execFileNoThrow(testCommand.command, testCommand.args);
-					if (testResult.exitCode === 0) {
+					if (testResult.exitCode === 0 && testResult.stdout.trim()) {
 						available = true;
 						path = knownPath;
 						logger.debug(

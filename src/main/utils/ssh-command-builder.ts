@@ -19,6 +19,7 @@ import { parseDataUrl, buildImagePromptPrefix } from '../process-manager/utils/i
  * These cover common binary locations that don't require dynamic detection.
  */
 const BASE_SSH_PATH_DIRS = [
+	'$HOME/.npm-global/bin',
 	'$HOME/.local/bin',
 	'$HOME/.opencode/bin',
 	'$HOME/bin',
