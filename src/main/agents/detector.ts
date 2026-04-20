@@ -362,6 +362,48 @@ export class AgentDetector {
 					return models;
 				}
 
+				case 'pi': {
+					// Pi: `pi --list-models` returns a table
+					// Format: provider   model   context   max-out   thinking   images
+					// Model ID format: provider/model (e.g., "llm-proxy/codex/gpt-5.3-codex")
+					const result = await execFileNoThrow(command, ['--list-models'], undefined, env);
+
+					if (result.exitCode !== 0) {
+						logger.warn(
+							`Model discovery failed for ${agentId}: exit code ${result.exitCode}`,
+							LOG_CONTEXT,
+							{ stderr: result.stderr }
+						);
+						return [];
+					}
+
+					// Parse output: skip warning line and header, extract provider/model
+					const lines = result.stdout.split('\n').filter((line) => line.trim().length > 0);
+					const models: string[] = [];
+
+					for (const line of lines) {
+						// Skip warning line and header
+						if (line.startsWith('Warning:') || line.startsWith('provider')) {
+							continue;
+						}
+
+						// Parse table row: provider   model   context   ...
+						// Columns are separated by whitespace
+						const parts = line.trim().split(/\s+/);
+						if (parts.length >= 2) {
+							const provider = parts[0];
+							const model = parts[1];
+							// Full model ID is provider/model
+							models.push(`${provider}/${model}`);
+						}
+					}
+
+					logger.info(`Discovered ${models.length} models for ${agentId}`, LOG_CONTEXT, {
+						modelCount: models.length,
+					});
+					return models;
+				}
+
 				default:
 					// For agents without model discovery implemented, return empty array
 					logger.debug(`No model discovery implemented for ${agentId}`, LOG_CONTEXT);

@@ -492,11 +492,22 @@ async function discoverModelsRemote(
 		return [];
 	}
 
-	const remoteOptions: RemoteCommandOptions = {
-		command: agentDef.binaryName,
-		args: ['models'],
-		env: sshRemote.remoteEnv,
-	};
+	// Agent-specific model discovery commands
+	let remoteOptions: RemoteCommandOptions;
+	if (agentId === 'pi') {
+		// Pi uses --list-models instead of models subcommand
+		remoteOptions = {
+			command: agentDef.binaryName,
+			args: ['--list-models'],
+			env: sshRemote.remoteEnv,
+		};
+	} else {
+		remoteOptions = {
+			command: agentDef.binaryName,
+			args: ['models'],
+			env: sshRemote.remoteEnv,
+		};
+	}
 
 	try {
 		const sshCommand = await buildSshCommand(sshRemote, remoteOptions);
@@ -533,11 +544,34 @@ async function discoverModelsRemote(
 		const seen = new Set<string>();
 		const models: string[] = [];
 
-		// Source 1: CLI-discovered models
-		const cliModels = stripAnsi(result.stdout)
-			.split('\n')
-			.map((l) => l.trim())
-			.filter((l) => l.length > 0);
+		// Source 1: CLI-discovered models (agent-specific parsing)
+		let cliModels: string[];
+		if (agentId === 'pi') {
+			// Pi returns a table: provider   model   context   max-out   thinking   images
+			// Model ID format: provider/model (e.g., "llm-proxy/codex/gpt-5.3-codex")
+			const lines = stripAnsi(result.stdout)
+				.split('\n')
+				.map((l) => l.trim())
+				.filter((l) => l.length > 0);
+
+			cliModels = [];
+			for (const line of lines) {
+				// Skip warning line and header
+				if (line.startsWith('Warning:') || line.startsWith('provider')) {
+					continue;
+				}
+				const parts = line.split(/\s+/);
+				if (parts.length >= 2) {
+					cliModels.push(`${parts[0]}/${parts[1]}`);
+				}
+			}
+		} else {
+			// Default: one model per line
+			cliModels = stripAnsi(result.stdout)
+				.split('\n')
+				.map((l) => l.trim())
+				.filter((l) => l.length > 0);
+		}
 		for (const m of cliModels) {
 			if (!seen.has(m)) {
 				seen.add(m);
