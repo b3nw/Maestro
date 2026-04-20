@@ -447,7 +447,7 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
 		command: 'pi',
 		args: [],
 		jsonOutputArgs: ['--mode', 'json', '--print'],
-		resumeArgs: (sessionId: string) => ['--resume', sessionId],
+		resumeArgs: (_sessionId: string) => ['--continue'], // Pi's --resume triggers interactive picker; use --continue for non-interactive
 		readOnlyArgs: ['--tools', 'read,grep,find,ls', '--print'],
 		readOnlyCliEnforced: false,
 		workingDirArgs: (dir: string) => ['--session-dir', dir],
