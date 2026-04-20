@@ -547,9 +547,10 @@ async function discoverModelsRemote(
 		// Source 1: CLI-discovered models (agent-specific parsing)
 		let cliModels: string[];
 		if (agentId === 'pi') {
-			// Pi returns a table: provider   model   context   max-out   thinking   images
+			// Pi returns a table on stderr: provider   model   context   max-out   thinking   images
 			// Model ID format: provider/model (e.g., "llm-proxy/codex/gpt-5.3-codex")
-			const lines = stripAnsi(result.stdout)
+			const output = stripAnsi(result.stderr || result.stdout);
+			const lines = output
 				.split('\n')
 				.map((l) => l.trim())
 				.filter((l) => l.length > 0);

@@ -363,7 +363,7 @@ export class AgentDetector {
 				}
 
 				case 'pi': {
-					// Pi: `pi --list-models` returns a table
+					// Pi: `pi --list-models` returns a table on stderr
 					// Format: provider   model   context   max-out   thinking   images
 					// Model ID format: provider/model (e.g., "llm-proxy/codex/gpt-5.3-codex")
 					const result = await execFileNoThrow(command, ['--list-models'], undefined, env);
@@ -377,8 +377,9 @@ export class AgentDetector {
 						return [];
 					}
 
-					// Parse output: skip warning line and header, extract provider/model
-					const lines = result.stdout.split('\n').filter((line) => line.trim().length > 0);
+					// Pi outputs to stderr, not stdout
+					const output = result.stderr || result.stdout;
+					const lines = output.split('\n').filter((line) => line.trim().length > 0);
 					const models: string[] = [];
 
 					for (const line of lines) {
