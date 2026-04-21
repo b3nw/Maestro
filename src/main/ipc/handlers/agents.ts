@@ -210,44 +210,6 @@ function stripAgentFunctions(agent: any) {
 }
 
 /**
- * Get known installation paths for a binary on Unix systems.
- * Used as fallback when 'which' fails over SSH.
- */
-function getSshKnownPaths(binaryName: string): string[] {
-	// Common path patterns for different installation methods
-	// Use $HOME instead of ~ because shell escape quotes args
-	switch (binaryName) {
-		case 'pi':
-			return [
-				'$HOME/.npm-global/bin/pi',
-				'$HOME/.local/bin/pi',
-				'/opt/homebrew/bin/pi',
-				'/usr/local/bin/pi',
-			];
-		case 'claude':
-			return [
-				'$HOME/.claude/local/claude',
-				'$HOME/.local/bin/claude',
-				'/opt/homebrew/bin/claude',
-				'/usr/local/bin/claude',
-			];
-		case 'opencode':
-			return [
-				'$HOME/.opencode/bin/opencode',
-				'$HOME/go/bin/opencode',
-				'$HOME/.local/bin/opencode',
-				'/opt/homebrew/bin/opencode',
-			];
-		case 'codex':
-			return ['$HOME/.local/bin/codex', '/opt/homebrew/bin/codex', '/usr/local/bin/codex'];
-		case 'aider':
-			return ['$HOME/.local/bin/aider', '/opt/homebrew/bin/aider', '/usr/local/bin/aider'];
-		default:
-			return [];
-	}
-}
-
-/**
  * Detect agents on a remote SSH host.
  * Uses 'which' command over SSH to check for agent binaries.
  * Includes a timeout to handle unreachable hosts gracefully.
@@ -301,31 +263,8 @@ async function detectAgentsRemote(sshRemote: SshRemoteConfig): Promise<any[]> {
 
 			// Strip ANSI/OSC escape sequences from output (shell integration sequences from interactive shells)
 			const cleanedOutput = stripAnsi(result.stdout);
-			let available = result.exitCode === 0 && cleanedOutput.trim().length > 0;
-			let path = available ? cleanedOutput.trim().split('\n')[0] : undefined;
-
-			// If 'which' failed, probe known paths as fallback
-			if (!available) {
-				const knownPaths = getSshKnownPaths(agentDef.binaryName);
-				for (const knownPath of knownPaths) {
-					// Use sh -c to allow tilde expansion (shellEscape quotes args preventing ~ expansion)
-					const testOptions: RemoteCommandOptions = {
-						command: 'sh',
-						args: ['-c', `test -x ${knownPath} && echo ${knownPath}`],
-					};
-					const testCommand = await buildSshCommand(sshRemote, testOptions);
-					const testResult = await execFileNoThrow(testCommand.command, testCommand.args);
-					if (testResult.exitCode === 0 && testResult.stdout.trim()) {
-						available = true;
-						path = knownPath;
-						logger.debug(
-							`Agent "${agentDef.name}" found via known path probing: ${path}`,
-							LOG_CONTEXT
-						);
-						break;
-					}
-				}
-			}
+			const available = result.exitCode === 0 && cleanedOutput.trim().length > 0;
+			const path = available ? cleanedOutput.trim().split('\n')[0] : undefined;
 
 			if (available) {
 				logger.info(`Agent "${agentDef.name}" found on remote at: ${path}`, LOG_CONTEXT);

@@ -209,7 +209,10 @@ export class ChildProcessSpawner {
 
 		try {
 			// Build environment
-			const isResuming = finalArgs.includes('--resume') || finalArgs.includes('--session');
+			const isResuming =
+				finalArgs.includes('--resume') ||
+				finalArgs.includes('--session') ||
+				finalArgs.includes('--continue');
 			const env = buildChildProcessEnv(customEnvVars, isResuming, shellEnvVars);
 
 			// Log environment variable application for troubleshooting
@@ -342,6 +345,7 @@ export class ChildProcessSpawner {
 				argsContain('stream-json') ||
 				argsContain('--json') ||
 				(argsContain('--format') && argsContain('json')) ||
+				(argsContain('--mode') && argsContain('json')) ||
 				(hasImages && !!prompt) ||
 				!!config.sendPromptViaStdin ||
 				!!config.sshStdinScript;

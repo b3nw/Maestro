@@ -69,7 +69,7 @@ export function getReadOnlyModeTooltip(agentId: AgentId | string): string {
  *
  * @internal Use isBetaAgent() instead of importing directly.
  */
-const BETA_AGENTS: ReadonlySet<AgentId> = new Set<AgentId>(['opencode', 'factory-droid']);
+const BETA_AGENTS: ReadonlySet<AgentId> = new Set<AgentId>(['opencode', 'factory-droid', 'pi']);
 
 /**
  * Check whether an agent is in beta status.

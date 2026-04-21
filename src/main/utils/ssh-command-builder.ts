@@ -311,30 +311,21 @@ export async function buildSshCommandWithStdin(
 	// Resolve the SSH binary path
 	const sshPath = await resolveSshPath();
 
-	// For stdin-based execution, we never need TTY (stdin is the script, not user input)
-	// TTY would interfere with piping the script.
-	// EXCEPTION: On Windows, Git's ssh.exe requires a TTY for stdin passthrough to work.
-	// Without -tt, stdin is not properly connected to the remote bash process.
-	const isWindowsPlatform = process.platform === 'win32';
+	// For stdin-based execution, we MUST NOT allocate a TTY.
+	// TTY allocation causes stdin to be echoed back to stdout, corrupting JSON output.
+	// stdin passthrough works correctly without TTY on all platforms (including Windows
+	// with Git's ssh.exe) because the pipe is: local stdin -> ssh -> remote bash -s.
+	// bash reads the script lines from stdin, then `exec` replaces bash with the agent,
+	// which inherits the remaining stdin (the prompt) cleanly.
 
 	// Private key - only add if explicitly provided
 	if (config.privateKeyPath && config.privateKeyPath.trim()) {
 		args.push('-i', expandTilde(config.privateKeyPath));
 	}
 
-	// On Windows, force TTY for stdin passthrough to work
-	if (isWindowsPlatform) {
-		args.push('-tt');
-	}
-
-	// Default SSH options - but RequestTTY is always 'no' for stdin mode
-	// EXCEPTION: On Windows, we force TTY
+	// Default SSH options - RequestTTY is always 'no' for stdin mode
 	for (const [key, value] of Object.entries(DEFAULT_SSH_OPTIONS)) {
-		if (key === 'RequestTTY' && isWindowsPlatform) {
-			args.push('-o', `${key}=force`);
-		} else {
-			args.push('-o', `${key}=${value}`);
-		}
+		args.push('-o', `${key}=${value}`);
 	}
 
 	// Port specification
