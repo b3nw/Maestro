@@ -315,7 +315,7 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
 		supportsImageInput: true,
 		supportsImageInputOnResume: false,
 		supportsSlashCommands: false,
-		supportsSessionStorage: true,
+		supportsSessionStorage: false, // TODO: implement PiSessionStorage
 		supportsCostTracking: true,
 		supportsUsageStats: true,
 		supportsBatchMode: true,
@@ -331,6 +331,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
 		supportsGroupChatModeration: false,
 		usesJsonLineOutput: true,
 		usesCombinedContextWindow: false,
+		supportsAppendSystemPrompt: false,
+		supportsProjectMemory: false,
 	},
 };
 

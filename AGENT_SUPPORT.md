@@ -866,6 +866,69 @@ Since OpenCode supports multiple providers/models, Maestro should consider:
 
 ---
 
+### Pi 🔄 Beta
+
+| Aspect           | Value                                        |
+| ---------------- | -------------------------------------------- |
+| Binary           | `pi`                                         |
+| JSON Output      | `--mode json`                                |
+| Batch Mode       | `--print` (non-interactive)                  |
+| Resume           | `--continue` (continues last session)        |
+| Read-only        | `--tools read,grep,find,ls` (restrict tools) |
+| Session ID Field | Parsed from `agent_start` event              |
+| Session Storage  | ⏳ Not yet implemented                       |
+| Model Selection  | `--model provider/model`                     |
+| Context Window   | 2,000,000 (default, varies by model)         |
+
+**Implementation Status:**
+
+- ✅ Output Parser: `src/main/parsers/pi-output-parser.ts`
+- ✅ Error Patterns: `src/main/parsers/error-patterns.ts` (PI_ERROR_PATTERNS)
+- ⏳ Session Storage: Not yet implemented (`supportsSessionStorage: false`)
+- ✅ All other capabilities enabled
+
+**JSON Event Types (JSONL stream via `--mode json`):**
+
+- `agent_start` → session initialization
+- `turn_start` → new turn begins
+- `message_start` → assistant message begins
+- `content_start` → content block starts
+- `content_delta` → streaming `text_delta`, `thinking_delta`, or `input_json_delta`
+- `content_done` → content block complete
+- `message_done` → message complete (includes `usage` with token counts and cost)
+- `turn_done` → turn complete
+- `agent_done` → session complete
+
+**Unique Features:**
+
+- **Event-Streaming JSONL:** Uses a hierarchical event stream (`agent_start` → `turn_start` → `message_start` → `content_delta` → ...) rather than flat events
+- **Flexible Providers:** Supports multiple LLM backends via `--model provider/model` (e.g., `anthropic/sonnet`, `openai/gpt-4o`)
+- **Table-Format Model List:** `pi --models` outputs a table that requires custom parsing (`provider/model` format)
+- **Read-Only via Tool Restriction:** Instead of a dedicated `--readonly` flag, Pi restricts available tools to read-only operations
+- **Cost Tracking:** Reports per-turn cost in `message_done` events
+
+**Command Line Pattern:**
+
+```bash
+# Basic execution (batch mode)
+pi --print --mode json "prompt"
+
+# With model selection
+pi --print --mode json --model anthropic/sonnet "prompt"
+
+# Resume last session
+pi --print --mode json --continue "follow-up prompt"
+
+# Read-only mode (restricted tools)
+pi --print --mode json --tools read,grep,find,ls "analyze this code"
+```
+
+**Documentation Sources:**
+
+- [Pi GitHub](https://github.com/badlogic/pi-ono)
+
+---
+
 ### Gemini CLI 📋 Planned
 
 **Status:** Not yet implemented

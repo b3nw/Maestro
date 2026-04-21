@@ -651,6 +651,7 @@ Based on capabilities, these UI features are automatically enabled/disabled:
 | Codex         | ✅ `exec resume`      | ✅ `--sandbox read-only`    | ✅   | ✅     | ✅ `~/.codex/`                | ❌ (tokens only) | ✅ Complete |
 | OpenCode      | ✅ `--session`        | ✅ `--agent plan`           | ✅   | ✅     | ✅ `~/.local/share/opencode/` | ✅               | ✅ Complete |
 | Factory Droid | ✅ `-s, --session-id` | ✅ (default mode)           | ✅   | ✅     | ✅ `~/.factory/`              | ❌ (tokens only) | ✅ Complete |
+| Pi            | ✅ `--continue`       | ✅ `--tools read,grep,...`  | ✅   | ✅     | ⏳                            | ✅               | 🔄 Beta     |
 | Gemini CLI    | TBD                   | TBD                         | TBD  | TBD    | TBD                           | ✅               | 📋 Planned  |
 
 For detailed implementation guide, see [AGENT_SUPPORT.md](AGENT_SUPPORT.md).

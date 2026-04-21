@@ -856,6 +856,56 @@ export const SSH_ERROR_PATTERNS: AgentErrorPatterns = {
 };
 
 // ============================================================================
+// Pi Error Patterns
+// ============================================================================
+
+const PI_ERROR_PATTERNS: AgentErrorPatterns = {
+	rate_limited: [
+		{
+			pattern: /credential\(s\) exhausted/i,
+			message: 'All provider credentials exhausted. Retry later or add more credentials.',
+			recoverable: true,
+		},
+		{
+			pattern: /rate.*limit/i,
+			message: 'Rate limit exceeded. Please wait before trying again.',
+			recoverable: true,
+		},
+	],
+
+	network_error: [
+		{
+			pattern: /connection\s*(failed|refused|error|reset|closed)/i,
+			message: 'Connection failed. Check your internet connection.',
+			recoverable: true,
+		},
+		{
+			pattern: /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND/i,
+			message: 'Network error. Check your internet connection.',
+			recoverable: true,
+		},
+	],
+
+	agent_crashed: [
+		{
+			pattern: /model.*not found|not found.*model/i,
+			message: 'Model not found. Check the model setting in configuration.',
+			recoverable: true,
+		},
+		{
+			pattern: /model.*not supported/i,
+			message: 'Model not supported by provider. Choose a different model.',
+			recoverable: true,
+		},
+		{
+			pattern: /\b(fatal|unexpected|internal|unhandled)\s+error\b/i,
+			message: 'An unexpected error occurred in the agent.',
+			recoverable: true,
+		},
+	],
+};
+
+// ============================================================================
 // Pattern Registry
 // ============================================================================
 
@@ -864,6 +914,7 @@ const patternRegistry = new Map<ToolType, AgentErrorPatterns>([
 	['opencode', OPENCODE_ERROR_PATTERNS],
 	['codex', CODEX_ERROR_PATTERNS],
 	['factory-droid', FACTORY_DROID_ERROR_PATTERNS],
+	['pi', PI_ERROR_PATTERNS],
 ]);
 
 /**
