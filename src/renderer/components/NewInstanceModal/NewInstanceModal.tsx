@@ -297,7 +297,10 @@ export function NewInstanceModal({
 
 			setLoadingModels((prev) => ({ ...prev, [agentId]: true }));
 			try {
-				const models = await window.maestro.agents.getModels(agentId, forceRefresh);
+				// Pass SSH remote ID so model discovery runs on the remote host
+				const sshConfig = agentSshRemoteConfigs[agentId] || agentSshRemoteConfigs['_pending_'];
+				const sshRemoteId = sshConfig?.enabled ? (sshConfig?.remoteId ?? undefined) : undefined;
+				const models = await window.maestro.agents.getModels(agentId, forceRefresh, sshRemoteId);
 				setAvailableModels((prev) => ({ ...prev, [agentId]: models }));
 			} catch (error) {
 				logger.error(`Failed to load models for ${agentId}:`, undefined, error);
@@ -305,7 +308,7 @@ export function NewInstanceModal({
 				setLoadingModels((prev) => ({ ...prev, [agentId]: false }));
 			}
 		},
-		[agents, availableModels]
+		[agents, availableModels, agentSshRemoteConfigs]
 	);
 
 	// Load dynamic config options for an agent (e.g., effort levels, reasoning levels)

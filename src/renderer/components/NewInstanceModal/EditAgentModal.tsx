@@ -107,8 +107,12 @@ export function EditAgentModal({
 				// Load models if agent supports model selection
 				if (foundAgent?.capabilities?.supportsModelSelection) {
 					setLoadingModels(true);
+					// Pass SSH remote ID so model discovery runs on the remote host
+					const sessionSshId = session.sessionSshRemoteConfig?.enabled
+						? (session.sessionSshRemoteConfig.remoteId ?? undefined)
+						: undefined;
 					window.maestro.agents
-						.getModels(activeToolType)
+						.getModels(activeToolType, false, sessionSshId)
 						.then((models) => {
 							if (!stale) setAvailableModels(models);
 						})
@@ -352,14 +356,18 @@ export function EditAgentModal({
 		if (!agent?.capabilities?.supportsModelSelection) return;
 		setLoadingModels(true);
 		try {
-			const models = await window.maestro.agents.getModels(selectedToolType, true);
+			// Pass SSH remote ID so model discovery runs on the remote host
+			const sessionSshId = sshRemoteConfig?.enabled
+				? (sshRemoteConfig.remoteId ?? undefined)
+				: undefined;
+			const models = await window.maestro.agents.getModels(selectedToolType, true, sessionSshId);
 			setAvailableModels(models);
 		} catch (err) {
 			logger.error('Failed to refresh models:', undefined, err);
 		} finally {
 			setLoadingModels(false);
 		}
-	}, [selectedToolType, agent]);
+	}, [selectedToolType, agent, sshRemoteConfig]);
 
 	// Refresh agent detection
 	const handleRefreshAgent = useCallback(async () => {

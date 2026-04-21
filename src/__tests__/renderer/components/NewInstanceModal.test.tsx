@@ -1930,7 +1930,7 @@ describe('NewInstanceModal', () => {
 
 			// Should call getModels when expanding
 			await waitFor(() => {
-				expect(window.maestro.agents.getModels).toHaveBeenCalledWith('opencode', false);
+				expect(window.maestro.agents.getModels).toHaveBeenCalledWith('opencode', false, undefined);
 			});
 		});
 
